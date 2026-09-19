@@ -1,0 +1,31 @@
+# Si mantiene .htaccess come protezione: nega l'accesso HTTP diretto a dump, segreti
+# (.env), output di stampa e .git, che restano su filesystem per il flusso esistente
+# ma non devono mai essere scaricabili via web.
+# H3: dump/segreti/output stampa mai via HTTP; la stampa scrive su filesystem, non via HTTP.
+# G5 Verify #100: anche coda/esiti/mock fiscali (fiscale_*.log/xml in docroot di
+# default) mai scaricabili via HTTP — contengono gli importi degli scontrini.
+<FilesMatch "^(salsiccia\.sql|label(Cards)?|\.env|printer\.inc|last_id\.inc|Thumbs\.db|cmd|fiscale_.*)$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule (^|/)\.git(/|$) - [F]
+  RewriteRule (^|/)cmd(/|$) - [F]
+</IfModule>
+# G5c #96: i dump .sql non sono mai scaricabili via HTTP (stanno fuori docroot;
+# backup/ transitoria e' coperta anche dal suo .htaccess dedicato).
+<FilesMatch "\.sql(\.gz)?$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>

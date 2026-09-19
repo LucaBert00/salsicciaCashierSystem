@@ -1,0 +1,104 @@
+<?php
+require_once __DIR__ . '/env.inc';
+
+$HTTP_GET_VARS =& $_GET;
+$HTTP_POST_VARS =& $_POST;
+
+define("MENU_ENABLE", 0);
+
+# 19 = Fruttati Invecchiati in DB; se manca la cassa mostra SAKE (fallback in mostraTitolo()).
+define("DEFAULT_CAT", 19);
+define("DEBUG", 0);
+define("ONLY_ONE_CATEGORY",0);
+
+#Costante per l'abilitazione della grnerazione del report per la cucina
+define("REPORT_CUCINA", "0");
+#Modalita' fiera (issue): "1" = barcode visibile/obbligatorio in prodotti-nuovo, "0" = nascosto con default '-'
+define("MODALITA_FIERA", "0");
+#Numero di righe che conterrà ogni foglio di report
+define("REPORT_CUCINA_ROW", "10");
+
+#MAX 32 Caratteri. Costante deploy (decisione #55): si cambia prima della fiera, niente UI di rewrite.
+define("EVENT_NAME",  "BAGNASCO - Proloco Casargo 06/08/25");
+
+//define("EVENT_NAME",  "KAPPA Festival il Giappone a Ferrara");
+//define("EVENT_NAME",  " La Busecca dell'Asilo - 20/10/2018 ");
+//define("EVENT_NAME", "Premana Rivive l'Antico 2018 - 13-14 Ott. Cassa 1");
+#MAX 44 Caratteri
+define("CREDITS", "T-System SALSICCIA - Datrik Solutions");
+
+#Costante per la stampa di un'etichetta finale con il totale dell'ordine.
+#Riservata, nessun effetto attuale: il ramo singoli non emette mai etichetta
+#totale (ogni etichetta ha solo il prodotto) e il ramo continuo chiude sempre
+#con la riga TOTALE integrata nello scontrino. Tenuta a "0" = disattiva.
+define("TOTAL_LABEL", "0");
+#Default storico una-etichetta-per-pezzo. Effettivo oggi = colonna prodotti.olpp
+#per prodotto ("T" o quantita 1 => una copia per pezzo, v. get_product_label()):
+#la costante non e' letta dal codice, tenuta per compatibilita'.
+define("ONE_LABEL_PER_PRODUCT", "1");
+
+#Costante per la stampa dell'id ordine su ogni biglietto.
+#"1" = prefisso "N.<id_ordine>" su ogni etichetta/riga, "0" = nascosto.
+#Letta in entrambi i rami (singoli e continuo).
+define("PRINT_ORDER_ID", "0");
+define("LABELS_FILE", "label");
+define("COMMAND_FILE", "cmd/cmd");
+
+#Stampante etichette: Zebra_Net = RETE+ZPL (unica combo RETE supportata),
+#vedi gate stampa_permessa in genera_file_stampa()
+define("PRINTER_NAME", "Zebra_Net");
+define("PRINTER_CONNECTION", "RETE");
+define("PRINTER_LANGUAGE", "ZPL");
+define("PRINTER_IP", getenv('SALSICCIA_PRINTER_IP') ?: "192.168.0.205");
+
+#Carta continua (scontrino unico) vs biglietti singoli: default dal gate unico
+#printer_is_continuous() in env.inc (stessa tabella di stampa_permessa in
+#genera_file_stampa(), nessun valore hardcoded). Default: Zebra_Multi in
+#DIRETTA (ZPL o EPL) e Zebra_Net (RETE o DIRETTA, ZPL) fanno scontrino unico;
+#Zebra_EPL_1/2 fanno biglietti singoli. Combo non permessa => stampa bloccata a monte.
+#Override senza toccare il codice: se SALSICCIA_CONTINUOUS_LABEL e' impostata a "1"/"0"
+#in .env (ignorato da git) o env di sistema, vince sul gate. "1"=unico, "0"=singoli.
+$__continuous_env = getenv('SALSICCIA_CONTINUOUS_LABEL');
+if ($__continuous_env !== false && trim((string)$__continuous_env) !== '')
+    define("CONTINUOUS_LABEL", ((int)$__continuous_env) ? 1 : 0);
+else
+    define("CONTINUOUS_LABEL", (int)printer_is_continuous(PRINTER_NAME, PRINTER_CONNECTION, PRINTER_LANGUAGE));
+#Risoluzione testina: 8 dots/mm (203dpi), serve per calcolare ^LL in dots
+define("ZPL_DOTS_PER_MM", 8);
+
+#Durata Festa in Giorni. Costante deploy come EVENT_NAME (decisione #55).
+define("DURATA_FESTA", "1");
+#Ora cambio data: la imposta l'utente via .env (SALSICCIA_ORA_CAMBIO=6), fallback 5.
+#Range 0..23 validato in stat_ora_cambio() (reserved/stat_dati.inc), come CONTINUOUS_LABEL.
+$__ora_env = getenv('SALSICCIA_ORA_CAMBIO');
+if ($__ora_env !== false && trim((string)$__ora_env) !== '')
+    define("ORA_CAMBIO_DATA", (string)$__ora_env);
+else
+    define("ORA_CAMBIO_DATA", "5");
+
+#Max BUT_X_COL 7
+define("BOT_X_COL", 4);
+#Max BUT_X_ROW 7
+if(ONLY_ONE_CATEGORY)
+    define("BOT_X_ROW", 7);
+else
+    define("BOT_X_ROW", 6);
+#TD
+#define("COL_WIDTH", 120);
+#define("COL_HEIGHT",150);
+#Bottone
+define("BOT_WIDTH", 205);
+define("BOT_HEIGHT",120);
+
+define("TIPO_ORDINE", "nor");
+define("REMOTE_CLIENT_IP", "192.168.0.30");
+$remoteIP = $_SERVER['REMOTE_ADDR'];
+
+if($remoteIP == REMOTE_CLIENT_IP)
+    define("ID_CASSA", 100);
+else
+    define("ID_CASSA", 1);
+define("PWD", getenv('SALSICCIA_ADMIN_PWD') ?: "@123*");
+define("DATA_CONFRONTO", "2019-06-16 06:00:00");
+
+?>

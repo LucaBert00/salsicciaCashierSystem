@@ -1,0 +1,13 @@
+label
+labelCards
+cmd/
+last_id.inc
+salsiccia.sql
+salsiccia-*.sql
+backup/
+Thumbs.db
+.idea/
+.env
+fiscale_coda.log
+fiscale_inviati.log
+fiscale_mock.xml
