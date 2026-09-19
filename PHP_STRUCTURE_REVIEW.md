@@ -1,4 +1,4 @@
-# STRUCTURE-ONLY PHP Review — SalsicciaStagisti
+# STRUCTURE-ONLY PHP Review — salsicciaCashierSystem
 
 > Read-only review. No file was modified. Framework indeterminate from repo (no `composer.json` found) → reviewed as **framework-agnostic procedural PHP**. PHP runtime version **unverified** (`php` binary not present in this shell, no version constraint anywhere in repo).
 
@@ -196,7 +196,7 @@ myapp/
 ## 7. RECOMMENDED layout for MY project (concrete moves)
 
 ```
-SalsicciaStagisti/
+salsicciaCashierSystem/
 ├── public/                    ← NEW: DocumentRoot moves here
 │   ├── index.php              ← FROM root index.php (trimmed to bootstrap+dispatch+layout only)
 │   ├── reserved/              ← MOVE reserved/{login,visualizza,statistiche,stat_pdf,backup}.php here
