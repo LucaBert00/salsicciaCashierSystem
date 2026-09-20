@@ -55,36 +55,74 @@ function calcolaTotali($id_prodotto, $id_ordine, $mysqli)
     $id_ordine = (int)$id_ordine;
     if(isSet($id_prodotto))
     {
-        #DOPO AVER INSERITO O AGGIUNTO UN PRODOTTO DEVO AGGIORNARE QUANTITA E TOTALE IN righe_ordini
-        $query = "SELECT quantita, prezzo FROM prodotti,righe_ordini WHERE prodotti.id_prodotto = righe_ordini.id_prodotto AND 
-        id_ordine = $id_ordine AND prodotti.id_prodotto = $id_prodotto";
-        //print "query: $query";
-        $ris = mysql_query_safe($mysqli, $query);
-        if(mysqli_num_rows($ris) > 0)
+        // T07: catena SELECT->UPDATE->SELECT->UPDATE in un'unica transazione; la riga
+        // ordini padre e' bloccata via SELECT ... FOR UPDATE dove il motore lo permette
+        // (effettivo su InnoDB da T21, no-op su MyISAM baseline). Ordine di lock costante
+        // padre->figlio anti-deadlock; niente retry interno, il prossimo tap ricalcola.
+        $mysqli->begin_transaction();
+        $ok = true;
+        try
         {
-            $riga = mysqli_fetch_array($ris);
-            $quantita = (int)$riga['quantita'];
-            $prezzo = (float)$riga['prezzo'];
-            $totale = $quantita * $prezzo;
-            //print "\n<script>alert('n_pezzi: $quantita - totale:$totale');</script>";
-            $query = "UPDATE righe_ordini set quantita = $quantita, totale = $totale WHERE id_ordine = $id_ordine AND id_prodotto = $id_prodotto";
-            //print "query: $query";
+            #Lock riga padre: serializza i tap concorrenti sullo stesso ordine.
+            $query = "SELECT id_ordine FROM ordini WHERE id_ordine = $id_ordine FOR UPDATE";
             $ris = mysql_query_safe($mysqli, $query);
-        }
-        #DOPO AVER INSERITO O AGGIUNTO UN PRODOTTO DEVO AGGIORNARE n_pezzi e totale IN ordini
-        $query = "SELECT sum(quantita) as n_pezzi, sum(totale) as totale FROM righe_ordini WHERE id_ordine = $id_ordine GROUP BY id_ordine;";
-        $ris = mysql_query_safe($mysqli, $query);
-        $riga = mysqli_fetch_array($ris);
-        $n_pezzi = (int)$riga['n_pezzi'];
-        $totale = (float)$riga['totale'];
+            if (!$ris)
+                $ris = mysql_query_safe($mysqli, "SELECT id_ordine FROM ordini WHERE id_ordine = $id_ordine");
+            $ok = (bool)$ris;
+            if ($ok)
+            {
+                #DOPO AVER INSERITO O AGGIUNTO UN PRODOTTO DEVO AGGIORNARE QUANTITA E TOTALE IN righe_ordini
+                $query = "SELECT quantita, prezzo FROM prodotti,righe_ordini WHERE prodotti.id_prodotto = righe_ordini.id_prodotto AND 
+                id_ordine = $id_ordine AND prodotti.id_prodotto = $id_prodotto";
+                //print "query: $query";
+                $ris = mysql_query_safe($mysqli, $query);
+                $ok = (bool)$ris;
+            }
+            if($ok && mysqli_num_rows($ris) > 0)
+            {
+                $riga = mysqli_fetch_array($ris);
+                $quantita = (int)$riga['quantita'];
+                $prezzo = (float)$riga['prezzo'];
+                $totale = $quantita * $prezzo;
+                //print "\n<script>alert('n_pezzi: $quantita - totale:$totale');</script>";
+                $query = "UPDATE righe_ordini set quantita = $quantita, totale = $totale WHERE id_ordine = $id_ordine AND id_prodotto = $id_prodotto";
+                //print "query: $query";
+                $ok = (bool)mysql_query_safe($mysqli, $query);
+            }
+            if ($ok)
+            {
+                #DOPO AVER INSERITO O AGGIUNTO UN PRODOTTO DEVO AGGIORNARE n_pezzi e totale IN ordini
+                $query = "SELECT sum(quantita) as n_pezzi, sum(totale) as totale FROM righe_ordini WHERE id_ordine = $id_ordine GROUP BY id_ordine;";
+                $ris = mysql_query_safe($mysqli, $query);
+                $ok = (bool)$ris;
+            }
+            if ($ok)
+            {
+                $riga = mysqli_fetch_array($ris);
+                $n_pezzi = (int)$riga['n_pezzi'];
+                $totale = (float)$riga['totale'];
 
-        if($totale == 0)
-            $query = "UPDATE ordini set n_pezzi = 0, totale = 0 WHERE id_ordine = $id_ordine";
-        //print "query: $query";
+                if($totale == 0)
+                    $query = "UPDATE ordini set n_pezzi = 0, totale = 0 WHERE id_ordine = $id_ordine";
+                //print "query: $query";
+                else
+                    $query = "UPDATE ordini set n_pezzi = $n_pezzi, totale = $totale WHERE id_ordine = $id_ordine";
+                //print "query: $query";
+                $ok = (bool)mysql_query_safe($mysqli, $query);
+            }
+        }
+        catch (Throwable)
+        {
+            // PHP8: query fallita lancia invece di tornare false; annulla come sopra.
+            $ok = false;
+        }
+        if ($ok)
+            $mysqli->commit();
         else
-            $query = "UPDATE ordini set n_pezzi = $n_pezzi, totale = $totale WHERE id_ordine = $id_ordine";
-        //print "query: $query";
-        $ris = mysql_query_safe($mysqli, $query);
+        {
+            $mysqli->rollback();
+            error_log("calcolaTotali: rollback id_ordine=$id_ordine [T07]");
+        }
     }
 
 }
