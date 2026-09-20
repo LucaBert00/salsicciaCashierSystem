@@ -11,6 +11,7 @@ namespace Salsiccia\Cassa;
 if (!function_exists('db_select')) {
     require_once dirname(__DIR__, 2) . '/funzioni.inc';
 }
+require_once __DIR__ . '/OrderType.php';
 
 final class OrderService
 {
@@ -74,7 +75,7 @@ final class OrderService
             $db->begin_transaction();
             $nuovo_ok = false;
             try {
-                $nuovo_ok = db_exec($db, "INSERT INTO ordini (data_ora, tipo, totale, n_pezzi, id_cassa, chiuso, num_biglietti) VALUES (NOW(), 'nor', '0', '0', ?, '0', 0)", 'i', array($this->idCassa));
+                $nuovo_ok = db_exec($db, "INSERT INTO ordini (data_ora, tipo, totale, n_pezzi, id_cassa, chiuso, num_biglietti) VALUES (NOW(), ?, '0', '0', ?, '0', 0)", 'si', array(OrderType::Normale->value, $this->idCassa));
                 $id_ordine = $nuovo_ok ? (int)mysqli_insert_id($db) : 0;
                 if ($nuovo_ok && $id_ordine > 0) {
                     $ris = db_select($db, "SELECT * FROM prodotti WHERE id_prodotto = ?", 'i', array($idProdotto));
@@ -179,12 +180,11 @@ final class OrderService
         return (bool)$mr_ok;
     }
 
-    // action=st: imposta tipo ordine (whitelist invariata).
+    // action=st: imposta tipo ordine (T26: whitelist = OrderType enum).
     public function impostaTipo(string $tipo): bool
     {
         $db = $this->db;
-        $validi = array('nor', 'pre', 'mus', 'stf', 'asp');
-        if (!in_array($tipo, $validi)) {
+        if (OrderType::tryFrom($tipo) === null) {
             return false;
         }
         $ris = db_select($db, "SELECT id_ordine FROM ordini WHERE id_cassa = ? AND chiuso = '0'", 'i', array($this->idCassa));

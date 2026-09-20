@@ -2,6 +2,7 @@
 declare(strict_types=1);
 if (!function_exists('cassa_log'))
     require_once __DIR__ . '/env.inc';
+require_once __DIR__ . '/src/Cassa/PayMethod.php';
 
 // Scontrino fiscale via registratore Print!F RT (mappa #87, Decide #88, Task #92).
 // Protocollo Custom su /service.cgi (research #89): POST form data=<Service> con
@@ -51,6 +52,7 @@ function fiscale_path(string $v): string
 
 // Builder puro su righe aggregate (iva, totale): testabile senza DB ne' rete.
 // $righe = lista assoc con 'iva' (float) e 'totale' (float). Ritorna '' se niente da fiscalizzare.
+// T26: $metodo validato via PayMethod enum; ignoto = '' (rifiutato, mai default silenzioso).
 function fiscale_build_xml(array $righe, string $metodo): string
 {
     $map = array('0.04' => 'R1', '0.10' => 'R2', '0.22' => 'R3');
@@ -67,7 +69,10 @@ function fiscale_build_xml(array $righe, string $metodo): string
     }
     if ($n === 0)
         return '';
-    $xml .= ($metodo === 'carta') ? "\n<cmd>=T3</cmd>" : "\n<cmd>=T1</cmd>";
+    $pay = \Salsiccia\Cassa\PayMethod::tryFrom($metodo);
+    if ($pay === null)
+        return '';
+    $xml .= ($pay === \Salsiccia\Cassa\PayMethod::Carta) ? "\n<cmd>=T3</cmd>" : "\n<cmd>=T1</cmd>";
     return $xml . "\n</Service>";
 }
 
@@ -124,10 +129,13 @@ function fiscale_trasmetti(string $xml, array $cfg): array
 
 // Invio con timeout + fallback in coda. Non lancia mai: ritorna sempre un esito.
 // Esiti: ['ok'=>true] | ['ok'=>true,'mock'=>true] | ['ok'=>false,'skipped'=>true] | ['ok'=>false,'fallback'=>true]
-function fiscale_invia(string $xml, array $cfg, int $id_ordine = 0, string $metodo = 'contanti'): array
+// T26: $metodo validato via PayMethod enum; ignoto = skipped (rifiutato).
+function fiscale_invia(string $xml, array $cfg, int $id_ordine = 0, string $metodo = ''): array
 {
     if ($xml === '')
         return array('ok' => false, 'skipped' => true, 'msg' => 'niente da fiscalizzare');
+    if (\Salsiccia\Cassa\PayMethod::tryFrom($metodo) === null)
+        return array('ok' => false, 'skipped' => true, 'msg' => 'metodo non valido');
     $t = fiscale_trasmetti($xml, $cfg);
     if (empty($t['ok']))
     {
@@ -192,7 +200,7 @@ function fiscale_ritenta_coda(array $cfg, $trasmetti = null, int $max = 10): arr
         $t = $send((string)$j['xml'], $cfg);
         if (is_array($t) && !empty($t['ok']))
         {
-            $riga = json_encode(array('ts' => date('c'), 'id_ordine' => (int)($j['id_ordine'] ?? 0), 'metodo' => (string)($j['metodo'] ?? 'contanti'), 'retry' => true));
+            $riga = json_encode(array('ts' => date('c'), 'id_ordine' => (int)($j['id_ordine'] ?? 0), 'metodo' => (string)($j['metodo'] ?? \Salsiccia\Cassa\PayMethod::Contanti->value), 'retry' => true));
             if (is_string($riga) && file_put_contents((string)$cfg['sent_file'], $riga . "\n", FILE_APPEND | LOCK_EX) === false)
                 cassa_log('warning', 'fiscale inviati scrittura fallita');
             $esito['inviati']++;
@@ -228,11 +236,14 @@ function fiscale_gia_emesso(array $cfg, int $id_ordine): bool
 
 // Path completo per un ordine: query parametrizzata (mai id interpolato come nel legacy),
 // invio o coda, ordine mai bloccato. Ritorna un esito come fiscale_invia().
-function fiscale_emetti_scontrino(mysqli $db, int $id_ordine, string $metodo = 'contanti'): array
+// T26: $metodo validato via PayMethod enum; ignoto = skipped (rifiutato).
+function fiscale_emetti_scontrino(mysqli $db, int $id_ordine, string $metodo = ''): array
 {
     $cfg = fiscale_config();
     if ($id_ordine <= 0)
         return array('ok' => false, 'skipped' => true, 'msg' => 'ordine non valido');
+    if (\Salsiccia\Cassa\PayMethod::tryFrom($metodo) === null)
+        return array('ok' => false, 'skipped' => true, 'msg' => 'metodo non valido');
     if (empty($cfg['mock']) && trim((string)($cfg['ip'] ?? '')) === '')
         return array('ok' => false, 'skipped' => true, 'msg' => 'fiscale non configurato');
     if (fiscale_gia_emesso($cfg, $id_ordine))

@@ -2,9 +2,6 @@
 declare(strict_types=1);
 require_once __DIR__ . '/env.inc';
 
-$HTTP_GET_VARS =& $_GET;
-$HTTP_POST_VARS =& $_POST;
-
 define("MENU_ENABLE", 0);
 
 # 19 = Fruttati Invecchiati in DB; se manca la cassa mostra SAKE (fallback in mostraTitolo()).

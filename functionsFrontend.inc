@@ -6,6 +6,8 @@ require_once __DIR__ . '/dbConnect.php';
 require_once __DIR__ . '/funzioni.inc';
 require_once __DIR__ . '/fiscale.inc';
 require_once __DIR__ . '/src/Cassa/OrderService.php';
+require_once __DIR__ . '/src/Cassa/OrderType.php';
+require_once __DIR__ . '/src/Cassa/PayMethod.php';
 require_once __DIR__ . '/src/Catalog/CatalogRepo.php';
 require_once __DIR__ . '/src/Catalog/CatalogView.php';
 
@@ -120,10 +122,9 @@ function coloreCategoriaHex($codice)
 // prefetch/link non mutano mai l'ordine live ($post_ok ricalcolato per handler).
 function cassa_azione_login()
 {
-    global $HTTP_GET_VARS;
 
     // Login admin via POST (issue): code mai in URL/log; OK -> flag sessione + redirect pulito.
-    if (($_SERVER['REQUEST_METHOD'] ?? '') == 'POST' && ($HTTP_GET_VARS['action'] ?? '') == 'c' && isset($_POST['code']))
+    if (($_SERVER['REQUEST_METHOD'] ?? '') == 'POST' && ($_GET['action'] ?? '') == 'c' && isset($_POST['code']))
     {
         if (!empty($_SESSION['admin_block_until']) && time() < $_SESSION['admin_block_until'])
         {
@@ -153,9 +154,8 @@ function cassa_azione_login()
 
 function cassa_azione_logout()
 {
-    global $HTTP_GET_VARS;
 
-    if (isset($HTTP_GET_VARS['action']) && $HTTP_GET_VARS['action'] == 'logout')
+    if (isset($_GET['action']) && $_GET['action'] == 'logout')
     {
         unset($_SESSION['admin']);
         session_regenerate_id(true);
@@ -166,10 +166,10 @@ function cassa_azione_logout()
 
 function cassa_azione_cassa()
 {
-    global $id_cassa, $HTTP_GET_VARS;
+    global $id_cassa;
 
     // Scelta esplicita cassa da pannello admin: salva in sessione, mai da IP.
-    if (($_SERVER['REQUEST_METHOD'] ?? '') == 'POST' && ($HTTP_GET_VARS['action'] ?? '') == 'cassa' && isset($_POST['id_cassa']))
+    if (($_SERVER['REQUEST_METHOD'] ?? '') == 'POST' && ($_GET['action'] ?? '') == 'cassa' && isset($_POST['id_cassa']))
     {
         if (!isAdmin() || !csrf_ok())
         {
@@ -187,10 +187,9 @@ function cassa_azione_cassa()
 
 function cassa_azione_fiera()
 {
-    global $HTTP_GET_VARS;
 
     // Toggle fiera da pannello admin: solo POST con token, GET resta lettura.
-    if (($HTTP_GET_VARS['action'] ?? '') == 'fiera')
+    if (($_GET['action'] ?? '') == 'fiera')
     {
         if (!isAdmin())
         {
@@ -216,21 +215,21 @@ function cassa_azione_annulla()
 
 function cassa_azione_aggiungi()
 {
-    global $mysqli, $id_cassa, $HTTP_GET_VARS;
+    global $mysqli, $id_cassa;
     $post_ok = (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') && csrf_ok();
-    if ($post_ok && isset($HTTP_GET_VARS['id'])) // aggiungi prodotto
+    if ($post_ok && isset($_GET['id'])) // aggiungi prodotto
     {
-        (new \Salsiccia\Cassa\OrderService($mysqli, (int)$id_cassa))->aggiungiProdotto((int)$HTTP_GET_VARS['id']);
+        (new \Salsiccia\Cassa\OrderService($mysqli, (int)$id_cassa))->aggiungiProdotto((int)$_GET['id']);
     }
 }
 
 function cassa_azione_quantita()
 {
-    global $mysqli, $id_cassa, $HTTP_GET_VARS;
+    global $mysqli, $id_cassa;
     $post_ok = (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') && csrf_ok();
-    if ($post_ok && isset($HTTP_GET_VARS['id']) && isset($HTTP_GET_VARS['qta']))
+    if ($post_ok && isset($_GET['id']) && isset($_GET['qta']))
     {
-        (new \Salsiccia\Cassa\OrderService($mysqli, (int)$id_cassa))->impostaQuantita((int)$HTTP_GET_VARS['id'], (int)$HTTP_GET_VARS['qta']);
+        (new \Salsiccia\Cassa\OrderService($mysqli, (int)$id_cassa))->impostaQuantita((int)$_GET['id'], (int)$_GET['qta']);
 
         header("Location: ?action=m");
         exit;
@@ -239,11 +238,11 @@ function cassa_azione_quantita()
 
 function cassa_azione_rimuovi()
 {
-    global $mysqli, $id_cassa, $HTTP_GET_VARS;
+    global $mysqli, $id_cassa;
     $post_ok = (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') && csrf_ok();
-    if ($post_ok && isset($HTTP_GET_VARS['id']))
+    if ($post_ok && isset($_GET['id']))
     {
-        (new \Salsiccia\Cassa\OrderService($mysqli, (int)$id_cassa))->rimuoviRiga((int)$HTTP_GET_VARS['id']);
+        (new \Salsiccia\Cassa\OrderService($mysqli, (int)$id_cassa))->rimuoviRiga((int)$_GET['id']);
 
         header("Location: ?action=m");
         exit;
@@ -252,11 +251,11 @@ function cassa_azione_rimuovi()
 
 function cassa_azione_tipo()
 {
-    global $mysqli, $id_cassa, $HTTP_GET_VARS;
+    global $mysqli, $id_cassa;
     $post_ok = (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') && csrf_ok();
-    if ($post_ok && isset($HTTP_GET_VARS['t']))
+    if ($post_ok && isset($_GET['t']))
     {
-        (new \Salsiccia\Cassa\OrderService($mysqli, (int)$id_cassa))->impostaTipo((string)$HTTP_GET_VARS['t']);
+        (new \Salsiccia\Cassa\OrderService($mysqli, (int)$id_cassa))->impostaTipo((string)$_GET['t']);
 
         header("Location: ?action=o");
         exit;
@@ -277,11 +276,11 @@ function cassa_azione_standby()
 
 function cassa_azione_riattiva()
 {
-    global $mysqli, $id_cassa, $HTTP_GET_VARS;
+    global $mysqli, $id_cassa;
     $post_ok = (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') && csrf_ok();
-    if ($post_ok && isset($HTTP_GET_VARS['id'])) // reactivate da standby
+    if ($post_ok && isset($_GET['id'])) // reactivate da standby
     {
-        (new \Salsiccia\Cassa\OrderService($mysqli, (int)$id_cassa))->riattiva((int)$HTTP_GET_VARS['id']);
+        (new \Salsiccia\Cassa\OrderService($mysqli, (int)$id_cassa))->riattiva((int)$_GET['id']);
         header("Location: index.php");
         exit;
     }
@@ -289,7 +288,6 @@ function cassa_azione_riattiva()
 
 function gestisciAzioni()
 {
-    global $HTTP_GET_VARS;
 
     // T23: dispatch via tabella (routes/cassa.php, nessun if); action non
     // stringa o non listata = schermata sola lettura o errore kiosk in
@@ -297,7 +295,7 @@ function gestisciAzioni()
     static $tabella = null;
     if ($tabella === null)
         $tabella = (array)require __DIR__ . '/routes/cassa.php';
-    $action = $HTTP_GET_VARS['action'] ?? '';
+    $action = $_GET['action'] ?? '';
     if (!is_string($action) || $action === '' || !array_key_exists($action, $tabella))
         return;
     $handler = $tabella[$action];
@@ -322,7 +320,7 @@ function mostraTitolo()
     \Salsiccia\Catalog\CatalogView::titolo($repo->descrizioneCategoria((int)$cat));
 }
 
-//indicatore tipo ordine nav
+//indicatore tipo ordine nav (T26: lettere da OrderType enum, unica fonte)
 function mostraIndicatoreTipo()
 {
     global $mysqli;
@@ -333,12 +331,11 @@ function mostraIndicatoreTipo()
     if ($ris && mysqli_num_rows($ris) > 0)
     {
         $riga = mysqli_fetch_array($ris);
-        $tipo = $riga['tipo'];
+        $tipo = \Salsiccia\Cassa\OrderType::tryFrom((string)$riga['tipo']);
+        $lett = $tipo ? $tipo->lettera() : null;
 
-        $lettere = array('pre' => 'P', 'mus' => 'M', 'stf' => 'S', 'asp' => 'A');
-
-        if (isset($lettere[$tipo]))
-            echo '<span style="color:#e54b3c;font-weight:800;font-size:18px;margin-left:auto;">' . $lettere[$tipo] . '</span>';
+        if ($lett !== null)
+            echo '<span style="color:#e54b3c;font-weight:800;font-size:18px;margin-left:auto;">' . $lett . '</span>';
     }
 }
 
@@ -432,22 +429,22 @@ function mostraFooterModifica()
           <a href="?action=s" id="stampa-btn" style="text-decoration:none"><span id="stampa-sign">🖨️ STAMPA</span></a>';
 }
 
-// schermata opzioni
+// schermata opzioni (T26: bottoni da OrderType enum, unica fonte)
 function mostraOpzioni()
 {
     echo '<section class="opzioni-section">';
     echo '<div class="opzioni-row-1">';
-    foreach (array('pre' => 'PREVENDITA', 'mus' => 'MUSICISTI', 'stf' => 'STAFF', 'asp' => 'ASPORTO') as $t => $label)
+    foreach (array(\Salsiccia\Cassa\OrderType::Prevendita, \Salsiccia\Cassa\OrderType::Musicisti, \Salsiccia\Cassa\OrderType::Staff, \Salsiccia\Cassa\OrderType::Asporto) as $t)
     {
-        echo '<form method="post" action="?action=st&t=' . $t . '" style="display:contents;">';
+        echo '<form method="post" action="?action=st&t=' . $t->value . '" style="display:contents;">';
         csrf_field();
-        echo '<button type="submit" class="opzione-btn">' . $label . '</button></form>';
+        echo '<button type="submit" class="opzione-btn">' . $t->label() . '</button></form>';
     }
     echo '</div>';
     echo '<div class="opzioni-row-2">';
-    echo '<form method="post" action="?action=st&t=nor" style="display:contents;">';
+    echo '<form method="post" action="?action=st&t=' . \Salsiccia\Cassa\OrderType::Normale->value . '" style="display:contents;">';
     csrf_field();
-    echo '<button type="submit" class="opzione-btn opzione-btn-large">NORMALE</button></form>';
+    echo '<button type="submit" class="opzione-btn opzione-btn-large">' . \Salsiccia\Cassa\OrderType::Normale->label() . '</button></form>';
     echo '<form method="post" action="?action=sb" style="display:contents;">';
     csrf_field();
     echo '<button type="submit" class="opzione-btn opzione-btn-large">STAND BY</button></form>';
@@ -846,7 +843,9 @@ function mostraLayoutResto($totale, $pagato, $metodo, $base_url, $mostra_nuovo =
 {
     $totale = (float)$totale;
     $pagato = (float)$pagato;
-    $metodo = ($metodo === 'contanti' || $metodo === 'carta') ? $metodo : '';
+    // T26: $metodo validato via PayMethod enum; ignoto = '' (rifiutato).
+    $pm = \Salsiccia\Cassa\PayMethod::tryFrom((string)$metodo);
+    $metodo = $pm ? $pm->value : '';
     $resto = max(0, $pagato - $totale);
 
     $totale_fmt = number_format($totale, 2, ',', '.');
@@ -899,15 +898,15 @@ function mostraLayoutResto($totale, $pagato, $metodo, $base_url, $mostra_nuovo =
     }
     echo '</div>';
 
-    //metodo pagamento
+    //metodo pagamento (T26: valori da PayMethod enum, unica fonte)
     echo '<p class="metodo-titolo">STAMPA SCONTRINO FISCALE, METODO DI PAGAMENTO:</p>';
     echo '<div class="metodo-grid">';
-    $attivo_contanti = ($metodo == 'contanti') ? ' attivo' : '';
-    $attivo_carta = ($metodo == 'carta') ? ' attivo' : '';
-    echo '<button onclick="window.location.href=\'' . $base_url . '&pagato=' . $pagato . '&metodo=contanti\'" class="metodo-btn' . $attivo_contanti . '">';
+    $attivo_contanti = ($metodo == \Salsiccia\Cassa\PayMethod::Contanti->value) ? ' attivo' : '';
+    $attivo_carta = ($metodo == \Salsiccia\Cassa\PayMethod::Carta->value) ? ' attivo' : '';
+    echo '<button onclick="window.location.href=\'' . $base_url . '&pagato=' . $pagato . '&metodo=' . \Salsiccia\Cassa\PayMethod::Contanti->value . '\'" class="metodo-btn' . $attivo_contanti . '">';
     echo '<span class="metodo-btn-icona">💵</span>';
     echo '<span class="metodo-btn-label">CONTANTI</span></button>';
-    echo '<button onclick="window.location.href=\'' . $base_url . '&pagato=' . $pagato . '&metodo=carta\'" class="metodo-btn' . $attivo_carta . '">';
+    echo '<button onclick="window.location.href=\'' . $base_url . '&pagato=' . $pagato . '&metodo=' . \Salsiccia\Cassa\PayMethod::Carta->value . '\'" class="metodo-btn' . $attivo_carta . '">';
     echo '<span class="metodo-btn-icona">💳</span>';
     echo '<span class="metodo-btn-label">CARTA DI CREDITO</span></button>';
     echo '</div>';
@@ -960,8 +959,9 @@ function mostraSchermataStampa()
             return;
         }
         $pagato_err = isset($_GET['pagato']) ? (float)$_GET['pagato'] : 0;
-        // Whitelist come sotto: $metodo finisce in onclick, mai grezzo.
-        $metodo_err = (isset($_GET['metodo']) && in_array($_GET['metodo'], array('contanti', 'carta'), true)) ? $_GET['metodo'] : '';
+        // T26: $metodo validato via PayMethod enum; ignoto = '' (rifiutato).
+        $pm_err = isset($_GET['metodo']) ? \Salsiccia\Cassa\PayMethod::tryFrom((string)$_GET['metodo']) : null;
+        $metodo_err = $pm_err ? $pm_err->value : '';
         $base_err = '?action=s&stampa_err=' . $id_ordine_err;
         echo '<p style="background:#d9534f;color:#fff;font-weight:800;text-align:center;padding:6px;border-radius:6px;">STAMPANTE NON RAGGIUNGIBILE, ordine NON stampato e NON chiuso: controlla la stampante e riprova.</p>';
         mostraLayoutResto($totale_err, $pagato_err, $metodo_err, $base_err, false);
@@ -1020,8 +1020,9 @@ function mostraSchermataStampa()
     if ($risTot && ($rigaTot = mysqli_fetch_array($risTot)))
         $totale = (float)$rigaTot['totale'];
     $pagato = isset($_GET['pagato']) ? (float)$_GET['pagato'] : 0;
-    // Whitelist come $validi/$tipo in gestisciAzioni: $metodo finisce in onclick, mai grezzo.
-    $metodo = (isset($_GET['metodo']) && in_array($_GET['metodo'], array('contanti', 'carta'), true)) ? $_GET['metodo'] : '';
+    // T26: $metodo validato via PayMethod enum; ignoto = '' (rifiutato).
+    $pm = isset($_GET['metodo']) ? \Salsiccia\Cassa\PayMethod::tryFrom((string)$_GET['metodo']) : null;
+    $metodo = $pm ? $pm->value : '';
     $base_url = '?action=s&stampato=' . $id_ordine . '&tot=' . $totale;
 
     // Scontrino fiscale non bloccante (#92): al primo metodo scelto emette verso il
