@@ -69,5 +69,10 @@ e abilitano le transazioni del Phase 1, al costo di una sola migrazione `ALTER T
 ## Migrations
 
 - `database/migrations/0001_schema.sql` — baseline live (MyISAM, fedele al dump).
-- T21: `0002_innodb.sql` (`ENGINE=InnoDB` + FK da § Relazioni con le regole sopra) —
-  da provare su copia del DB di fiera, rollback = re-import di `0001_schema.sql`.
+- T21: `0003_innodb.sql` (`ENGINE=InnoDB` + FK da § Relazioni con le regole sopra;
+  0002 era già preso da T12 login Argon2id) — provata su DB vuoto e su copia
+  struttura-only del DB di fiera, rollback = re-import di `0001_schema.sql`
+  + riapplica `0002_login_argon2id.sql`. Precondizione cutover live: il DB di
+  fiera contiene righe orfane pre-FK (9 `prodotti_categorie` senza categoria,
+  19 `righe_ordini` senza ordine, 28 senza prodotto) — la 0003 le rifiuta con
+  ERROR 1452 invece di cancellarle: riconciliarle a mano prima del cutover.
