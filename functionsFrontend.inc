@@ -196,7 +196,11 @@ function gestisciAzioni()
         $action = '';
     }
 
-    if ($action == 'r') // annulla ordine
+    // T14: mutazioni cassa solo via POST con token (come fiera/cassa sopra);
+    // GET resta lettura: prefetch/link non mutano mai l'ordine live.
+    $post_ok = (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') && csrf_ok();
+
+    if ($action == 'r' && $post_ok) // annulla ordine
     {
         $ris = db_select($mysqli, "SELECT id_ordine FROM ordini WHERE id_cassa = ? AND chiuso = '0'", 'i', array($id_cassa));
         if ($ris && mysqli_num_rows($ris) == 1)
@@ -208,7 +212,7 @@ function gestisciAzioni()
         }
     }
 
-    if ($action == 'a' && isset($HTTP_GET_VARS['id'])) // aggiungi prodotto
+    if ($action == 'a' && $post_ok && isset($HTTP_GET_VARS['id'])) // aggiungi prodotto
     {
         $id_prodotto = (int)$HTTP_GET_VARS['id'];
 
@@ -286,7 +290,7 @@ function gestisciAzioni()
             calcolaTotali($id_prodotto, $id_ordine, $mysqli);
     }
 
-    if ($action == 'mq' && isset($HTTP_GET_VARS['id']) && isset($HTTP_GET_VARS['qta']))
+    if ($action == 'mq' && $post_ok && isset($HTTP_GET_VARS['id']) && isset($HTTP_GET_VARS['qta']))
     {
         $id_prodotto = (int)$HTTP_GET_VARS['id'];
         $qta = (int)$HTTP_GET_VARS['qta'];
@@ -328,7 +332,7 @@ function gestisciAzioni()
         exit;
     }
 
-    if ($action == 'mr' && isset($HTTP_GET_VARS['id']))
+    if ($action == 'mr' && $post_ok && isset($HTTP_GET_VARS['id']))
     {
         $id_prodotto = (int)$HTTP_GET_VARS['id'];
 
@@ -364,7 +368,7 @@ function gestisciAzioni()
         exit;
     }
 
-    if ($action == 'st' && isset($HTTP_GET_VARS['t']))
+    if ($action == 'st' && $post_ok && isset($HTTP_GET_VARS['t']))
     {
         $tipo = $HTTP_GET_VARS['t'];
         $validi = array('nor', 'pre', 'mus', 'stf', 'asp');
@@ -389,7 +393,7 @@ function gestisciAzioni()
         exit;
     }
 
-    if ($action == 'sb') // set ordine in standby
+    if ($action == 'sb' && $post_ok) // set ordine in standby
     {
         $ris = db_select($mysqli, "SELECT id_ordine FROM ordini WHERE id_cassa = ? AND chiuso = '0'", 'i', array($id_cassa));
         if ($ris && mysqli_num_rows($ris) == 1)
@@ -402,7 +406,7 @@ function gestisciAzioni()
         exit;
     }
 
-    if ($action == 'ra' && isset($HTTP_GET_VARS['id'])) // reactivate da standby
+    if ($action == 'ra' && $post_ok && isset($HTTP_GET_VARS['id'])) // reactivate da standby
     {
         $id_ordine = (int)$HTTP_GET_VARS['id'];
         db_exec($mysqli, "UPDATE ordini SET chiuso = '0' WHERE id_ordine = ? AND id_cassa = ? AND chiuso = 'S'", 'ii', array($id_ordine, $id_cassa));
@@ -504,9 +508,12 @@ function mostraTabellaProdotti()
             $desc = htmlspecialchars(strtoupper($riga['descrizione_prod']), ENT_QUOTES, 'UTF-8');
             $id_prodotto = (int)$riga['id_prodotto'];
             echo "<td class=\"td_bottone\">
-                    <button class=\"bottone\" onclick=\"location.href='?cat=" . (int)$cat . "&action=a&id={$id_prodotto}'\">
+                    <form method=\"post\" action=\"?cat=" . (int)$cat . "&action=a&id={$id_prodotto}\" style=\"display:contents;\">";
+            csrf_field();
+            echo "<button type=\"submit\" class=\"bottone\">
                       {$desc}<br><b>&euro; {$prezzo}</b>
                     </button>
+                    </form>
                   </td>";
             $riga = mysqli_fetch_array($ris, MYSQLI_ASSOC);
             if ($riga)
@@ -556,17 +563,25 @@ function mostraModificaOrdine()
             echo '<td class="cella-tabella-quantita">';
             echo '<div class="contenitore-qta">';
             if ($qta > 1)
-                echo "<a href=\"?action=mq&id={$id_riga}&qta=" . ($qta - 1) . "\" class=\"bottone-qta bottone-qta-meno\" style=\"text-decoration:none\">−</a>";
+            {
+                echo "<form method=\"post\" action=\"?action=mq&id={$id_riga}&qta=" . ($qta - 1) . "\" style=\"display:contents;\">";
+                csrf_field();
+                echo "<button type=\"submit\" class=\"bottone-qta bottone-qta-meno\">−</button></form>";
+            }
             else
                 echo "<span class=\"bottone-qta bottone-qta-meno\" style=\"opacity:0.3;cursor:default\">−</span>";
             echo "<span class=\"input-qta\" style=\"display:inline-flex;align-items:center;justify-content:center\">{$qta}</span>";
-            echo "<a href=\"?action=mq&id={$id_riga}&qta=" . ($qta + 1) . "\" class=\"bottone-qta bottone-qta-piu\" style=\"text-decoration:none\">+</a>";
+            echo "<form method=\"post\" action=\"?action=mq&id={$id_riga}&qta=" . ($qta + 1) . "\" style=\"display:contents;\">";
+            csrf_field();
+            echo "<button type=\"submit\" class=\"bottone-qta bottone-qta-piu\">+</button></form>";
             echo '</div>';
             echo '</td>';
             echo "<td class=\"cella-tabella-prezzo\">€ {$prezzo_unitario}</td>";
             echo '<td class="cella-tabella-azioni">';
             echo "<a href=\"?action=m\" class=\"action-btn action-check\" style=\"text-decoration:none\">✓</a>";
-            echo "<a href=\"?action=mr&id={$id_riga}\" class=\"action-btn action-delete\" style=\"text-decoration:none\">✕</a>";
+            echo "<form method=\"post\" action=\"?action=mr&id={$id_riga}\" style=\"display:contents;\">";
+            csrf_field();
+            echo "<button type=\"submit\" class=\"action-btn action-delete\">✕</button></form>";
             echo '</td>';
             echo '</tr>';
         }
@@ -586,7 +601,9 @@ function mostraModificaOrdine()
 function mostraFooterModifica()
 {
     global $cat;
-    echo '<a href="?cat=' . (int)$cat . '&action=r" id="annulla-btn" style="text-decoration:none"><span id="annullaOrdine-sign">🗑️️ ANNULLA ORDINE</span></a>
+    echo '<form method="post" action="?cat=' . (int)$cat . '&action=r" style="display:contents;">';
+    csrf_field();
+    echo '<button type="submit" id="annulla-btn"><span id="annullaOrdine-sign">🗑️️ ANNULLA ORDINE</span></button></form>
           <a href="index.php" id="continua-btn" style="text-decoration:none"><span id="continua-sign">🛒 CONTINUA ORDINE</span></a>
           <a href="?action=s" id="stampa-btn" style="text-decoration:none"><span id="stampa-sign">🖨️ STAMPA</span></a>';
 }
@@ -596,14 +613,20 @@ function mostraOpzioni()
 {
     echo '<section class="opzioni-section">';
     echo '<div class="opzioni-row-1">';
-    echo '<a href="?action=st&t=pre" class="opzione-btn" style="text-decoration:none">PREVENDITA</a>';
-    echo '<a href="?action=st&t=mus" class="opzione-btn" style="text-decoration:none">MUSICISTI</a>';
-    echo '<a href="?action=st&t=stf" class="opzione-btn" style="text-decoration:none">STAFF</a>';
-    echo '<a href="?action=st&t=asp" class="opzione-btn" style="text-decoration:none">ASPORTO</a>';
+    foreach (array('pre' => 'PREVENDITA', 'mus' => 'MUSICISTI', 'stf' => 'STAFF', 'asp' => 'ASPORTO') as $t => $label)
+    {
+        echo '<form method="post" action="?action=st&t=' . $t . '" style="display:contents;">';
+        csrf_field();
+        echo '<button type="submit" class="opzione-btn">' . $label . '</button></form>';
+    }
     echo '</div>';
     echo '<div class="opzioni-row-2">';
-    echo '<a href="?action=st&t=nor" class="opzione-btn opzione-btn-large" style="text-decoration:none">NORMALE</a>';
-    echo '<a href="?action=sb" class="opzione-btn opzione-btn-large" style="text-decoration:none">STAND BY</a>';
+    echo '<form method="post" action="?action=st&t=nor" style="display:contents;">';
+    csrf_field();
+    echo '<button type="submit" class="opzione-btn opzione-btn-large">NORMALE</button></form>';
+    echo '<form method="post" action="?action=sb" style="display:contents;">';
+    csrf_field();
+    echo '<button type="submit" class="opzione-btn opzione-btn-large">STAND BY</button></form>';
     echo '</div>';
     echo '</section>';
 }
@@ -637,7 +660,9 @@ function mostraOrdiniStandby()
             echo "<td>{$id_standby}</td>";
             echo "<td>{$data}</td>";
             echo "<td>{$totale}</td>";
-            echo '<td><a href="?action=ra&id=' . $id_standby . '" class="standby-attiva-btn">&#9998;</a></td>';
+            echo '<td><form method="post" action="?action=ra&id=' . $id_standby . '" style="display:contents;">';
+            csrf_field();
+            echo '<button type="submit" class="standby-attiva-btn">&#9998;</button></form></td>';
             echo '</tr>';
         }
 
@@ -656,7 +681,9 @@ function mostraOrdiniStandby()
 function mostraFooterBottoni()
 {
     global $cat;
-    echo '<button id="annulla-btn" onclick="location.href=\'?cat=' . (int)$cat . '&action=r\'"><span id="annullaOrdine-sign">🗑️️ ANNULLA ORDINE</span></button>
+    echo '<form method="post" action="?cat=' . (int)$cat . '&action=r" style="display:contents;">';
+    csrf_field();
+    echo '<button type="submit" id="annulla-btn"><span id="annullaOrdine-sign">🗑️️ ANNULLA ORDINE</span></button></form>
            <button id="stampa-btn" onclick="location.href=\'?action=s\'"><span id="stampa-sign">🖨️ STAMPA</span></button>';
 }
 
