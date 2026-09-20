@@ -8,6 +8,7 @@ backup/
 Thumbs.db
 .idea/
 .env
+/vendor/
 fiscale_coda.log
 fiscale_inviati.log
 fiscale_mock.xml

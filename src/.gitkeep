@@ -1,0 +1,2 @@
+# Transitional placeholder: PSR-4 Salsiccia\ -> src/ target for T18/T19 extractions.
+# Real classes land file-by-file in later tickets; T15 only proves the autoload map.
