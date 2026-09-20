@@ -27,6 +27,11 @@ function csrf_field()
 }
 
 
+/**
+ * Esegue SQL grezzo senza alcun escaping/placeholder: NON sanifica, interpola
+ * cio' che riceve. T09: usare solo per query statiche senza variabili;
+ * ogni variabile va in db_select()/db_exec() con placeholder "?".
+ */
 function mysql_query_safe($mysqli, $query)
 {
     if(defined('DEBUG') && DEBUG)
@@ -40,6 +45,38 @@ function mysql_query_safe($mysqli, $query)
     }
 
     return $risultato;
+}
+
+// T09: SELECT parametrizzata (pattern backoffice visualizza.php / fiscale.inc:221).
+// Ritorna mysqli_result o false come mysql_query_safe; solo "?" mai interpolazioni.
+function db_select($mysqli, $sql, $tipi = '', $params = array())
+{
+    $stmt = $mysqli->prepare($sql);
+    if ($stmt === false)
+        return false;
+    if ($tipi !== '')
+        $stmt->bind_param($tipi, ...$params);
+    if (!$stmt->execute())
+    {
+        $stmt->close();
+        return false;
+    }
+    $res = $stmt->get_result();
+    $stmt->close();
+    return $res ? $res : false;
+}
+
+// T09: INSERT/UPDATE/DELETE parametrizzata. Ritorna bool.
+function db_exec($mysqli, $sql, $tipi = '', $params = array())
+{
+    $stmt = $mysqli->prepare($sql);
+    if ($stmt === false)
+        return false;
+    if ($tipi !== '')
+        $stmt->bind_param($tipi, ...$params);
+    $ok = $stmt->execute();
+    $stmt->close();
+    return $ok;
 }
 
 function printA($str)
@@ -69,18 +106,15 @@ function calcolaTotali($id_prodotto, $id_ordine, $mysqli, $in_txn = false)
         try
         {
             #Lock riga padre: serializza i tap concorrenti sullo stesso ordine.
-            $query = "SELECT id_ordine FROM ordini WHERE id_ordine = $id_ordine FOR UPDATE";
-            $ris = mysql_query_safe($mysqli, $query);
+            $ris = db_select($mysqli, "SELECT id_ordine FROM ordini WHERE id_ordine = ? FOR UPDATE", 'i', array($id_ordine));
             if (!$ris)
-                $ris = mysql_query_safe($mysqli, "SELECT id_ordine FROM ordini WHERE id_ordine = $id_ordine");
+                $ris = db_select($mysqli, "SELECT id_ordine FROM ordini WHERE id_ordine = ?", 'i', array($id_ordine));
             $ok = (bool)$ris;
             if ($ok)
             {
                 #DOPO AVER INSERITO O AGGIUNTO UN PRODOTTO DEVO AGGIORNARE QUANTITA E TOTALE IN righe_ordini
-                $query = "SELECT quantita, prezzo FROM prodotti,righe_ordini WHERE prodotti.id_prodotto = righe_ordini.id_prodotto AND 
-                id_ordine = $id_ordine AND prodotti.id_prodotto = $id_prodotto";
-                //print "query: $query";
-                $ris = mysql_query_safe($mysqli, $query);
+                $ris = db_select($mysqli, "SELECT quantita, prezzo FROM prodotti,righe_ordini WHERE prodotti.id_prodotto = righe_ordini.id_prodotto AND id_ordine = ? AND prodotti.id_prodotto = ?", 'ii', array($id_ordine, $id_prodotto));
+                //print "query: calcolaTotali select righe";
                 $ok = (bool)$ris;
             }
             if($ok && mysqli_num_rows($ris) > 0)
@@ -90,15 +124,13 @@ function calcolaTotali($id_prodotto, $id_ordine, $mysqli, $in_txn = false)
                 $prezzo = (float)$riga['prezzo'];
                 $totale = $quantita * $prezzo;
                 //print "\n<script>alert('n_pezzi: $quantita - totale:$totale');</script>";
-                $query = "UPDATE righe_ordini set quantita = $quantita, totale = $totale WHERE id_ordine = $id_ordine AND id_prodotto = $id_prodotto";
-                //print "query: $query";
-                $ok = (bool)mysql_query_safe($mysqli, $query);
+                //print "query: calcolaTotali update righe";
+                $ok = db_exec($mysqli, "UPDATE righe_ordini set quantita = ?, totale = ? WHERE id_ordine = ? AND id_prodotto = ?", 'idii', array($quantita, $totale, $id_ordine, $id_prodotto));
             }
             if ($ok)
             {
                 #DOPO AVER INSERITO O AGGIUNTO UN PRODOTTO DEVO AGGIORNARE n_pezzi e totale IN ordini
-                $query = "SELECT sum(quantita) as n_pezzi, sum(totale) as totale FROM righe_ordini WHERE id_ordine = $id_ordine GROUP BY id_ordine;";
-                $ris = mysql_query_safe($mysqli, $query);
+                $ris = db_select($mysqli, "SELECT sum(quantita) as n_pezzi, sum(totale) as totale FROM righe_ordini WHERE id_ordine = ? GROUP BY id_ordine", 'i', array($id_ordine));
                 $ok = (bool)$ris;
             }
             if ($ok)
@@ -108,12 +140,12 @@ function calcolaTotali($id_prodotto, $id_ordine, $mysqli, $in_txn = false)
                 $totale = (float)$riga['totale'];
 
                 if($totale == 0)
-                    $query = "UPDATE ordini set n_pezzi = 0, totale = 0 WHERE id_ordine = $id_ordine";
-                //print "query: $query";
+                    //print "query: calcolaTotali azzera ordini";
+                    $ok = db_exec($mysqli, "UPDATE ordini set n_pezzi = 0, totale = 0 WHERE id_ordine = ?", 'i', array($id_ordine));
+                //print "query: calcolaTotali update ordini";
                 else
-                    $query = "UPDATE ordini set n_pezzi = $n_pezzi, totale = $totale WHERE id_ordine = $id_ordine";
-                //print "query: $query";
-                $ok = (bool)mysql_query_safe($mysqli, $query);
+                    $ok = db_exec($mysqli, "UPDATE ordini set n_pezzi = ?, totale = ? WHERE id_ordine = ?", 'idi', array($n_pezzi, $totale, $id_ordine));
+                //print "query: calcolaTotali update ordini";
             }
         }
         catch (Throwable)
@@ -424,20 +456,21 @@ function conta_prodotto($id_contatore, $mysqli)
 {
     // C4: firma (int); solo conteggio venduti per display, mai enforcement di limiti (non bloccante).
     $id_contatore = (int)$id_contatore;
-    $ris_nome = mysql_query_safe($mysqli, "SELECT nome FROM contatori WHERE id_contatore = $id_contatore");
-    $riga_nome = mysqli_fetch_array($ris_nome);
+    $ris_nome = db_select($mysqli, "SELECT nome FROM contatori WHERE id_contatore = ?", 'i', array($id_contatore));
+    $riga_nome = $ris_nome ? mysqli_fetch_array($ris_nome) : false;
     $nome = $riga_nome ? $riga_nome['nome'] : '';
-    $query = "SELECT * FROM contatori, prodotti_contatori WHERE contatori.id_contatore = prodotti_contatori.id_contatore AND contatori.id_contatore = $id_contatore";
-    $ris = mysql_query_safe($mysqli, $query);
+    $ris = db_select($mysqli, "SELECT * FROM contatori, prodotti_contatori WHERE contatori.id_contatore = prodotti_contatori.id_contatore AND contatori.id_contatore = ?", 'i', array($id_contatore));
     $totale = 0;
-    while($riga = mysqli_fetch_array($ris))
+    while($ris && ($riga = mysqli_fetch_array($ris)))
     {
         $controllo_periodo = $riga['controllo_periodo'];
         $data_da = $riga['data_da'];
         $data_a = $riga['data_a'];
         $qta = (float)$riga['quantita'];
         $id_prodotto = (int)$riga['id_prodotto'];
-        $query_conta = "SELECT SUM(quantita) AS somma FROM righe_ordini, ordini WHERE ordini.id_ordine = righe_ordini.id_ordine AND righe_ordini.id_prodotto = $id_prodotto";
+        $sql_conta = "SELECT SUM(quantita) AS somma FROM righe_ordini, ordini WHERE ordini.id_ordine = righe_ordini.id_ordine AND righe_ordini.id_prodotto = ?";
+        $tipi_conta = 'i';
+        $par_conta = array($id_prodotto);
 
         if($controllo_periodo == "T")
         {
@@ -445,11 +478,15 @@ function conta_prodotto($id_contatore, $mysqli)
             $ok_da = is_string($data_da) && preg_match('/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2}:\d{2})?$/', $data_da);
             $ok_a = is_string($data_a) && preg_match('/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2}:\d{2})?$/', $data_a);
             if($ok_da && $ok_a)
-                $query_conta .= " AND data_ora BETWEEN '$data_da' AND '$data_a'";
+            {
+                $sql_conta .= " AND data_ora BETWEEN ? AND ?";
+                $tipi_conta = 'iss';
+                $par_conta = array($id_prodotto, $data_da, $data_a);
+            }
         }
 
-        $ris_conta = mysql_query_safe($mysqli, $query_conta);
-        $riga_conta = mysqli_fetch_array($ris_conta);
+        $ris_conta = db_select($mysqli, $sql_conta, $tipi_conta, $par_conta);
+        $riga_conta = $ris_conta ? mysqli_fetch_array($ris_conta) : false;
         $tot_par = ($riga_conta && $riga_conta['somma'] !== null) ? ((float)$riga_conta['somma']) * $qta : 0;
 
         $totale += $tot_par;

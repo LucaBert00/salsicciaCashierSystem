@@ -36,8 +36,8 @@ function defaultCat($mysqli)
     {
         if (ctype_digit($raw) && (int)$raw > 0)
             return (int)$raw; // fiducia all'env, niente query extra
-        $nome = $mysqli->real_escape_string(strtoupper($raw));
-        $q = mysql_query_safe($mysqli, "SELECT id_categoria FROM categorie WHERE UPPER(descrizione_cat) = '{$nome}' LIMIT 1");
+        $nome = strtoupper($raw);
+        $q = db_select($mysqli, "SELECT id_categoria FROM categorie WHERE UPPER(descrizione_cat) = ? LIMIT 1", 's', array($nome));
         if ($q && ($r = mysqli_fetch_array($q)) && (int)$r['id_categoria'] > 0)
             return (int)$r['id_categoria'];
     }
@@ -198,16 +198,13 @@ function gestisciAzioni()
 
     if ($action == 'r') // annulla ordine
     {
-        $query = "SELECT id_ordine FROM ordini WHERE id_cassa = $id_cassa AND chiuso = '0'";
-        $ris = mysql_query_safe($mysqli, $query);
-        if (mysqli_num_rows($ris) == 1)
+        $ris = db_select($mysqli, "SELECT id_ordine FROM ordini WHERE id_cassa = ? AND chiuso = '0'", 'i', array($id_cassa));
+        if ($ris && mysqli_num_rows($ris) == 1)
         {
             $id_ordine = mysqli_fetch_array($ris);
             $id_ordine = (int)$id_ordine['id_ordine'];
-            $query = "DELETE FROM ordini WHERE id_ordine = $id_ordine AND id_cassa = $id_cassa AND chiuso = '0'";
-            mysql_query_safe($mysqli, $query);
-            $query = "DELETE FROM righe_ordini WHERE id_ordine = $id_ordine";
-            mysql_query_safe($mysqli, $query);
+            db_exec($mysqli, "DELETE FROM ordini WHERE id_ordine = ? AND id_cassa = ? AND chiuso = '0'", 'ii', array($id_ordine, $id_cassa));
+            db_exec($mysqli, "DELETE FROM righe_ordini WHERE id_ordine = ?", 'i', array($id_ordine));
         }
     }
 
@@ -215,34 +212,32 @@ function gestisciAzioni()
     {
         $id_prodotto = (int)$HTTP_GET_VARS['id'];
 
-        $query = "SELECT * FROM ordini WHERE id_cassa = $id_cassa AND chiuso = '0'";
-        $ris = mysql_query_safe($mysqli, $query);
+        $ris = db_select($mysqli, "SELECT * FROM ordini WHERE id_cassa = ? AND chiuso = '0'", 'i', array($id_cassa));
 
-        if (mysqli_num_rows($ris) == 1)
+        if ($ris && mysqli_num_rows($ris) == 1)
         {
             //Ordine esiste recupero id_ordine
             $id_ordine = mysqli_fetch_array($ris);
             $id_ordine = (int)$id_ordine['id_ordine'];
 
-            $query = "SELECT * FROM righe_ordini WHERE id_ordine = $id_ordine AND id_prodotto = $id_prodotto";
-            $ris = mysql_query_safe($mysqli, $query);
+            $ris = db_select($mysqli, "SELECT * FROM righe_ordini WHERE id_ordine = ? AND id_prodotto = ?", 'ii', array($id_ordine, $id_prodotto));
 
-            if (mysqli_num_rows($ris) == 1)
+            if ($ris && mysqli_num_rows($ris) == 1)
             {
                 //prodotto già presente incrementa
-                $query = "UPDATE righe_ordini SET quantita = quantita + 1 WHERE id_ordine = $id_ordine AND id_prodotto = $id_prodotto";
-                mysql_query_safe($mysqli, $query);
+                db_exec($mysqli, "UPDATE righe_ordini SET quantita = quantita + 1 WHERE id_ordine = ? AND id_prodotto = ?", 'ii', array($id_ordine, $id_prodotto));
             }
             else
             {
                 // Nuovo prodotto inserimento riga
-                $query = "SELECT * FROM prodotti WHERE id_prodotto = $id_prodotto";
-                $ris = mysql_query_safe($mysqli, $query);
-                $prodotto = mysqli_fetch_array($ris);
-                $pid = (int)$prodotto['id_prodotto'];
-                $ppz = (float)$prodotto['prezzo'];
-                $query = "INSERT INTO righe_ordini (id_ordine, id_prodotto, quantita, totale) VALUES ($id_ordine, $pid, '1', $ppz)";
-                mysql_query_safe($mysqli, $query);
+                $ris = db_select($mysqli, "SELECT * FROM prodotti WHERE id_prodotto = ?", 'i', array($id_prodotto));
+                $prodotto = $ris ? mysqli_fetch_array($ris) : false;
+                if ($prodotto)
+                {
+                    $pid = (int)$prodotto['id_prodotto'];
+                    $ppz = (float)$prodotto['prezzo'];
+                    db_exec($mysqli, "INSERT INTO righe_ordini (id_ordine, id_prodotto, quantita, totale) VALUES (?, ?, '1', ?)", 'iid', array($id_ordine, $pid, $ppz));
+                }
             }
         }
         else
@@ -253,20 +248,17 @@ function gestisciAzioni()
             $nuovo_ok = false;
             try
             {
-                $query = "INSERT INTO ordini (data_ora, tipo, totale, n_pezzi, id_cassa, chiuso, num_biglietti) VALUES (NOW(), 'nor', '0', '0', $id_cassa, '0', 0)";
-                $nuovo_ok = mysql_query_safe($mysqli, $query);
+                $nuovo_ok = db_exec($mysqli, "INSERT INTO ordini (data_ora, tipo, totale, n_pezzi, id_cassa, chiuso, num_biglietti) VALUES (NOW(), 'nor', '0', '0', ?, '0', 0)", 'i', array($id_cassa));
                 $id_ordine = $nuovo_ok ? (int)mysqli_insert_id($mysqli) : 0;
                 if ($nuovo_ok && $id_ordine > 0)
                 {
-                    $query = "SELECT * FROM prodotti WHERE id_prodotto = $id_prodotto";
-                    $ris = mysql_query_safe($mysqli, $query);
+                    $ris = db_select($mysqli, "SELECT * FROM prodotti WHERE id_prodotto = ?", 'i', array($id_prodotto));
                     $prodotto = $ris ? mysqli_fetch_array($ris) : false;
                     if ($prodotto)
                     {
                         $pid = (int)$prodotto['id_prodotto'];
                         $ppz = (float)$prodotto['prezzo'];
-                        $query = "INSERT INTO righe_ordini (id_ordine, id_prodotto, quantita, totale) VALUES ($id_ordine, $pid, '1', $ppz)";
-                        $nuovo_ok = mysql_query_safe($mysqli, $query);
+                        $nuovo_ok = db_exec($mysqli, "INSERT INTO righe_ordini (id_ordine, id_prodotto, quantita, totale) VALUES (?, ?, '1', ?)", 'iid', array($id_ordine, $pid, $ppz));
                     }
                     else
                         $nuovo_ok = false;
@@ -301,9 +293,8 @@ function gestisciAzioni()
 
         if ($qta > 0)
         {
-            $query = "SELECT id_ordine FROM ordini WHERE id_cassa = $id_cassa AND chiuso = '0'";
-            $ris = mysql_query_safe($mysqli, $query);
-            if (mysqli_num_rows($ris) == 1)
+            $ris = db_select($mysqli, "SELECT id_ordine FROM ordini WHERE id_cassa = ? AND chiuso = '0'", 'i', array($id_cassa));
+            if ($ris && mysqli_num_rows($ris) == 1)
             {
                 $riga = mysqli_fetch_array($ris);
                 $id_ordine = (int)$riga['id_ordine'];
@@ -314,8 +305,7 @@ function gestisciAzioni()
                 $mq_ok = false;
                 try
                 {
-                    $query = "UPDATE righe_ordini SET quantita = $qta WHERE id_ordine = $id_ordine AND id_prodotto = $id_prodotto";
-                    $mq_ok = (bool)mysql_query_safe($mysqli, $query);
+                    $mq_ok = db_exec($mysqli, "UPDATE righe_ordini SET quantita = ? WHERE id_ordine = ? AND id_prodotto = ?", 'iii', array($qta, $id_ordine, $id_prodotto));
                     if ($mq_ok)
                         $mq_ok = calcolaTotali($id_prodotto, $id_ordine, $mysqli, true);
                 }
@@ -342,9 +332,8 @@ function gestisciAzioni()
     {
         $id_prodotto = (int)$HTTP_GET_VARS['id'];
 
-        $query = "SELECT id_ordine FROM ordini WHERE id_cassa = $id_cassa AND chiuso = '0'";
-        $ris = mysql_query_safe($mysqli, $query);
-        if (mysqli_num_rows($ris) == 1)
+        $ris = db_select($mysqli, "SELECT id_ordine FROM ordini WHERE id_cassa = ? AND chiuso = '0'", 'i', array($id_cassa));
+        if ($ris && mysqli_num_rows($ris) == 1)
         {
             $riga = mysqli_fetch_array($ris);
             $id_ordine = (int)$riga['id_ordine'];
@@ -353,8 +342,7 @@ function gestisciAzioni()
             $mr_ok = false;
             try
             {
-                $query = "DELETE FROM righe_ordini WHERE id_ordine = $id_ordine AND id_prodotto = $id_prodotto";
-                $mr_ok = (bool)mysql_query_safe($mysqli, $query);
+                $mr_ok = db_exec($mysqli, "DELETE FROM righe_ordini WHERE id_ordine = ? AND id_prodotto = ?", 'ii', array($id_ordine, $id_prodotto));
                 if ($mr_ok)
                     $mr_ok = calcolaTotali($id_prodotto, $id_ordine, $mysqli, true);
             }
@@ -383,20 +371,17 @@ function gestisciAzioni()
 
         if (in_array($tipo, $validi))
         {
-            $query = "SELECT id_ordine FROM ordini WHERE id_cassa = $id_cassa AND chiuso = '0'";
-            $ris = mysql_query_safe($mysqli, $query);
+            $ris = db_select($mysqli, "SELECT id_ordine FROM ordini WHERE id_cassa = ? AND chiuso = '0'", 'i', array($id_cassa));
 
-            if (mysqli_num_rows($ris) == 1)
+            if ($ris && mysqli_num_rows($ris) == 1)
             {
                 $riga = mysqli_fetch_array($ris);
                 $id_ordine = (int)$riga['id_ordine'];
-                $query = "UPDATE ordini SET tipo = '$tipo' WHERE id_ordine = $id_ordine";
-                mysql_query_safe($mysqli, $query);
+                db_exec($mysqli, "UPDATE ordini SET tipo = ? WHERE id_ordine = ?", 'si', array($tipo, $id_ordine));
             }
             else
             {
-                $query = "INSERT INTO ordini (data_ora, tipo, totale, n_pezzi, id_cassa, chiuso, num_biglietti) VALUES (NOW(), '$tipo', '0', '0', $id_cassa, '0', 0)";
-                mysql_query_safe($mysqli, $query);
+                db_exec($mysqli, "INSERT INTO ordini (data_ora, tipo, totale, n_pezzi, id_cassa, chiuso, num_biglietti) VALUES (NOW(), ?, '0', '0', ?, '0', 0)", 'si', array($tipo, $id_cassa));
             }
         }
 
@@ -406,14 +391,12 @@ function gestisciAzioni()
 
     if ($action == 'sb') // set ordine in standby
     {
-        $query = "SELECT id_ordine FROM ordini WHERE id_cassa = $id_cassa AND chiuso = '0'";
-        $ris = mysql_query_safe($mysqli, $query);
-        if (mysqli_num_rows($ris) == 1)
+        $ris = db_select($mysqli, "SELECT id_ordine FROM ordini WHERE id_cassa = ? AND chiuso = '0'", 'i', array($id_cassa));
+        if ($ris && mysqli_num_rows($ris) == 1)
         {
             $riga = mysqli_fetch_array($ris);
             $id_ordine = (int)$riga['id_ordine'];
-            $query = "UPDATE ordini SET chiuso = 'S' WHERE id_ordine = $id_ordine";
-            mysql_query_safe($mysqli, $query);
+            db_exec($mysqli, "UPDATE ordini SET chiuso = 'S' WHERE id_ordine = ?", 'i', array($id_ordine));
         }
         header("Location: index.php");
         exit;
@@ -422,8 +405,7 @@ function gestisciAzioni()
     if ($action == 'ra' && isset($HTTP_GET_VARS['id'])) // reactivate da standby
     {
         $id_ordine = (int)$HTTP_GET_VARS['id'];
-        $query = "UPDATE ordini SET chiuso = '0' WHERE id_ordine = $id_ordine AND id_cassa = $id_cassa AND chiuso = 'S'";
-        mysql_query_safe($mysqli, $query);
+        db_exec($mysqli, "UPDATE ordini SET chiuso = '0' WHERE id_ordine = ? AND id_cassa = ? AND chiuso = 'S'", 'ii', array($id_ordine, $id_cassa));
         header("Location: index.php");
         exit;
     }
@@ -453,10 +435,10 @@ function mostraNavCategorie()
 function mostraTitolo()
 {
     global $mysqli, $cat;
-    $query = "SELECT descrizione_cat FROM categorie WHERE id_categoria = {$cat}";
-    $ris = mysql_query_safe($mysqli, $query);
+    $cat = (int)$cat;
+    $ris = db_select($mysqli, "SELECT descrizione_cat FROM categorie WHERE id_categoria = ?", 'i', array($cat));
 
-    if (mysqli_num_rows($ris) > 0)
+    if ($ris && mysqli_num_rows($ris) > 0)
     {
         $riga = mysqli_fetch_array($ris);
         echo htmlspecialchars($riga['descrizione_cat'], ENT_QUOTES, 'UTF-8');
@@ -473,10 +455,9 @@ function mostraIndicatoreTipo()
     global $mysqli;
     $id_cassa = cassaCorrente();
 
-    $query = "SELECT tipo FROM ordini WHERE id_cassa = $id_cassa AND chiuso = '0' LIMIT 1";
-    $ris = mysql_query_safe($mysqli, $query);
+    $ris = db_select($mysqli, "SELECT tipo FROM ordini WHERE id_cassa = ? AND chiuso = '0' LIMIT 1", 'i', array($id_cassa));
 
-    if (mysqli_num_rows($ris) > 0)
+    if ($ris && mysqli_num_rows($ris) > 0)
     {
         $riga = mysqli_fetch_array($ris);
         $tipo = $riga['tipo'];
@@ -494,18 +475,14 @@ function mostraTabellaProdotti()
     global $mysqli, $cat, $but_x_row, $but_x_col;
 
     $but_x_pag = $but_x_col * $but_x_row;
+    $cat = (int)$cat;
 
-    $query = "SELECT * FROM prodotti, categorie, prodotti_categorie WHERE
-              prodotti_categorie.id_prodotto = prodotti.id_prodotto AND
-              prodotti_categorie.id_categoria = categorie.id_categoria AND
-              categorie.id_categoria = {$cat} ORDER BY posizione";
-    $ris = mysql_query_safe($mysqli, $query);
+    $ris = db_select($mysqli, "SELECT * FROM prodotti, categorie, prodotti_categorie WHERE prodotti_categorie.id_prodotto = prodotti.id_prodotto AND prodotti_categorie.id_categoria = categorie.id_categoria AND categorie.id_categoria = ? ORDER BY posizione", 'i', array($cat));
 
-    if (mysqli_num_rows($ris) == 0)
+    if (!$ris || mysqli_num_rows($ris) == 0)
     {
-        $q = "SELECT * FROM categorie WHERE id_categoria = {$cat}";
-        $r = mysql_query_safe($mysqli, $q);
-        $riga = mysqli_fetch_array($r);
+        $r = db_select($mysqli, "SELECT * FROM categorie WHERE id_categoria = ?", 'i', array($cat));
+        $riga = $r ? mysqli_fetch_array($r) : false;
         $colore = $riga ? $riga['colore'] : '';
         $hexVuoto = coloreCategoriaHex($colore);
         echo "<div style=\"background-color:{$hexVuoto}; height: 100%;\">";
@@ -552,12 +529,11 @@ function mostraModificaOrdine()
     global $mysqli;
     $id_cassa = cassaCorrente();
 
-    $query = "SELECT prodotti.id_prodotto AS id, prodotti.descrizione_prod, righe_ordini.quantita, righe_ordini.totale, ordini.totale as tot_ord, ordini.id_ordine AS id_ord FROM prodotti, ordini, righe_ordini WHERE ordini.id_ordine = righe_ordini.id_ordine AND prodotti.id_prodotto = righe_ordini.id_prodotto AND id_cassa = $id_cassa AND ordini.chiuso = 0";
-    $ris = mysql_query_safe($mysqli, $query);
+    $ris = db_select($mysqli, "SELECT prodotti.id_prodotto AS id, prodotti.descrizione_prod, righe_ordini.quantita, righe_ordini.totale, ordini.totale as tot_ord, ordini.id_ordine AS id_ord FROM prodotti, ordini, righe_ordini WHERE ordini.id_ordine = righe_ordini.id_ordine AND prodotti.id_prodotto = righe_ordini.id_prodotto AND id_cassa = ? AND ordini.chiuso = 0", 'i', array($id_cassa));
 
     echo '<section class="modifica-section">';
 
-    if (mysqli_num_rows($ris) > 0)
+    if ($ris && mysqli_num_rows($ris) > 0)
     {
         echo '<table class="modifica-table">';
         echo '<thead><tr>';
@@ -690,10 +666,9 @@ function mostraBoxRiepilogo()
     global $mysqli;
     $id_cassa = cassaCorrente();
 
-    $query = "SELECT id_ordine, totale FROM ordini WHERE id_cassa = {$id_cassa} AND chiuso = '0'";
-    $ris = mysql_query_safe($mysqli, $query);
+    $ris = db_select($mysqli, "SELECT id_ordine, totale FROM ordini WHERE id_cassa = ? AND chiuso = '0'", 'i', array($id_cassa));
 
-    if (mysqli_num_rows($ris) > 0)
+    if ($ris && mysqli_num_rows($ris) > 0)
     {
         $riga = mysqli_fetch_array($ris);
         $totale = number_format($riga['totale'], 2, ',', '.');
@@ -727,15 +702,9 @@ function mostraListaProdotti()
     global $mysqli;
     $id_cassa = cassaCorrente();
 
-    $query = "SELECT prodotti.descrizione_prod, righe_ordini.quantita, righe_ordini.totale
-              FROM prodotti, ordini, righe_ordini
-              WHERE ordini.id_ordine = righe_ordini.id_ordine
-                AND prodotti.id_prodotto = righe_ordini.id_prodotto
-                AND id_cassa = {$id_cassa}
-                AND ordini.chiuso = '0'";
-    $ris = mysql_query_safe($mysqli, $query);
+    $ris = db_select($mysqli, "SELECT prodotti.descrizione_prod, righe_ordini.quantita, righe_ordini.totale FROM prodotti, ordini, righe_ordini WHERE ordini.id_ordine = righe_ordini.id_ordine AND prodotti.id_prodotto = righe_ordini.id_prodotto AND id_cassa = ? AND ordini.chiuso = '0'", 'i', array($id_cassa));
 
-    if (mysqli_num_rows($ris) > 0)
+    if ($ris && mysqli_num_rows($ris) > 0)
     {
         while ($riga = mysqli_fetch_array($ris))
         {
@@ -876,11 +845,11 @@ function mostraContatori()
     }
     else
     {
-        $ris = mysql_query_safe($mysqli, "SELECT id_contatore FROM `contatori` WHERE attivo = 'T' ORDER BY `nome` ASC LIMIT " . (int)$offset . ", " . (int)$rpp);
+        $ris = db_select($mysqli, "SELECT id_contatore FROM `contatori` WHERE attivo = 'T' ORDER BY `nome` ASC LIMIT ?, ?", 'ii', array((int)$offset, (int)$rpp));
         echo '<table class="modifica-table">';
         echo '<thead><tr><th class="intestazione-tabella-descrizione">NOME PRODOTTO</th><th class="intestazione-tabella-quantita">QUANTITA VENDUTI</th></tr></thead>';
         echo '<tbody>';
-        while ($riga = mysqli_fetch_array($ris))
+        while ($ris && ($riga = mysqli_fetch_array($ris)))
         {
             $c = conta_prodotto((int)$riga['id_contatore'], $mysqli);
             echo '<tr><td class="cella-tabella-descrizione">' . htmlspecialchars($c['nome'], ENT_QUOTES, 'UTF-8') . '</td><td class="cella-tabella-quantita">' . ($c['totale'] + 0) . '</td></tr>';
@@ -1130,8 +1099,8 @@ function mostraSchermataStampa()
     {
         $id_ordine_err = (int)$_GET['stampa_err'];
         $totale_err = 0;
-        $risErr = mysql_query_safe($mysqli, "SELECT totale FROM ordini WHERE id_ordine = $id_ordine_err AND id_cassa = $id_cassa AND chiuso = '0'");
-        if ($rigaErr = mysqli_fetch_array($risErr))
+        $risErr = db_select($mysqli, "SELECT totale FROM ordini WHERE id_ordine = ? AND id_cassa = ? AND chiuso = '0'", 'ii', array($id_ordine_err, $id_cassa));
+        if ($risErr && ($rigaErr = mysqli_fetch_array($risErr)))
             $totale_err = (float)$rigaErr['totale'];
         else
         {
@@ -1159,12 +1128,8 @@ function mostraSchermataStampa()
     // con &stampato= per la UI resto: evita ristampe sui click di banconote/monete.
     if (!isset($_GET['stampato']))
     {
-        $query = "SELECT COALESCE(NULLIF(TRIM(prodotti.testo_biglietto), ''), prodotti.descrizione_prod) AS testo, prodotti.olpp AS olpp, righe_ordini.quantita, righe_ordini.totale,
-          ordini.totale as tot_ord, ordini.n_pezzi, ordini.id_ordine, ordini.tipo, prodotti.id_prodotto AS id_prodotto FROM prodotti, ordini, righe_ordini
-          WHERE ordini.id_ordine = righe_ordini.id_ordine AND
-          prodotti.id_prodotto = righe_ordini.id_prodotto AND ordini.chiuso = '0' AND ordini.id_cassa = $id_cassa";
-        $ris = mysql_query_safe($mysqli, $query);
-        $numero_righe = mysqli_num_rows($ris);
+        $ris = db_select($mysqli, "SELECT COALESCE(NULLIF(TRIM(prodotti.testo_biglietto), ''), prodotti.descrizione_prod) AS testo, prodotti.olpp AS olpp, righe_ordini.quantita, righe_ordini.totale, ordini.totale as tot_ord, ordini.n_pezzi, ordini.id_ordine, ordini.tipo, prodotti.id_prodotto AS id_prodotto FROM prodotti, ordini, righe_ordini WHERE ordini.id_ordine = righe_ordini.id_ordine AND prodotti.id_prodotto = righe_ordini.id_prodotto AND ordini.chiuso = '0' AND ordini.id_cassa = ?", 'i', array($id_cassa));
+        $numero_righe = $ris ? mysqli_num_rows($ris) : 0;
 
         if ($numero_righe == 0)
         {
@@ -1193,7 +1158,7 @@ function mostraSchermataStampa()
         $id_ordine = (int)$ret_val['id_ordine'];
         $num_pezzi = (int)$ret_val['num_pezzi'];
         $tot_ordine = (float)$ret_val['totale'];
-        mysql_query_safe($mysqli, "UPDATE ordini SET chiuso = 1, num_biglietti = $num_pezzi WHERE id_ordine = $id_ordine");
+        db_exec($mysqli, "UPDATE ordini SET chiuso = 1, num_biglietti = ? WHERE id_ordine = ?", 'ii', array($num_pezzi, $id_ordine));
         $qs = '?action=s&stampato=' . $id_ordine . '&tot=' . $tot_ordine;
         echo '<script>window.location.href=\'' . $qs . '\';</script>';
         return;
@@ -1202,8 +1167,8 @@ function mostraSchermataStampa()
     $id_ordine = (int)$_GET['stampato'];
     // Totale sempre dal DB via stampato, mai dal GET (display resto non fidato).
     $totale = 0;
-    $risTot = mysql_query_safe($mysqli, "SELECT totale FROM ordini WHERE id_ordine = $id_ordine");
-    if ($rigaTot = mysqli_fetch_array($risTot))
+    $risTot = db_select($mysqli, "SELECT totale FROM ordini WHERE id_ordine = ?", 'i', array($id_ordine));
+    if ($risTot && ($rigaTot = mysqli_fetch_array($risTot)))
         $totale = (float)$rigaTot['totale'];
     $pagato = isset($_GET['pagato']) ? (float)$_GET['pagato'] : 0;
     // Whitelist come $validi/$tipo in gestisciAzioni: $metodo finisce in onclick, mai grezzo.

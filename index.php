@@ -17,8 +17,9 @@ $isCassaMain = !$showAdmin && !$showStampa && !$showModifica && !$showOpzioni &&
 $hexCassa = '#e7e9eb';
 if ($isCassaMain)
 {
-    $qc = mysql_query_safe($mysqli, "SELECT colore FROM categorie WHERE id_categoria = {$cat} LIMIT 1");
-    if ($rc = mysqli_fetch_array($qc)) $hexCassa = coloreCategoriaHex($rc['colore']);
+    $cat = (int)$cat;
+    $qc = db_select($mysqli, "SELECT colore FROM categorie WHERE id_categoria = ? LIMIT 1", 'i', array($cat));
+    if ($qc && ($rc = mysqli_fetch_array($qc))) $hexCassa = coloreCategoriaHex($rc['colore']);
 }
 // Schermate sensibili senza flag admin -> login, mai cassa muta ne accesso anonimo.
 if (!$isAdmin && in_array($action, array('repair', 'print_reset', 'contatori'), true))
