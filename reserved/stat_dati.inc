@@ -179,21 +179,37 @@ function stat_carica_dati($mysqli, $giorno, $categorie, $ordinaPerProdotto)
     }
     $stmt->close();
 
-    // Per-giorno: una riga per giorno di festa, gli ultimi DURATA_FESTA giorni
-    // fiscali che finiscono nel giorno chiesto. Statement riusato, solo bind.
-    $stmtGiorno = $mysqli->prepare('SELECT COUNT(*) AS `ordini`, COALESCE(SUM(`totale`), 0) AS `totale`, COALESCE(SUM(`n_pezzi`), 0) AS `pezzi` FROM `ordini` WHERE `chiuso` <> ? AND `data_ora` >= ? AND `data_ora` < ?');
-    $righeGiorni = array();
+    // Per-giorno: UN solo statement sull'intero intervallo di festa, GROUP BY
+    // giornata fiscale (DATE(DATE_SUB(... INTERVAL oraCambio HOUR))). Le
+    // finestre fiscali partizionano l'intervallo senza buchi ne'
+    // sovrapposizioni, quindi i totali sono quelli del loop di prima.
     $baseGiorno = strtotime($giorno . ' 12:00:00');
+    $primaRiga = date('Y-m-d', $baseGiorno - ($durataFesta - 1) * 86400);
+    $limitiPrima = stat_limiti_giorno($primaRiga, $oraCambio);
+    $stmtGiorno = $mysqli->prepare('SELECT DATE(DATE_SUB(`data_ora`, INTERVAL ' . (int)$oraCambio . ' HOUR)) AS `giorno`, COUNT(*) AS `ordini`, COALESCE(SUM(`totale`), 0) AS `totale`, COALESCE(SUM(`n_pezzi`), 0) AS `pezzi` FROM `ordini` WHERE `chiuso` <> ? AND `data_ora` >= ? AND `data_ora` < ? GROUP BY `giorno`');
+    $stmtGiorno->bind_param('sss', $chiusoZero, $limitiPrima[0], $fineGiorno);
+    $stmtGiorno->execute();
+    $mappaGiorni = array();
+    $resGiorno = $stmtGiorno->get_result();
+    while ($rigaGiorno = $resGiorno->fetch_assoc())
+    {
+        $mappaGiorni[$rigaGiorno['giorno']] = $rigaGiorno;
+    }
+    $stmtGiorno->close();
+    $righeGiorni = array();
     for ($i = $durataFesta - 1; $i >= 0; $i--)
     {
         $giornoRiga = date('Y-m-d', $baseGiorno - $i * 86400);
-        $limitiRiga = stat_limiti_giorno($giornoRiga, $oraCambio);
-        $stmtGiorno->bind_param('sss', $chiusoZero, $limitiRiga[0], $limitiRiga[1]);
-        $stmtGiorno->execute();
-        $rigaGiorno = $stmtGiorno->get_result()->fetch_assoc();
-        $righeGiorni[] = array('giorno' => $giornoRiga, 'ordini' => $rigaGiorno['ordini'], 'pezzi' => $rigaGiorno['pezzi'], 'totale' => $rigaGiorno['totale']);
+        if (isset($mappaGiorni[$giornoRiga]))
+        {
+            $m = $mappaGiorni[$giornoRiga];
+            $righeGiorni[] = array('giorno' => $giornoRiga, 'ordini' => $m['ordini'], 'pezzi' => $m['pezzi'], 'totale' => $m['totale']);
+        }
+        else
+        {
+            $righeGiorni[] = array('giorno' => $giornoRiga, 'ordini' => 0, 'pezzi' => 0, 'totale' => 0);
+        }
     }
-    $stmtGiorno->close();
 
     return array(
         'giorno' => $giorno,

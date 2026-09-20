@@ -668,7 +668,8 @@ function mostraPannelloAdmin()
     echo '</section>';
 }
 
-// Schermata unica CONTATORI: tutti i venduti monitorati con nome + quantita (riusa conta_prodotto).
+// Schermata unica CONTATORI: tutti i venduti monitorati con nome + quantita
+// (un solo GROUP BY via contatori_totali, paginato in PHP come le viste stat).
 function mostraContatori()
 {
     global $mysqli;
@@ -683,9 +684,8 @@ function mostraContatori()
     $pagina = isset($_GET['page']) ? (int)$_GET['page'] : 1;
     if ($pagina < 1)
         $pagina = 1;
-    $totRis = mysql_query_safe($mysqli, "SELECT COUNT(*) AS c FROM `contatori` WHERE attivo = 'T'");
-    $totRiga = mysqli_fetch_array($totRis);
-    $tot = $totRiga ? (int)$totRiga['c'] : 0;
+    $righe = contatori_totali($mysqli);
+    $tot = count($righe);
     $totPagine = max(1, (int)ceil($tot / $rpp));
     if ($pagina > $totPagine)
         $pagina = $totPagine;
@@ -696,13 +696,11 @@ function mostraContatori()
     }
     else
     {
-        $ris = db_select($mysqli, "SELECT id_contatore FROM `contatori` WHERE attivo = 'T' ORDER BY `nome` ASC LIMIT ?, ?", 'ii', array((int)$offset, (int)$rpp));
         echo '<table class="modifica-table">';
         echo '<thead><tr><th class="intestazione-tabella-descrizione">NOME PRODOTTO</th><th class="intestazione-tabella-quantita">QUANTITA VENDUTI</th></tr></thead>';
         echo '<tbody>';
-        while ($ris && ($riga = mysqli_fetch_array($ris)))
+        foreach (array_slice($righe, $offset, $rpp) as $c)
         {
-            $c = conta_prodotto((int)$riga['id_contatore'], $mysqli);
             echo '<tr><td class="cella-tabella-descrizione">' . htmlspecialchars($c['nome'], ENT_QUOTES, 'UTF-8') . '</td><td class="cella-tabella-quantita">' . ($c['totale'] + 0) . '</td></tr>';
         }
         echo '</tbody>';

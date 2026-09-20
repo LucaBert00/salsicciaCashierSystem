@@ -501,6 +501,23 @@ function conta_prodotto($id_contatore, $mysqli)
     return $ret;
 }
 
+// Tutti i contatori attivi con un UNICO statement GROUP BY (T25): niente
+// fan-out per prodotto di conta_prodotto. La finestra periodo e' per-contatore
+// nella ON di ordini (BINARY = confronto byte-esatto come il == "T" in PHP);
+// le righe senza ordine (data fuori finestra o orfane) danno o NULL e restano
+// fuori dalla SUM come nel join interno di prima. Ritorna lista
+// array(id_contatore, nome, totale float) in ordine di nome.
+function contatori_totali($mysqli)
+{
+    $ris = db_select($mysqli, "SELECT `c`.`id_contatore` AS `id_contatore`, `c`.`nome` AS `nome`, COALESCE(SUM(CASE WHEN `o`.`id_ordine` IS NULL THEN NULL ELSE (`r`.`quantita` * `pc`.`quantita`) END), 0) AS `totale` FROM `contatori` `c` LEFT JOIN `prodotti_contatori` `pc` ON `pc`.`id_contatore` = `c`.`id_contatore` LEFT JOIN `righe_ordini` `r` ON `r`.`id_prodotto` = `pc`.`id_prodotto` LEFT JOIN `ordini` `o` ON `o`.`id_ordine` = `r`.`id_ordine` AND (BINARY `c`.`controllo_periodo` <> 'T' OR `o`.`data_ora` BETWEEN `c`.`data_da` AND `c`.`data_a`) WHERE `c`.`attivo` = 'T' GROUP BY `c`.`id_contatore`, `c`.`nome` ORDER BY `c`.`nome` ASC");
+    $righe = array();
+    while($ris && ($riga = mysqli_fetch_array($ris)))
+    {
+        $righe[] = array('id_contatore' => (int)$riga['id_contatore'], 'nome' => $riga['nome'], 'totale' => (float)$riga['totale']);
+    }
+    return $righe;
+}
+
 function generaCardDegustazione($numero, $qta)
 {
     $top = 600;
