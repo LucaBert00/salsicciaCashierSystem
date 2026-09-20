@@ -11,13 +11,13 @@ if (empty($_SESSION['reserved_auth']))
 }
 
 //carica connessione mysqli e funzioni condivise
-require_once __DIR__ . '/../dbConnect.php';
+require_once __DIR__ . '/../../dbConnect.php';
 
 if (!defined('DEBUG'))
 {
     define('DEBUG', 0);
 }
-require_once __DIR__ . '/../funzioni.inc';
+require_once __DIR__ . '/../../funzioni.inc';
 
 //Gestisce logout e riporta al form di login
 if (isset($_GET['logout']))
@@ -231,7 +231,7 @@ function etichettaSiNo($flag)
 // default OFF se assente. "1" = barcode visibile/obbligatorio, "0" = nascosto con default '-'.
 function fieraAttiva()
 {
-    $contenuto = @file_get_contents(__DIR__ . '/../set.inc');
+    $contenuto = @file_get_contents(__DIR__ . '/../../set.inc');
     return $contenuto !== false && strpos($contenuto, 'define("MODALITA_FIERA", "1")') !== false;
 }
 

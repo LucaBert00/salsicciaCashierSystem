@@ -1,6 +1,6 @@
 label
 labelCards
-cmd/
+/cmd/
 last_id.inc
 salsiccia.sql
 salsiccia-*.sql
@@ -12,3 +12,12 @@ Thumbs.db
 fiscale_coda.log
 fiscale_inviati.log
 fiscale_mock.xml
+# T16: spool/coda/dump fuori docroot in storage/ (DocumentRoot -> public/).
+storage/label
+storage/labelCards
+storage/cmd/*
+!storage/cmd/.gitkeep
+storage/dumps/*
+!storage/dumps/.gitkeep
+storage/fiscale_*.log
+storage/fiscale_mock.xml

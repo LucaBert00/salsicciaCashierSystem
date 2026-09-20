@@ -9,9 +9,9 @@ if (empty($_SESSION['reserved_auth']))
     exit;
 }
 
-require_once __DIR__ . '/../dbConnect.php';
-require_once __DIR__ . '/../funzioni.inc';
-require_once __DIR__ . '/../backup.inc';
+require_once __DIR__ . '/../../dbConnect.php';
+require_once __DIR__ . '/../../funzioni.inc';
+require_once __DIR__ . '/../../backup.inc';
 
 $messaggioStato = '';
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['backup']))
@@ -26,7 +26,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['backup']))
         if (!empty($esito['ok']))
         {
             $messaggioStato = 'DUMP OK: ' . $esito['file']
-                . ($esito['outside'] ? ' (fuori docroot: copiare su USB)' : ' (backup/ transitoria: copiare su USB e cancellare)')
+                . ($esito['outside'] ? ' (fuori docroot: copiare su USB)' : ' (storage/ transitoria: copiare su USB e cancellare)')
                 . ' in ' . $esito['dir'];
         }
         else

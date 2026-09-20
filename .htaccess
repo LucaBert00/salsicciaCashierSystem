@@ -1,3 +1,7 @@
+# T16 belt-and-braces: la DocumentRoot fiera punta a public/ (questo file e'
+# fuori docroot e non serve piu da barriera primaria). .env/.inc/coda/spool
+# vivono in ../storage e in radice, mai in public/: /... 404 naturale.
+# Le regole sotto restano come seconda cintura per deploy con docroot=radice.
 # Si mantiene .htaccess come protezione: nega l'accesso HTTP diretto a dump, segreti
 # (.env), output di stampa e .git, che restano su filesystem per il flusso esistente
 # ma non devono mai essere scaricabili via web.

@@ -13,6 +13,22 @@ if (is_readable($f))
     }
 }
 
+// Cartella fuori docroot per spool/coda/log (T16: DocumentRoot -> public/).
+// env.inc resta alla radice (fuori docroot), quindi __DIR__ e' sempre la radice.
+function salsiccia_storage_dir(): string
+{
+    $d = __DIR__ . '/storage';
+    if (!is_dir($d))
+        @mkdir($d, 0770, true);
+    return $d;
+}
+
+// Path assoluto in storage/ per nomi spool/coda/log (solo basename, mai traversal).
+function salsiccia_storage_path(string $name): string
+{
+    return salsiccia_storage_dir() . '/' . basename($name);
+}
+
 // Gate stampa etichette (issue #54): unico punto di definizione della
 // tabella di verita' stampante/connessione/linguaggio. Usato sia dal gate
 // stampa_permessa in genera_file_stampa() (funzioni.inc) sia dal calcolo

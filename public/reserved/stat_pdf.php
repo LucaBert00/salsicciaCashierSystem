@@ -123,10 +123,10 @@ if (PHP_SAPI !== 'cli')
         exit;
     }
 
-    require_once __DIR__ . '/../dbConnect.php';
-    require_once __DIR__ . '/../set.inc';
-    require_once __DIR__ . '/stat_dati.inc';
-    require_once __DIR__ . '/fpdf/fpdf.php';
+    require_once __DIR__ . '/../../dbConnect.php';
+    require_once __DIR__ . '/../../set.inc';
+    require_once __DIR__ . '/../../reserved/stat_dati.inc';
+    require_once __DIR__ . '/../../reserved/fpdf/fpdf.php';
 
     $giorno = isset($_GET['giorno']) ? $_GET['giorno'] : date('Y-m-d');
     if (!stat_giorno_valido($giorno))

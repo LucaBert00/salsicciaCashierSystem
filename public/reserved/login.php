@@ -3,8 +3,8 @@
 // Stesso login di login.php ma funzionante: POST su se stesso, prepared statements, flag $_SESSION['reserved_auth'] per reserved/visualizza.php.
 session_start();
 
-require_once __DIR__ . '/../dbConnect.php';
-require_once __DIR__ . '/auth_password.inc';
+require_once __DIR__ . '/../../dbConnect.php';
+require_once __DIR__ . '/../../reserved/auth_password.inc';
 
 if (isset($_POST['bot']))
 {

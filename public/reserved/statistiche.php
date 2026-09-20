@@ -13,15 +13,15 @@ if (empty($_SESSION['reserved_auth']))
     exit;
 }
 
-require_once __DIR__ . '/../dbConnect.php';
-require_once __DIR__ . '/../set.inc';
+require_once __DIR__ . '/../../dbConnect.php';
+require_once __DIR__ . '/../../set.inc';
 
 if (!defined('DEBUG'))
 {
     define('DEBUG', 0);
 }
-require_once __DIR__ . '/../funzioni.inc';
-require_once __DIR__ . '/stat_dati.inc';
+require_once __DIR__ . '/../../funzioni.inc';
+require_once __DIR__ . '/../../reserved/stat_dati.inc';
 
 // Link a statistiche.php con parametri dati, gia url-encoded.
 function urlStat($params)

@@ -1,9 +1,9 @@
 <?php
 
-require_once 'set.inc';
-require_once 'dbConnect.php';
-require_once 'funzioni.inc';
-require_once 'fiscale.inc';
+require_once __DIR__ . '/set.inc';
+require_once __DIR__ . '/dbConnect.php';
+require_once __DIR__ . '/funzioni.inc';
+require_once __DIR__ . '/fiscale.inc';
 
 // Auth admin cassa (issue): sessione come reserved/login.php, mai code in URL.
 if (session_status() === PHP_SESSION_NONE)

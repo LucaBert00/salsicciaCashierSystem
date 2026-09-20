@@ -41,8 +41,8 @@ define("ONE_LABEL_PER_PRODUCT", "1");
 #"1" = prefisso "N.<id_ordine>" su ogni etichetta/riga, "0" = nascosto.
 #Letta in entrambi i rami (singoli e continuo).
 define("PRINT_ORDER_ID", "0");
-define("LABELS_FILE", "label");
-define("COMMAND_FILE", "cmd/cmd");
+define("LABELS_FILE", salsiccia_storage_path("label"));
+define("COMMAND_FILE", salsiccia_storage_dir() . "/cmd/cmd");
 
 #Stampante etichette: Zebra_Net = RETE+ZPL (unica combo RETE supportata),
 #vedi gate stampa_permessa in genera_file_stampa()

@@ -5,8 +5,8 @@ declare(strict_types=1);
 // Manuale, dal responsabile a cassa chiusa: niente cron, niente dump a ogni scontrino.
 // Strumento: mysqldump se disponibile, fallback dump via PHP se assente.
 // Credenziali solo da env SALSICCIA_DB_* (mai in chiaro qui); il dump non e'
-// mai raggiungibile via HTTP (fuori docroot; backup/ transitoria solo se fuori
-// non scrivibile, coperta da .htaccess dedicato + deny .sql in root).
+// mai raggiungibile via HTTP (storage/dumps fuori docroot, coperto da
+// .htaccess dedicato + deny .sql in root).
 // Env opzionali: SALSICCIA_DUMP_DIR (path assoluto fuori docroot),
 // SALSICCIA_MYSQLDUMP (path binario mysqldump).
 
@@ -24,15 +24,16 @@ function backup_config(): array
     );
 }
 
-// Default fuori docroot: sopra htdocs, mai dentro il docroot servito da Apache.
+// Default fuori docroot: storage/dumps alla radice (fuori docroot da T16,
+// DocumentRoot -> public/), mai dentro il docroot servito da Apache.
 function backup_default_dir(): string
 {
-    return dirname(dirname(__DIR__)) . '/salsiccia-backup';
+    return __DIR__ . '/storage/dumps';
 }
 
-// Cartella di destinazione: fuori docroot se scrivibile (verifica #96 su XAMPP
-// fiera: C:\xampp\salsiccia-backup OK), altrimenti backup/ transitoria in
-// docroot con deny (#91). Ritorna path assoluto + flag outside.
+// Cartella di destinazione: fuori docroot se scrivibile (storage/dumps;
+// SALSICCIA_DUMP_DIR assoluto per override fiera), altrimenti storage/dumps
+// transitoria con .htaccess deny. Ritorna path assoluto + flag outside.
 function backup_resolve_dir(array $cfg): array
 {
     $cand = ($cfg['dir'] !== '') ? $cfg['dir'] : backup_default_dir();
@@ -48,13 +49,13 @@ function backup_resolve_dir(array $cfg): array
     {
         return array('path' => $cand, 'outside' => true);
     }
-    $fb = __DIR__ . '/backup';
+    $fb = __DIR__ . '/storage/dumps';
     if (!is_dir($fb))
     {
         @mkdir($fb, 0770, true);
     }
     @file_put_contents($fb . '/.htaccess', "<IfModule mod_authz_core.c>\n  Require all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\n  Order allow,deny\n  Deny from all\n</IfModule>\n");
-    return array('path' => $fb, 'outside' => false);
+    return array('path' => $fb, 'outside' => true);
 }
 
 // Nome data-evento non indovinabile (#91): data + 8 hex random, solo basename.

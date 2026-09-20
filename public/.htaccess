@@ -1,0 +1,6 @@
+# T16: public/ e' la DocumentRoot fiera (DirectoryIndex index.php).
+# Niente deny per .env/.inc/coda qui: quei file vivono in ../storage (fuori
+# docroot) quindi /... 404 naturale, mai 403-via-htaccess. Il deny resta come
+# belt-and-braces nel .htaccess di radice + storage/.htaccess.
+Options -Indexes
+DirectoryIndex index.php

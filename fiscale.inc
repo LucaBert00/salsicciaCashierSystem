@@ -33,15 +33,18 @@ function fiscale_config(): array
     );
 }
 
-// Path assoluto consentito (test/mock fuori docroot) o nome file in docroot.
+// Path assoluto consentito (test/mock fuori docroot) o nome file in storage/
+// (fuori docroot da T16: DocumentRoot -> public/, mai piu in docroot).
 function fiscale_path(string $v): string
 {
+    if (!is_dir(__DIR__ . '/storage'))
+        @mkdir(__DIR__ . '/storage', 0770, true);
     $v = trim($v);
     if ($v === '')
-        return __DIR__ . '/fiscale_coda.log';
+        return __DIR__ . '/storage/fiscale_coda.log';
     if (preg_match('#^[A-Za-z]:[\\\\/]#', $v) || $v[0] === '/')
         return $v;
-    return __DIR__ . '/' . basename($v);
+    return __DIR__ . '/storage/' . basename($v);
 }
 
 // Builder puro su righe aggregate (iva, totale): testabile senza DB ne' rete.

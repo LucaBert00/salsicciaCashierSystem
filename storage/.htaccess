@@ -1,0 +1,9 @@
+# T16 belt-and-braces: storage/ e' fuori docroot (DocumentRoot -> public/) e non
+# deve mai essere servito, nemmeno se qualcuno lo espone per errore.
+<IfModule mod_authz_core.c>
+  Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+  Order allow,deny
+  Deny from all
+</IfModule>

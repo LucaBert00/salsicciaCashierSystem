@@ -564,7 +564,7 @@ function generaCardDegustazione($numero, $qta)
         }
     }
 
-    $pf = fopen("labelCards", "w")
+    $pf = fopen(__DIR__ . "/storage/labelCards", "w")
     or die("Impossibile aprire il file di stampa");
     fwrite($pf, $label, strlen($label));
 }
@@ -703,7 +703,7 @@ function etichetta_continua($righe, $numero_righe, $evento, $credits, $cassa, $n
                     // solo costanti set.inc, mai input utente; whitelist+escapeshellarg+log, niente @ silente.
                     if (preg_match('/^[A-Za-z0-9_-]+$/', PRINTER_NAME))
                     {
-                        $cmdCards = "lpr -P " . escapeshellarg(PRINTER_NAME) . " " . escapeshellarg("labelCards");
+                        $cmdCards = "lpr -P " . escapeshellarg(PRINTER_NAME) . " " . escapeshellarg(__DIR__ . "/storage/labelCards");
                         system($cmdCards, $rcCards);
                         if ($rcCards !== 0)
                             error_log("lpr labelCards fallito rc=$rcCards printer=" . PRINTER_NAME);
@@ -998,7 +998,8 @@ function get_product_label($parametri)
 function invia_file_stampa()
 {
     // nessun input GET/POST qui, solo costanti set.inc; whitelist+escapeshellarg+error_log.
-    if (!preg_match('/^[A-Za-z0-9_-]+$/', PRINTER_NAME) || !preg_match('/^[A-Za-z0-9_.-]+$/', LABELS_FILE))
+    // T16: LABELS_FILE e' assoluto in storage/, whitelist sul basename.
+    if (!preg_match('/^[A-Za-z0-9_-]+$/', PRINTER_NAME) || !preg_match('/^[A-Za-z0-9_.-]+$/', basename(LABELS_FILE)))
     {
         error_log("invia_file_stampa bloccato: costanti stampa non whitelistate");
         return false;
@@ -1036,8 +1037,8 @@ function ftpPut()
         return false;
     }
 
-    // upload a file
-    $ok = ftp_put($ftp, $file, $file, FTP_BINARY);
+    // upload a file (spool locale assoluto in storage/ da T16, nome remoto solo basename)
+    $ok = ftp_put($ftp, basename($file), $file, FTP_BINARY);
     if (!$ok)
         error_log("ftp_put fallito file=$file verso " . PRINTER_IP);
 
