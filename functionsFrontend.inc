@@ -64,25 +64,14 @@ gestisciAzioni();
 // Modalita' fiera (issue, consumata in): "1" = barcode visibile/obbligatorio, "0" = nascosto con default '-'.
 function isFieraAttiva()
 {
-    return defined('MODALITA_FIERA') && MODALITA_FIERA === "1";
+    return cassa_leggi_fiera();
 }
 
-// Scrive MODALITA_FIERA in set.inc (rewrite diretto, solo valori "0"/"1").
+// T17: scrive il flag in storage/cassa_flags.json via cassa_imposta_fiera()
+// (atomico, concorrente-safe); set.inc resta congelato read-only, mai rewrite.
 function impostaModalitaFiera($valore)
 {
-    $valore = $valore === "1" ? "1" : "0";
-    $file = __DIR__ . '/set.inc';
-    $righe = file($file);
-    foreach ($righe as &$riga)
-    {
-        $trim = ltrim($riga);
-        if (strpos($trim, '//') === 0 || strpos($trim, '#') === 0)
-            continue;
-        if (strpos($riga, 'define("MODALITA_FIERA"') !== false)
-            $riga = 'define("MODALITA_FIERA", "' . $valore . '");' . PHP_EOL;
-    }
-    unset($riga);
-    file_put_contents($file, implode('', $righe));
+    cassa_imposta_fiera($valore === "1" ? "1" : "0");
 }
 
 // Hex definitivi categorie cassa (decisi da Chiara in issue: 14 pastelli, niente nero,

@@ -21,3 +21,5 @@ storage/dumps/*
 !storage/dumps/.gitkeep
 storage/fiscale_*.log
 storage/fiscale_mock.xml
+# T17: flag fiera mutabile, mai in git (default in config/cassa.php).
+storage/cassa_flags.json

@@ -227,12 +227,11 @@ function etichettaSiNo($flag)
     }
 }
 
-// Modalita' fiera (issue): legge set.inc senza includerlo (set.inc ha side-effect fopen),
-// default OFF se assente. "1" = barcode visibile/obbligatorio, "0" = nascosto con default '-'.
+// Modalita' fiera (T17): legge lo store JSON via cassa_leggi_fiera() (env.inc
+// via dbConnect.php), mai parse di set.inc. "1" = barcode visibile/obbligatorio.
 function fieraAttiva()
 {
-    $contenuto = @file_get_contents(__DIR__ . '/../../set.inc');
-    return $contenuto !== false && strpos($contenuto, 'define("MODALITA_FIERA", "1")') !== false;
+    return function_exists('cassa_leggi_fiera') ? cassa_leggi_fiera() : false;
 }
 
 //Azioni riga protette 5 tab: nuovo/modifica/elimina con prepared.
