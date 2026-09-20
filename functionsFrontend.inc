@@ -247,22 +247,51 @@ function gestisciAzioni()
         }
         else
         {
-            // Nessun ordine aperto, creo uno nuovo
-            $query = "INSERT INTO ordini (data_ora, tipo, totale, n_pezzi, id_cassa, chiuso, num_biglietti) VALUES (NOW(), 'nor', '0', '0', $id_cassa, '0', 0)";
-            mysql_query_safe($mysqli, $query);
-            $id_ordine = mysqli_insert_id($mysqli);
-
-            $query = "SELECT * FROM prodotti WHERE id_prodotto = $id_prodotto";
-            $ris = mysql_query_safe($mysqli, $query);
-            $prodotto = mysqli_fetch_array($ris);
-            $pid = (int)$prodotto['id_prodotto'];
-            $ppz = (float)$prodotto['prezzo'];
-            $query = "INSERT INTO righe_ordini (id_ordine, id_prodotto, quantita, totale) VALUES ($id_ordine, $pid, '1', $ppz)";
-            mysql_query_safe($mysqli, $query);
+            // Nessun ordine aperto, creo uno nuovo (T06: INSERT ordini + INSERT righe atomici;
+            // effettivo su InnoDB da T21, su MyISAM baseline e' no-op senza effetti collaterali).
+            $mysqli->begin_transaction();
+            $nuovo_ok = false;
+            try
+            {
+                $query = "INSERT INTO ordini (data_ora, tipo, totale, n_pezzi, id_cassa, chiuso, num_biglietti) VALUES (NOW(), 'nor', '0', '0', $id_cassa, '0', 0)";
+                $nuovo_ok = mysql_query_safe($mysqli, $query);
+                $id_ordine = $nuovo_ok ? (int)mysqli_insert_id($mysqli) : 0;
+                if ($nuovo_ok && $id_ordine > 0)
+                {
+                    $query = "SELECT * FROM prodotti WHERE id_prodotto = $id_prodotto";
+                    $ris = mysql_query_safe($mysqli, $query);
+                    $prodotto = $ris ? mysqli_fetch_array($ris) : false;
+                    if ($prodotto)
+                    {
+                        $pid = (int)$prodotto['id_prodotto'];
+                        $ppz = (float)$prodotto['prezzo'];
+                        $query = "INSERT INTO righe_ordini (id_ordine, id_prodotto, quantita, totale) VALUES ($id_ordine, $pid, '1', $ppz)";
+                        $nuovo_ok = mysql_query_safe($mysqli, $query);
+                    }
+                    else
+                        $nuovo_ok = false;
+                }
+                else
+                    $nuovo_ok = false;
+            }
+            catch (Throwable)
+            {
+                // PHP8: query fallita lancia invece di tornare false; annulla come sopra.
+                $nuovo_ok = false;
+            }
+            if ($nuovo_ok)
+                $mysqli->commit();
+            else
+            {
+                $mysqli->rollback();
+                error_log('ordini: rollback nuovo ordine [T06]');
+                $id_ordine = 0;
+            }
         }
 
-        // ricalcolo ordine
-        calcolaTotali($id_prodotto, $id_ordine, $mysqli);
+        // ricalcolo ordine (saltato se il rollback ha annullato la creazione: niente orfani)
+        if ($id_ordine > 0)
+            calcolaTotali($id_prodotto, $id_ordine, $mysqli);
     }
 
     if ($action == 'mq' && isset($HTTP_GET_VARS['id']) && isset($HTTP_GET_VARS['qta']))
