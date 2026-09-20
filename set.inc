@@ -49,7 +49,14 @@ define("COMMAND_FILE", "cmd/cmd");
 define("PRINTER_NAME", "Zebra_Net");
 define("PRINTER_CONNECTION", "RETE");
 define("PRINTER_LANGUAGE", "ZPL");
-define("PRINTER_IP", getenv('SALSICCIA_PRINTER_IP') ?: "192.168.0.205");
+# T10 fail-closed: nessun fallback. Recovery: copia .env.example in .env.
+$__printer_ip = trim((string)getenv('SALSICCIA_PRINTER_IP'));
+if ($__printer_ip === '')
+{
+    http_response_code(500);
+    die('Configurazione mancante: SALSICCIA_PRINTER_IP non impostata. Copia .env.example in .env e compila i valori.');
+}
+define("PRINTER_IP", $__printer_ip);
 
 #Carta continua (scontrino unico) vs biglietti singoli: default dal gate unico
 #printer_is_continuous() in env.inc (stessa tabella di stampa_permessa in
@@ -98,7 +105,13 @@ if($remoteIP == REMOTE_CLIENT_IP)
     define("ID_CASSA", 100);
 else
     define("ID_CASSA", 1);
-define("PWD", getenv('SALSICCIA_ADMIN_PWD') ?: "@123*");
+$__admin_pwd = (string)getenv('SALSICCIA_ADMIN_PWD');
+if ($__admin_pwd === '')
+{
+    http_response_code(500);
+    die('Configurazione mancante: SALSICCIA_ADMIN_PWD non impostata. Copia .env.example in .env e compila i valori.');
+}
+define("PWD", $__admin_pwd);
 define("DATA_CONFRONTO", "2019-06-16 06:00:00");
 
 ?>

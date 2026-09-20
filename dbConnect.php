@@ -1,29 +1,14 @@
 <?php
 require_once __DIR__ . '/env.inc';
-// Issue [C3]: segreti da env con fallback fiera (niente nuove dipendenze).
-// Produzione: SALSICCIA_DB_* via env Apache/sistema; fiera XAMPP: fallback sotto.
-$dbName = getenv('SALSICCIA_DB_NAME');
-if (!$dbName)
+// T10 fail-closed: nessun fallback credenziali. Recovery: copia .env.example in .env.
+$dbName = trim((string)getenv('SALSICCIA_DB_NAME'));
+$dbHost = trim((string)getenv('SALSICCIA_DB_HOST'));
+$dbUser = trim((string)getenv('SALSICCIA_DB_USER'));
+$dbPassword = (string)getenv('SALSICCIA_DB_PASS');
+if ($dbHost === '' || $dbName === '' || $dbUser === '' || $dbPassword === '')
 {
-    $dbName = "salsiccia";
-}
-
-$dbHost = getenv('SALSICCIA_DB_HOST');
-if (!$dbHost)
-{
-    $dbHost = "localhost";
-}
-
-$dbUser = getenv('SALSICCIA_DB_USER');
-if (!$dbUser)
-{
-    $dbUser = "salsiccia";
-}
-
-$dbPassword = getenv('SALSICCIA_DB_PASS');
-if (!$dbPassword)
-{
-    $dbPassword = "Salsiccia@123";
+    http_response_code(500);
+    die('Configurazione mancante: SALSICCIA_DB_HOST/NAME/USER/PASS non impostate. Copia .env.example in .env e compila i valori.');
 }
 
 $mysqli = mysqli_connect($dbHost, $dbUser, $dbPassword,$dbName)
