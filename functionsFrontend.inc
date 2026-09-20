@@ -129,7 +129,7 @@ function gestisciAzioni()
             header("Location: index.php?action=c&ok=1&err=1");
             exit;
         }
-        if (hash_equals((string)PWD, (string)$_POST['code']))
+        if (password_verify((string)$_POST['code'], (string)PWD_HASH))
         {
             session_regenerate_id(true);
             $_SESSION['admin'] = true;

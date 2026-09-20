@@ -105,13 +105,14 @@ if($remoteIP == REMOTE_CLIENT_IP)
     define("ID_CASSA", 100);
 else
     define("ID_CASSA", 1);
-$__admin_pwd = (string)getenv('SALSICCIA_ADMIN_PWD');
-if ($__admin_pwd === '')
+$__admin_hash = trim((string)getenv('SALSICCIA_ADMIN_PWD_HASH'));
+if ($__admin_hash === '' || password_get_info($__admin_hash)['algo'] === null)
 {
     http_response_code(500);
-    die('Configurazione mancante: SALSICCIA_ADMIN_PWD non impostata. Copia .env.example in .env e compila i valori.');
+    die('Configurazione mancante: SALSICCIA_ADMIN_PWD_HASH non impostata o non valida. Genera con php -r "echo password_hash(\'CODICE\', PASSWORD_ARGON2ID), PHP_EOL;" e incolla l\'hash in .env.');
 }
-define("PWD", $__admin_pwd);
+define("PWD_HASH", $__admin_hash);
+unset($__admin_hash);
 define("DATA_CONFRONTO", "2019-06-16 06:00:00");
 
 ?>
