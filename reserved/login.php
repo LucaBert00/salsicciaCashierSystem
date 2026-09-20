@@ -4,6 +4,7 @@
 session_start();
 
 require_once __DIR__ . '/../dbConnect.php';
+require_once __DIR__ . '/auth_password.inc';
 
 if (isset($_POST['bot']))
 {
@@ -13,16 +14,31 @@ if (isset($_POST['bot']))
         header('Location: login.php?msg=er');
         exit;
     }
-    $stmt = $mysqli->prepare(
-        "SELECT user_id FROM `login` WHERE user_id = ? AND `PASSWORD` = CONCAT('*', UPPER(SHA1(UNHEX(SHA1(?)))))"
-    );
-    $stmt->bind_param('ss', $_POST['id'], $_POST['pwd']);
+    // T12: fetch-then-verify in PHP. Nuovi hash Argon2id via password_verify;
+    // righe legacy MySQL PASSWORD() accettate una volta e ri-hashate ad Argon2id
+    // (migrazione senza lockout). Nessun PASSWORD()/SHA1 in SQL.
+    $loginId = isset($_POST['id']) ? (string)$_POST['id'] : '';
+    $loginPwd = isset($_POST['pwd']) ? (string)$_POST['pwd'] : '';
+    $stored = null;
+    $stmt = $mysqli->prepare("SELECT `PASSWORD` FROM `login` WHERE user_id = ?");
+    $stmt->bind_param('s', $loginId);
     $stmt->execute();
-    $stmt->store_result();
+    $stmt->bind_result($stored);
+    $found = $stmt->fetch() && $stored !== null && $stored !== '';
+    $stmt->close();
 
-    if ($stmt->num_rows > 0)
+    $ok = $found && salsiccia_password_verify($loginPwd, (string)$stored);
+    if ($ok && salsiccia_password_needs_rehash((string)$stored))
     {
-        $stmt->close();
+        $newHash = salsiccia_password_hash($loginPwd);
+        $up = $mysqli->prepare("UPDATE `login` SET `PASSWORD` = ? WHERE user_id = ?");
+        $up->bind_param('ss', $newHash, $loginId);
+        $up->execute();
+        $up->close();
+    }
+
+    if ($ok)
+    {
         session_regenerate_id(true);
         $_SESSION['reserved_auth'] = true;
         unset($_SESSION['reserved_fail'], $_SESSION['reserved_block_until']);
@@ -30,7 +46,6 @@ if (isset($_POST['bot']))
     }
     else
     {
-        $stmt->close();
         $_SESSION['reserved_fail'] = isset($_SESSION['reserved_fail']) ? (int)$_SESSION['reserved_fail'] + 1 : 1;
         if ($_SESSION['reserved_fail'] >= 5)
         {
