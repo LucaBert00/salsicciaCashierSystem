@@ -226,6 +226,7 @@ function testo_biglietti($stringa)
                     $str2 = $array[1] ." ". $array[2] ." ". $array[3];
                 }
             }
+            break;
         case 5:
             if(strlen($array[0]) + strlen($array[1]) + strlen($array[2]) + strlen($array[3]) < 12)
             {
