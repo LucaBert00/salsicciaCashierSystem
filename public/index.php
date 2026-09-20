@@ -1,4 +1,4 @@
-<?php require_once __DIR__ . '/../functionsFrontend.inc'; ?>
+<?php declare(strict_types=1); require_once __DIR__ . '/../functionsFrontend.inc'; ?>
 <?php
 $action = isset($_GET['action']) ? $_GET['action'] : '';
 $isAdmin = isAdmin();

@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 // reserved/statistiche.php — tab riservata Statistiche: tabelle primarie per la fiera.
 // Deciso in #90: KPI tutto (incasso fine-giornata + per-prodotto + fasce + per-giorno),
 // tabella primaria e SVG secondario (SVG nel ticket dedicato), niente libchart,

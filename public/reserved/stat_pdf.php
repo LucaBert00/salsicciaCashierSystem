@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 // reserved/stat_pdf.php — export PDF della tab riservata Statistiche (#95).
 // Deciso in #90 (PDF = si): FPDF leggero dagli stessi dati della pagina
 // (stat_dati.inc, KPI tutto: incasso fine-giornata + per-prodotto + fasce +

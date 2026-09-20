@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 // public/reserved/visualizza.php — router sottile 5 tab (T20).
 // Config + delete/save/edit vivono in src/Backoffice/Tabs/*Tab.php: una diff di
 // un tab tocca un file. Lista/form in visualizza_view.php. Pipeline G3

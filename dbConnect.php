@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 require_once __DIR__ . '/env.inc';
 // T10 fail-closed: nessun fallback credenziali. Recovery: copia .env.example in .env.
 $dbName = trim((string)getenv('SALSICCIA_DB_NAME'));

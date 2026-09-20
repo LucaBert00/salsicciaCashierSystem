@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 require_once __DIR__ . '/set.inc';
 require_once __DIR__ . '/dbConnect.php';
@@ -416,7 +417,7 @@ function mostraOrdiniStandby()
         while ($riga = mysqli_fetch_array($ris))
         {
             $data = date('d/m/Y H:i:s', strtotime($riga['data_ora']));
-            $totale = number_format($riga['totale'], 2, ',', '.') . '&euro;';
+            $totale = number_format((float)$riga['totale'], 2, ',', '.') . '&euro;';
             $id_standby = (int)$riga['id_ordine'];
             echo '<tr>';
             echo "<td>{$id_standby}</td>";
@@ -460,7 +461,7 @@ function mostraBoxRiepilogo()
     if ($ris && mysqli_num_rows($ris) > 0)
     {
         $riga = mysqli_fetch_array($ris);
-        $totale = number_format($riga['totale'], 2, ',', '.');
+        $totale = number_format((float)$riga['totale'], 2, ',', '.');
         $id_ordine_box = (int)$riga['id_ordine'];
         echo "<div class=\"order-number\">ORDINE #{$id_ordine_box}</div>
               <div class=\"order-total\">
@@ -497,7 +498,7 @@ function mostraListaProdotti()
     {
         while ($riga = mysqli_fetch_array($ris))
         {
-            $prezzo = number_format($riga['totale'], 2, ',', '.');
+            $prezzo = number_format((float)$riga['totale'], 2, ',', '.');
             $desc = htmlspecialchars(strtoupper($riga['descrizione_prod']), ENT_QUOTES, 'UTF-8');
             $qta_lista = (int)$riga['quantita'];
             echo "<li>

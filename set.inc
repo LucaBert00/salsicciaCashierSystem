@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 require_once __DIR__ . '/env.inc';
 
 $HTTP_GET_VARS =& $_GET;

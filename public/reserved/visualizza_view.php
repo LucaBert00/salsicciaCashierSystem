@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 // Template condiviso lista/form 5 tab (T20). Si aspetta le variabili del
 // router public/reserved/visualizza.php ($configTabs, $tabConfig, $righe...).
 // I 4 wrapper delegano a VisualizzaStore cosi' il corpo resta byte-identico.

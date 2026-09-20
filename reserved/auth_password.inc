@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 // reserved/auth_password.inc — verifica password backoffice (T12).
 //
 // Nuovi hash: password_hash(..., PASSWORD_ARGON2ID) (~97 char).

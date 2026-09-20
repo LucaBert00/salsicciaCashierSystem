@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 // reserved/backup.php — bottone dump fine-giornata intero DB (Decide #91, Task #96).
 // Stesso auth + CSRF di visualizza.php (M1): login riservata, mutazioni solo
 // via POST con token. Scrive fuori docroot, mai path web-diretti.

@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 //define("DEBUG", 1);
 ini_set('display_errors', '0');
 ini_set('display_startup_errors', '0');
@@ -85,9 +86,10 @@ function printA($str)
     print "\n<script type=\"text/javascript\">alert(" . json_encode($str) . ");</script>\n";
 }
 
-function calcolaTotali($id_prodotto, $id_ordine, $mysqli, $in_txn = false)
+function calcolaTotali(int $id_prodotto, int $id_ordine, mysqli $mysqli, bool $in_txn = false): bool
 {
-    // cast difensivo, i chiamanti cassa passano gia (int) ma la firma resta weakly-typed per BC.
+    // cast difensivo, i chiamanti cassa passano gia (int); la firma typed (T22)
+    // rende ogni coercizione un TypeError forte in rehearsal, mai drift in fiera.
     $id_prodotto = (int)$id_prodotto;
     $id_ordine = (int)$id_ordine;
     // T08: $in_txn=true quando il chiamante (mq/mr) possiede gia' la transazione:
@@ -576,7 +578,7 @@ function generaCardDegustazione($numero, $qta)
 function etichetta_continua($righe, $numero_righe, $evento, $credits, $cassa, $now, $tipo_stampante)
 {
     $riga0 = $righe[0];
-    $totale = number_format($riga0['tot_ord'], 2, '.', '.');
+    $totale = number_format((float)$riga0['tot_ord'], 2, '.', '.');
     $top = 420 + ($numero_righe * 60);
     $label = "";
 
@@ -649,7 +651,7 @@ function etichetta_continua($righe, $numero_righe, $evento, $credits, $cassa, $n
             }
             $testo = rtrim($taglio);
             $quantita = $riga['quantita'];
-            $importo = number_format($riga['totale'], 2, '.', '.') . " $euro";
+            $importo = number_format((float)$riga['totale'], 2, '.', '.') . " $euro";
 
             $label .= "^FO35,$zpl_y^FB560,1,0,L^ADN,28^FDN.$quantita $testo^FS\n";
             $label .= "^FO610,$zpl_y^FB190,1,0,R^ADN,28^FD$importo^FS\n";
@@ -685,7 +687,7 @@ function etichetta_continua($righe, $numero_righe, $evento, $credits, $cassa, $n
         {
             $testo = str_replace(array('"', "\r", "\n"), '', strtoupper($riga['testo']));
             $quantita = $riga['quantita'];
-            $importo = number_format($riga['totale'], 2, '.', '.')."\xc3\x95";
+            $importo = number_format((float)$riga['totale'], 2, '.', '.')."\xc3\x95";
 
             $label .= "A800,$top1,2,1,1,2,N,\"N.$quantita $testo\"\n";
             if(strlen($importo) == 6) $importo = " ".$importo;
@@ -773,7 +775,7 @@ function genera_file_stampa($ris, $numero_righe)
         $righe = array();
         while($riga_tmp = mysqli_fetch_array($ris)) $righe[] = $riga_tmp;
         $id_ordine = $righe[0]['id_ordine'];
-        $totale = number_format($righe[0]['tot_ord'], 2, '.', '.');
+        $totale = number_format((float)$righe[0]['tot_ord'], 2, '.', '.');
         $now = date("d/m/y H:i");
         $ret_c = etichetta_continua($righe, $numero_righe, $evento, $credits, $cassa, $now, $tipo_stampante);
         $label = $ret_c['label'];
@@ -786,7 +788,7 @@ function genera_file_stampa($ris, $numero_righe)
 
         $riga_biglietto = mysqli_fetch_array($ris);
         $id_ordine = $riga_biglietto['id_ordine'];
-        $totale = number_format($riga_biglietto['tot_ord'], 2, '.', '.');
+        $totale = number_format((float)$riga_biglietto['tot_ord'], 2, '.', '.');
         $tipo = $riga_biglietto['tipo'];
         $t = "";
 

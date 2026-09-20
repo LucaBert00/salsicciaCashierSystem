@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 // reserved/login.php — ingresso area riservata
 // Stesso login di login.php ma funzionante: POST su se stesso, prepared statements, flag $_SESSION['reserved_auth'] per reserved/visualizza.php.
 session_start();

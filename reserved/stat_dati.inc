@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 // reserved/stat_dati.inc — strato dati condiviso della tab riservata Statistiche.
 // Spostato da statistiche.php (#93/#98) senza cambi di logica: stessi filtri,
 // stesse query parametrizzate, stessi KPI decisi in #90 (incasso fine-giornata

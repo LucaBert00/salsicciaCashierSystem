@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 // Carica .env (KEY=VALORE) nelle env di processo; le env reali (sistema/Apache) hanno precedenza.
 $f = __DIR__ . '/.env';
 if (is_readable($f))
