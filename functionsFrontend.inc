@@ -4,6 +4,7 @@ require_once __DIR__ . '/set.inc';
 require_once __DIR__ . '/dbConnect.php';
 require_once __DIR__ . '/funzioni.inc';
 require_once __DIR__ . '/fiscale.inc';
+require_once __DIR__ . '/src/Cassa/OrderService.php';
 
 // Auth admin cassa (issue): sessione come reserved/login.php, mai code in URL.
 if (session_status() === PHP_SESSION_NONE)
@@ -189,133 +190,21 @@ function gestisciAzioni()
     // GET resta lettura: prefetch/link non mutano mai l'ordine live.
     $post_ok = (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') && csrf_ok();
 
+    // Flussi ordine (T18): logica in Salsiccia\Cassa\OrderService con DB iniettato;
+    // qui resta solo HTTP/CSRF/redirect (thin caller).
     if ($action == 'r' && $post_ok) // annulla ordine
     {
-        $ris = db_select($mysqli, "SELECT id_ordine FROM ordini WHERE id_cassa = ? AND chiuso = '0'", 'i', array($id_cassa));
-        if ($ris && mysqli_num_rows($ris) == 1)
-        {
-            $id_ordine = mysqli_fetch_array($ris);
-            $id_ordine = (int)$id_ordine['id_ordine'];
-            db_exec($mysqli, "DELETE FROM ordini WHERE id_ordine = ? AND id_cassa = ? AND chiuso = '0'", 'ii', array($id_ordine, $id_cassa));
-            db_exec($mysqli, "DELETE FROM righe_ordini WHERE id_ordine = ?", 'i', array($id_ordine));
-        }
+        (new \Salsiccia\Cassa\OrderService($mysqli, (int)$id_cassa))->annullaOrdine();
     }
 
     if ($action == 'a' && $post_ok && isset($HTTP_GET_VARS['id'])) // aggiungi prodotto
     {
-        $id_prodotto = (int)$HTTP_GET_VARS['id'];
-
-        $ris = db_select($mysqli, "SELECT * FROM ordini WHERE id_cassa = ? AND chiuso = '0'", 'i', array($id_cassa));
-
-        if ($ris && mysqli_num_rows($ris) == 1)
-        {
-            //Ordine esiste recupero id_ordine
-            $id_ordine = mysqli_fetch_array($ris);
-            $id_ordine = (int)$id_ordine['id_ordine'];
-
-            $ris = db_select($mysqli, "SELECT * FROM righe_ordini WHERE id_ordine = ? AND id_prodotto = ?", 'ii', array($id_ordine, $id_prodotto));
-
-            if ($ris && mysqli_num_rows($ris) == 1)
-            {
-                //prodotto già presente incrementa
-                db_exec($mysqli, "UPDATE righe_ordini SET quantita = quantita + 1 WHERE id_ordine = ? AND id_prodotto = ?", 'ii', array($id_ordine, $id_prodotto));
-            }
-            else
-            {
-                // Nuovo prodotto inserimento riga
-                $ris = db_select($mysqli, "SELECT * FROM prodotti WHERE id_prodotto = ?", 'i', array($id_prodotto));
-                $prodotto = $ris ? mysqli_fetch_array($ris) : false;
-                if ($prodotto)
-                {
-                    $pid = (int)$prodotto['id_prodotto'];
-                    $ppz = (float)$prodotto['prezzo'];
-                    db_exec($mysqli, "INSERT INTO righe_ordini (id_ordine, id_prodotto, quantita, totale) VALUES (?, ?, '1', ?)", 'iid', array($id_ordine, $pid, $ppz));
-                }
-            }
-        }
-        else
-        {
-            // Nessun ordine aperto, creo uno nuovo (T06: INSERT ordini + INSERT righe atomici;
-            // effettivo su InnoDB da T21, su MyISAM baseline e' no-op senza effetti collaterali).
-            $mysqli->begin_transaction();
-            $nuovo_ok = false;
-            try
-            {
-                $nuovo_ok = db_exec($mysqli, "INSERT INTO ordini (data_ora, tipo, totale, n_pezzi, id_cassa, chiuso, num_biglietti) VALUES (NOW(), 'nor', '0', '0', ?, '0', 0)", 'i', array($id_cassa));
-                $id_ordine = $nuovo_ok ? (int)mysqli_insert_id($mysqli) : 0;
-                if ($nuovo_ok && $id_ordine > 0)
-                {
-                    $ris = db_select($mysqli, "SELECT * FROM prodotti WHERE id_prodotto = ?", 'i', array($id_prodotto));
-                    $prodotto = $ris ? mysqli_fetch_array($ris) : false;
-                    if ($prodotto)
-                    {
-                        $pid = (int)$prodotto['id_prodotto'];
-                        $ppz = (float)$prodotto['prezzo'];
-                        $nuovo_ok = db_exec($mysqli, "INSERT INTO righe_ordini (id_ordine, id_prodotto, quantita, totale) VALUES (?, ?, '1', ?)", 'iid', array($id_ordine, $pid, $ppz));
-                    }
-                    else
-                        $nuovo_ok = false;
-                }
-                else
-                    $nuovo_ok = false;
-            }
-            catch (Throwable)
-            {
-                // PHP8: query fallita lancia invece di tornare false; annulla come sopra.
-                $nuovo_ok = false;
-            }
-            if ($nuovo_ok)
-                $mysqli->commit();
-            else
-            {
-                $mysqli->rollback();
-                error_log('ordini: rollback nuovo ordine [T06]');
-                $id_ordine = 0;
-            }
-        }
-
-        // ricalcolo ordine (saltato se il rollback ha annullato la creazione: niente orfani)
-        if ($id_ordine > 0)
-            calcolaTotali($id_prodotto, $id_ordine, $mysqli);
+        (new \Salsiccia\Cassa\OrderService($mysqli, (int)$id_cassa))->aggiungiProdotto((int)$HTTP_GET_VARS['id']);
     }
 
     if ($action == 'mq' && $post_ok && isset($HTTP_GET_VARS['id']) && isset($HTTP_GET_VARS['qta']))
     {
-        $id_prodotto = (int)$HTTP_GET_VARS['id'];
-        $qta = (int)$HTTP_GET_VARS['qta'];
-
-        if ($qta > 0)
-        {
-            $ris = db_select($mysqli, "SELECT id_ordine FROM ordini WHERE id_cassa = ? AND chiuso = '0'", 'i', array($id_cassa));
-            if ($ris && mysqli_num_rows($ris) == 1)
-            {
-                $riga = mysqli_fetch_array($ris);
-                $id_ordine = (int)$riga['id_ordine'];
-                // T08: UPDATE quantita + ricalcolo totali in un'unica transazione
-                // (effettiva su InnoDB da T21, no-op su MyISAM baseline); il ricalcolo
-                // riusa la transazione esterna ($in_txn) per non fare implicit commit.
-                $mysqli->begin_transaction();
-                $mq_ok = false;
-                try
-                {
-                    $mq_ok = db_exec($mysqli, "UPDATE righe_ordini SET quantita = ? WHERE id_ordine = ? AND id_prodotto = ?", 'iii', array($qta, $id_ordine, $id_prodotto));
-                    if ($mq_ok)
-                        $mq_ok = calcolaTotali($id_prodotto, $id_ordine, $mysqli, true);
-                }
-                catch (Throwable)
-                {
-                    // PHP8: query fallita lancia invece di tornare false; annulla come sopra.
-                    $mq_ok = false;
-                }
-                if ($mq_ok)
-                    $mysqli->commit();
-                else
-                {
-                    $mysqli->rollback();
-                    error_log("mq: rollback id_ordine=$id_ordine [T08]");
-                }
-            }
-        }
+        (new \Salsiccia\Cassa\OrderService($mysqli, (int)$id_cassa))->impostaQuantita((int)$HTTP_GET_VARS['id'], (int)$HTTP_GET_VARS['qta']);
 
         header("Location: ?action=m");
         exit;
@@ -323,35 +212,7 @@ function gestisciAzioni()
 
     if ($action == 'mr' && $post_ok && isset($HTTP_GET_VARS['id']))
     {
-        $id_prodotto = (int)$HTTP_GET_VARS['id'];
-
-        $ris = db_select($mysqli, "SELECT id_ordine FROM ordini WHERE id_cassa = ? AND chiuso = '0'", 'i', array($id_cassa));
-        if ($ris && mysqli_num_rows($ris) == 1)
-        {
-            $riga = mysqli_fetch_array($ris);
-            $id_ordine = (int)$riga['id_ordine'];
-            // T08: DELETE riga + ricalcolo totali in un'unica transazione (come mq sopra).
-            $mysqli->begin_transaction();
-            $mr_ok = false;
-            try
-            {
-                $mr_ok = db_exec($mysqli, "DELETE FROM righe_ordini WHERE id_ordine = ? AND id_prodotto = ?", 'ii', array($id_ordine, $id_prodotto));
-                if ($mr_ok)
-                    $mr_ok = calcolaTotali($id_prodotto, $id_ordine, $mysqli, true);
-            }
-            catch (Throwable)
-            {
-                // PHP8: query fallita lancia invece di tornare false; annulla come sopra.
-                $mr_ok = false;
-            }
-            if ($mr_ok)
-                $mysqli->commit();
-            else
-            {
-                $mysqli->rollback();
-                error_log("mr: rollback id_ordine=$id_ordine [T08]");
-            }
-        }
+        (new \Salsiccia\Cassa\OrderService($mysqli, (int)$id_cassa))->rimuoviRiga((int)$HTTP_GET_VARS['id']);
 
         header("Location: ?action=m");
         exit;
@@ -359,24 +220,7 @@ function gestisciAzioni()
 
     if ($action == 'st' && $post_ok && isset($HTTP_GET_VARS['t']))
     {
-        $tipo = $HTTP_GET_VARS['t'];
-        $validi = array('nor', 'pre', 'mus', 'stf', 'asp');
-
-        if (in_array($tipo, $validi))
-        {
-            $ris = db_select($mysqli, "SELECT id_ordine FROM ordini WHERE id_cassa = ? AND chiuso = '0'", 'i', array($id_cassa));
-
-            if ($ris && mysqli_num_rows($ris) == 1)
-            {
-                $riga = mysqli_fetch_array($ris);
-                $id_ordine = (int)$riga['id_ordine'];
-                db_exec($mysqli, "UPDATE ordini SET tipo = ? WHERE id_ordine = ?", 'si', array($tipo, $id_ordine));
-            }
-            else
-            {
-                db_exec($mysqli, "INSERT INTO ordini (data_ora, tipo, totale, n_pezzi, id_cassa, chiuso, num_biglietti) VALUES (NOW(), ?, '0', '0', ?, '0', 0)", 'si', array($tipo, $id_cassa));
-            }
-        }
+        (new \Salsiccia\Cassa\OrderService($mysqli, (int)$id_cassa))->impostaTipo((string)$HTTP_GET_VARS['t']);
 
         header("Location: ?action=o");
         exit;
@@ -384,21 +228,14 @@ function gestisciAzioni()
 
     if ($action == 'sb' && $post_ok) // set ordine in standby
     {
-        $ris = db_select($mysqli, "SELECT id_ordine FROM ordini WHERE id_cassa = ? AND chiuso = '0'", 'i', array($id_cassa));
-        if ($ris && mysqli_num_rows($ris) == 1)
-        {
-            $riga = mysqli_fetch_array($ris);
-            $id_ordine = (int)$riga['id_ordine'];
-            db_exec($mysqli, "UPDATE ordini SET chiuso = 'S' WHERE id_ordine = ?", 'i', array($id_ordine));
-        }
+        (new \Salsiccia\Cassa\OrderService($mysqli, (int)$id_cassa))->mettiStandby();
         header("Location: index.php");
         exit;
     }
 
     if ($action == 'ra' && $post_ok && isset($HTTP_GET_VARS['id'])) // reactivate da standby
     {
-        $id_ordine = (int)$HTTP_GET_VARS['id'];
-        db_exec($mysqli, "UPDATE ordini SET chiuso = '0' WHERE id_ordine = ? AND id_cassa = ? AND chiuso = 'S'", 'ii', array($id_ordine, $id_cassa));
+        (new \Salsiccia\Cassa\OrderService($mysqli, (int)$id_cassa))->riattiva((int)$HTTP_GET_VARS['id']);
         header("Location: index.php");
         exit;
     }
