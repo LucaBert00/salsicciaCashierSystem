@@ -48,18 +48,23 @@ function printA($str)
     print "\n<script type=\"text/javascript\">alert(" . json_encode($str) . ");</script>\n";
 }
 
-function calcolaTotali($id_prodotto, $id_ordine, $mysqli)
+function calcolaTotali($id_prodotto, $id_ordine, $mysqli, $in_txn = false)
 {
     // cast difensivo, i chiamanti cassa passano gia (int) ma la firma resta weakly-typed per BC.
     $id_prodotto = (int)$id_prodotto;
     $id_ordine = (int)$id_ordine;
+    // T08: $in_txn=true quando il chiamante (mq/mr) possiede gia' la transazione:
+    // niente begin/commit/rollback interni (un begin annidato farebbe implicit commit
+    // su InnoDB), l'esito torna al chiamante. Ritorna bool per la catena esterna.
+    $ok = false;
     if(isSet($id_prodotto))
     {
         // T07: catena SELECT->UPDATE->SELECT->UPDATE in un'unica transazione; la riga
         // ordini padre e' bloccata via SELECT ... FOR UPDATE dove il motore lo permette
         // (effettivo su InnoDB da T21, no-op su MyISAM baseline). Ordine di lock costante
         // padre->figlio anti-deadlock; niente retry interno, il prossimo tap ricalcola.
-        $mysqli->begin_transaction();
+        if (!$in_txn)
+            $mysqli->begin_transaction();
         $ok = true;
         try
         {
@@ -116,6 +121,8 @@ function calcolaTotali($id_prodotto, $id_ordine, $mysqli)
             // PHP8: query fallita lancia invece di tornare false; annulla come sopra.
             $ok = false;
         }
+        if ($in_txn)
+            return $ok; // commit/rollback al chiamante (mq/mr, T08).
         if ($ok)
             $mysqli->commit();
         else
@@ -124,6 +131,8 @@ function calcolaTotali($id_prodotto, $id_ordine, $mysqli)
             error_log("calcolaTotali: rollback id_ordine=$id_ordine [T07]");
         }
     }
+
+    return $ok;
 
 }
 

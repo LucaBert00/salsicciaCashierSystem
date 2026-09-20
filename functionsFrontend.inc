@@ -307,9 +307,30 @@ function gestisciAzioni()
             {
                 $riga = mysqli_fetch_array($ris);
                 $id_ordine = (int)$riga['id_ordine'];
-                $query = "UPDATE righe_ordini SET quantita = $qta WHERE id_ordine = $id_ordine AND id_prodotto = $id_prodotto";
-                mysql_query_safe($mysqli, $query);
-                calcolaTotali($id_prodotto, $id_ordine, $mysqli);
+                // T08: UPDATE quantita + ricalcolo totali in un'unica transazione
+                // (effettiva su InnoDB da T21, no-op su MyISAM baseline); il ricalcolo
+                // riusa la transazione esterna ($in_txn) per non fare implicit commit.
+                $mysqli->begin_transaction();
+                $mq_ok = false;
+                try
+                {
+                    $query = "UPDATE righe_ordini SET quantita = $qta WHERE id_ordine = $id_ordine AND id_prodotto = $id_prodotto";
+                    $mq_ok = (bool)mysql_query_safe($mysqli, $query);
+                    if ($mq_ok)
+                        $mq_ok = calcolaTotali($id_prodotto, $id_ordine, $mysqli, true);
+                }
+                catch (Throwable)
+                {
+                    // PHP8: query fallita lancia invece di tornare false; annulla come sopra.
+                    $mq_ok = false;
+                }
+                if ($mq_ok)
+                    $mysqli->commit();
+                else
+                {
+                    $mysqli->rollback();
+                    error_log("mq: rollback id_ordine=$id_ordine [T08]");
+                }
             }
         }
 
@@ -327,9 +348,28 @@ function gestisciAzioni()
         {
             $riga = mysqli_fetch_array($ris);
             $id_ordine = (int)$riga['id_ordine'];
-            $query = "DELETE FROM righe_ordini WHERE id_ordine = $id_ordine AND id_prodotto = $id_prodotto";
-            mysql_query_safe($mysqli, $query);
-            calcolaTotali($id_prodotto, $id_ordine, $mysqli);
+            // T08: DELETE riga + ricalcolo totali in un'unica transazione (come mq sopra).
+            $mysqli->begin_transaction();
+            $mr_ok = false;
+            try
+            {
+                $query = "DELETE FROM righe_ordini WHERE id_ordine = $id_ordine AND id_prodotto = $id_prodotto";
+                $mr_ok = (bool)mysql_query_safe($mysqli, $query);
+                if ($mr_ok)
+                    $mr_ok = calcolaTotali($id_prodotto, $id_ordine, $mysqli, true);
+            }
+            catch (Throwable)
+            {
+                // PHP8: query fallita lancia invece di tornare false; annulla come sopra.
+                $mr_ok = false;
+            }
+            if ($mr_ok)
+                $mysqli->commit();
+            else
+            {
+                $mysqli->rollback();
+                error_log("mr: rollback id_ordine=$id_ordine [T08]");
+            }
         }
 
         header("Location: ?action=m");
