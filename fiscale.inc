@@ -1,5 +1,7 @@
 <?php
 declare(strict_types=1);
+if (!function_exists('cassa_log'))
+    require_once __DIR__ . '/env.inc';
 
 // Scontrino fiscale via registratore Print!F RT (mappa #87, Decide #88, Task #92).
 // Protocollo Custom su /service.cgi (research #89): POST form data=<Service> con
@@ -8,7 +10,7 @@ declare(strict_types=1);
 // La cassa non si blocca mai: ogni errore/timeout finisce in coda e la vendita
 // prosegue. Hardening #97: trasporto isolato in fiscale_trasmetti (mai code),
 // retry limitato via fiscale_ritenta_coda (anche in automatico dopo un invio
-// riuscito, mai quando il registratore e' giu), error_log solo con codici.
+// riuscito, mai quando il registratore e' giu), cassa_log solo con codici.
 // Test senza hardware via mock su file + sender iniettabile nel retry.
 // Env (mai IP fisso in codice, mai credenziali: il protocollo non ne usa):
 //   SALSICCIA_FISCALE_IP (vuoto = fiscale disabilitato, nessun default)
@@ -38,7 +40,7 @@ function fiscale_config(): array
 function fiscale_path(string $v): string
 {
     if (!is_dir(__DIR__ . '/storage'))
-        @mkdir(__DIR__ . '/storage', 0770, true);
+        mkdir(__DIR__ . '/storage', 0770, true);
     $v = trim($v);
     if ($v === '')
         return __DIR__ . '/storage/fiscale_coda.log';
@@ -87,13 +89,14 @@ function fiscale_parse_stato(string $resp): array
 
 // Trasporto puro: un solo tentativo verso il registratore, mai code, mai eccezioni.
 // Ritorna ['ok'=>true,'mock'=>true] | ['ok'=>true,'stato'=>...]
-// oppure ['ok'=>false,'motivo'=>...,'log'=>riga gia' sanificata per error_log].
+// oppure ['ok'=>false,'motivo'=>...,'log'=>riga gia' sanificata per cassa_log].
 // 'log' contiene solo codici di stato, mai XML ne' dati del documento.
 function fiscale_trasmetti(string $xml, array $cfg): array
 {
     if (!empty($cfg['mock']))
     {
-        @file_put_contents((string)$cfg['mock_file'], $xml . "\n", FILE_APPEND | LOCK_EX);
+        if (file_put_contents((string)$cfg['mock_file'], $xml . "\n", FILE_APPEND | LOCK_EX) === false)
+            cassa_log('warning', 'fiscale mock scrittura fallita');
         return array('ok' => true, 'mock' => true);
     }
     $ip = (string)($cfg['ip'] ?? '');
@@ -131,7 +134,7 @@ function fiscale_invia(string $xml, array $cfg, int $id_ordine = 0, string $meto
         if (($t['motivo'] ?? '') === 'non configurato')
             return array('ok' => false, 'skipped' => true, 'msg' => 'fiscale non configurato');
         if (!empty($t['log']))
-            error_log((string)$t['log']);
+            cassa_log('warning', (string)$t['log']);
         return fiscale_fallback($cfg, $id_ordine, $metodo, $xml, (string)($t['motivo'] ?? 'trasmissione'));
     }
     unset($t['motivo'], $t['log']);
@@ -142,8 +145,8 @@ function fiscale_invia(string $xml, array $cfg, int $id_ordine = 0, string $meto
 function fiscale_fallback(array $cfg, int $id_ordine, string $metodo, string $xml, string $motivo): array
 {
     $riga = json_encode(array('ts' => date('c'), 'id_ordine' => $id_ordine, 'metodo' => $metodo, 'motivo' => $motivo, 'xml' => $xml));
-    if (is_string($riga))
-        @file_put_contents((string)$cfg['queue_file'], $riga . "\n", FILE_APPEND | LOCK_EX);
+    if (is_string($riga) && file_put_contents((string)$cfg['queue_file'], $riga . "\n", FILE_APPEND | LOCK_EX) === false)
+        cassa_log('error', 'fiscale coda scrittura fallita id_ordine=' . $id_ordine);
     return array('ok' => false, 'fallback' => true, 'msg' => $motivo);
 }
 
@@ -157,8 +160,15 @@ function fiscale_ritenta_coda(array $cfg, $trasmetti = null, int $max = 10): arr
 {
     $esito = array('inviati' => 0, 'residui' => 0, 'scarti' => 0);
     $qf = (string)$cfg['queue_file'];
-    $righe = @file($qf, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    if (!is_array($righe) || $righe === array())
+    if (!is_file($qf))
+        return $esito;
+    $righe = file($qf, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    if (!is_array($righe))
+    {
+        cassa_log('warning', 'fiscale coda lettura fallita');
+        return $esito;
+    }
+    if ($righe === array())
         return $esito;
     if ($max < 1)
         $max = 1;
@@ -183,14 +193,15 @@ function fiscale_ritenta_coda(array $cfg, $trasmetti = null, int $max = 10): arr
         if (is_array($t) && !empty($t['ok']))
         {
             $riga = json_encode(array('ts' => date('c'), 'id_ordine' => (int)($j['id_ordine'] ?? 0), 'metodo' => (string)($j['metodo'] ?? 'contanti'), 'retry' => true));
-            if (is_string($riga))
-                @file_put_contents((string)$cfg['sent_file'], $riga . "\n", FILE_APPEND | LOCK_EX);
+            if (is_string($riga) && file_put_contents((string)$cfg['sent_file'], $riga . "\n", FILE_APPEND | LOCK_EX) === false)
+                cassa_log('warning', 'fiscale inviati scrittura fallita');
             $esito['inviati']++;
         }
         else
             $resta[] = $line;
     }
-    @file_put_contents($qf, $resta === array() ? '' : implode("\n", $resta) . "\n", LOCK_EX);
+    if (file_put_contents($qf, $resta === array() ? '' : implode("\n", $resta) . "\n", LOCK_EX) === false)
+        cassa_log('error', 'fiscale coda rewrite fallita');
     $esito['residui'] = count($resta);
     return $esito;
 }
@@ -200,7 +211,12 @@ function fiscale_gia_emesso(array $cfg, int $id_ordine): bool
 {
     foreach (array((string)$cfg['sent_file'], (string)$cfg['queue_file']) as $f)
     {
-        foreach (@file($f, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: array() as $line)
+        if (!is_readable($f))
+            continue;
+        $lines = file($f, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        if (!is_array($lines))
+            continue;
+        foreach ($lines as $line)
         {
             $j = json_decode($line, true);
             if (is_array($j) && (int)($j['id_ordine'] ?? 0) === $id_ordine)
@@ -224,13 +240,13 @@ function fiscale_emetti_scontrino(mysqli $db, int $id_ordine, string $metodo = '
     $stmt = $db->prepare("SELECT SUM(righe_ordini.totale) AS totale, prodotti.iva AS iva FROM righe_ordini, prodotti WHERE righe_ordini.id_prodotto = prodotti.id_prodotto AND righe_ordini.id_ordine = ? GROUP BY prodotti.iva");
     if ($stmt === false)
     {
-        error_log('fiscale: prepare fallito, coda');
+        cassa_log('error', 'fiscale: prepare fallito, coda');
         return fiscale_fallback($cfg, $id_ordine, $metodo, '', 'prepare');
     }
     $stmt->bind_param('i', $id_ordine);
     if (!$stmt->execute())
     {
-        error_log('fiscale: query fallita, coda');
+        cassa_log('error', 'fiscale: query fallita, coda');
         $stmt->close();
         return fiscale_fallback($cfg, $id_ordine, $metodo, '', 'query');
     }
@@ -244,14 +260,14 @@ function fiscale_emetti_scontrino(mysqli $db, int $id_ordine, string $metodo = '
     if (!empty($esito['ok']))
     {
         $riga = json_encode(array('ts' => date('c'), 'id_ordine' => $id_ordine, 'metodo' => $metodo) + (!empty($esito['mock']) ? array('mock' => true) : array()));
-        if (is_string($riga))
-            @file_put_contents((string)$cfg['sent_file'], $riga . "\n", FILE_APPEND | LOCK_EX);
+        if (is_string($riga) && file_put_contents((string)$cfg['sent_file'], $riga . "\n", FILE_APPEND | LOCK_EX) === false)
+            cassa_log('warning', 'fiscale inviati scrittura fallita');
         // Il registratore ha appena risposto: drenare la coda ora costa poco.
         // Se invece avesse fallito non saremmo qui dentro: nessuna attesa
         // aggiuntiva a registratore spento e nessuna latenza in cassa.
         $dren = fiscale_ritenta_coda($cfg);
         if ($dren['inviati'] + $dren['residui'] + $dren['scarti'] > 0)
-            error_log('fiscale: coda drenata inviati=' . $dren['inviati'] . ' residui=' . $dren['residui'] . ' scarti=' . $dren['scarti']);
+            cassa_log('info', 'fiscale: coda drenata inviati=' . $dren['inviati'] . ' residui=' . $dren['residui'] . ' scarti=' . $dren['scarti']);
     }
     return $esito;
 }

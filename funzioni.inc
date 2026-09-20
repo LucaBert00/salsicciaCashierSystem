@@ -1,5 +1,7 @@
 <?php
 declare(strict_types=1);
+if (!function_exists('cassa_log'))
+    require_once __DIR__ . '/env.inc';
 //define("DEBUG", 1);
 ini_set('display_errors', '0');
 ini_set('display_startup_errors', '0');
@@ -162,7 +164,7 @@ function calcolaTotali(int $id_prodotto, int $id_ordine, mysqli $mysqli, bool $i
         else
         {
             $mysqli->rollback();
-            error_log("calcolaTotali: rollback id_ordine=$id_ordine [T07]");
+            cassa_log('warning', "calcolaTotali: rollback id_ordine=$id_ordine [T07]");
         }
     }
 
@@ -240,19 +242,19 @@ function testo_biglietti($stringa)
                 if(strlen($array[0]) + strlen($array[1]) + strlen($array[2]) < 12)
                 {
                     $str1 = $array[0] ." ". $array[1] ." ". $array[2];
-                    @$str2 = $array[3] ." ". $array[4];
+                        $str2 = $array[3] ." ". $array[4];
                 }
                 else
                 {
                     if(strlen($array[0]) + strlen($array[1]) < 12)
                     {
                         $str1 = $array[0] ." ". $array[1];
-                        @$str2 = $array[2] ." ". $array[3] ." ". $array[4];
+                        $str2 = $array[2] ." ". $array[3] ." ". $array[4];
                     }
                     else
                     {
                         $str1 = $array[0];
-                        @$str2 = $array[1] ." ". $array[2] ." ". $array[3] ." ". $array[4];
+                        $str2 = $array[1] ." ". $array[2] ." ". $array[3] ." ". $array[4];
                     }
                 }
             }
@@ -708,10 +710,10 @@ function etichetta_continua($righe, $numero_righe, $evento, $credits, $cassa, $n
                         $cmdCards = "lpr -P " . escapeshellarg(PRINTER_NAME) . " " . escapeshellarg(__DIR__ . "/storage/labelCards");
                         system($cmdCards, $rcCards);
                         if ($rcCards !== 0)
-                            error_log("lpr labelCards fallito rc=$rcCards printer=" . PRINTER_NAME);
+                            cassa_log('error', "lpr labelCards fallito rc=$rcCards printer=" . PRINTER_NAME);
                     }
                     else
-                        error_log("lpr labelCards bloccato: PRINTER_NAME non whitelistato");
+                        cassa_log('warning', "lpr labelCards bloccato: PRINTER_NAME non whitelistato");
                 }
             }
         }
@@ -1003,7 +1005,7 @@ function invia_file_stampa()
     // T16: LABELS_FILE e' assoluto in storage/, whitelist sul basename.
     if (!preg_match('/^[A-Za-z0-9_-]+$/', PRINTER_NAME) || !preg_match('/^[A-Za-z0-9_.-]+$/', basename(LABELS_FILE)))
     {
-        error_log("invia_file_stampa bloccato: costanti stampa non whitelistate");
+        cassa_log('warning', "invia_file_stampa bloccato: costanti stampa non whitelistate");
         return false;
     }
     if (PRINTER_CONNECTION == "DIRETTA")
@@ -1011,7 +1013,7 @@ function invia_file_stampa()
         $cmd = "lpr -P " . escapeshellarg(PRINTER_NAME) . " " . escapeshellarg(LABELS_FILE);
         system($cmd, $rc);
         if ($rc !== 0)
-            error_log("lpr fallito rc=$rc printer=" . PRINTER_NAME . " file=" . LABELS_FILE);
+            cassa_log('error', "lpr fallito rc=$rc printer=" . PRINTER_NAME . " file=" . LABELS_FILE);
         return $rc === 0;
     }
     return ftpPut();
@@ -1027,14 +1029,14 @@ function ftpPut()
     $ftp = ftp_connect(PRINTER_IP, 21, 5);
     if ($ftp === false)
     {
-        error_log("ftp_connect fallito verso " . PRINTER_IP);
+        cassa_log('error', "ftp_connect fallito verso " . PRINTER_IP);
         return false;
     }
 
     // login with username and password
     if (!ftp_login($ftp, "", ""))
     {
-        error_log("ftp_login anonimo fallito verso " . PRINTER_IP);
+        cassa_log('error', "ftp_login anonimo fallito verso " . PRINTER_IP);
         ftp_close($ftp);
         return false;
     }
@@ -1042,7 +1044,7 @@ function ftpPut()
     // upload a file (spool locale assoluto in storage/ da T16, nome remoto solo basename)
     $ok = ftp_put($ftp, basename($file), $file, FTP_BINARY);
     if (!$ok)
-        error_log("ftp_put fallito file=$file verso " . PRINTER_IP);
+        cassa_log('error', "ftp_put fallito file=$file verso " . PRINTER_IP);
 
     // close the connection
     ftp_close($ftp);

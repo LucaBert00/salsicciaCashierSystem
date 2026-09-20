@@ -97,7 +97,7 @@ final class OrderService
                 $db->commit();
             } else {
                 $db->rollback();
-                error_log('ordini: rollback nuovo ordine [T06]');
+                cassa_log('warning', 'ordini: rollback nuovo ordine [T06]');
                 $id_ordine = 0;
             }
         }
@@ -142,7 +142,7 @@ final class OrderService
             $db->commit();
         } else {
             $db->rollback();
-            error_log("mq: rollback id_ordine=$id_ordine [T08]");
+            cassa_log('warning', "mq: rollback id_ordine=$id_ordine [T08]");
         }
         return (bool)$mq_ok;
     }
@@ -174,7 +174,7 @@ final class OrderService
             $db->commit();
         } else {
             $db->rollback();
-            error_log("mr: rollback id_ordine=$id_ordine [T08]");
+            cassa_log('warning', "mr: rollback id_ordine=$id_ordine [T08]");
         }
         return (bool)$mr_ok;
     }

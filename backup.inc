@@ -1,5 +1,7 @@
 <?php
 declare(strict_types=1);
+if (!function_exists('cassa_log'))
+    require_once __DIR__ . '/env.inc';
 
 // Backup fine-giornata: dump intero DB fuori docroot (mappa #87, Decide #91, Task #96).
 // Manuale, dal responsabile a cassa chiusa: niente cron, niente dump a ogni scontrino.
@@ -43,7 +45,7 @@ function backup_resolve_dir(array $cfg): array
     }
     if (!is_dir($cand))
     {
-        @mkdir($cand, 0770, true);
+        mkdir($cand, 0770, true);
     }
     if (is_dir($cand) && is_writable($cand))
     {
@@ -52,9 +54,10 @@ function backup_resolve_dir(array $cfg): array
     $fb = __DIR__ . '/storage/dumps';
     if (!is_dir($fb))
     {
-        @mkdir($fb, 0770, true);
+        mkdir($fb, 0770, true);
     }
-    @file_put_contents($fb . '/.htaccess', "<IfModule mod_authz_core.c>\n  Require all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\n  Order allow,deny\n  Deny from all\n</IfModule>\n");
+    if (file_put_contents($fb . '/.htaccess', "<IfModule mod_authz_core.c>\n  Require all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\n  Order allow,deny\n  Deny from all\n</IfModule>\n") === false)
+        cassa_log('warning', 'backup htaccess scrittura fallita');
     return array('path' => $fb, 'outside' => true);
 }
 
@@ -130,9 +133,10 @@ function backup_via_php(mysqli $db, string $db_name, string $file): bool
     {
         return false;
     }
-    $fh = @fopen($file, 'wb');
+    $fh = fopen($file, 'wb');
     if ($fh === false)
     {
+        cassa_log('error', 'backup apertura dump fallita');
         return false;
     }
     fwrite($fh, '-- SalsicciaStagisti dump intero DB `' . $db_name . '` del ' . date('c') . " (fallback PHP)\n\n");

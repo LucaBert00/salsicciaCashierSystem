@@ -1,10 +1,24 @@
 <?php
 declare(strict_types=1);
+// T24: unica facade log (livello sopra error_log, PSR-3 dopo). Solo codici, mai payload.
+if (!function_exists('cassa_log'))
+{
+    function cassa_log(string $level, string $message): void
+    {
+        $level = strtolower($level);
+        if (!in_array($level, array('debug', 'info', 'warning', 'error'), true))
+            $level = 'info';
+        error_log('cassa [' . $level . '] ' . $message);
+    }
+}
 // Carica .env (KEY=VALORE) nelle env di processo; le env reali (sistema/Apache) hanno precedenza.
 $f = __DIR__ . '/.env';
 if (is_readable($f))
 {
-    foreach ((array)@parse_ini_file($f, false, INI_SCANNER_RAW) as $k => $v)
+    $parsed = parse_ini_file($f, false, INI_SCANNER_RAW);
+    if ($parsed === false)
+        cassa_log('warning', 'env parse fallito');
+    foreach ((array)($parsed === false ? array() : $parsed) as $k => $v)
     {
         if (getenv($k) === false)
         {
@@ -20,7 +34,7 @@ function salsiccia_storage_dir(): string
 {
     $d = __DIR__ . '/storage';
     if (!is_dir($d))
-        @mkdir($d, 0770, true);
+        mkdir($d, 0770, true);
     return $d;
 }
 
@@ -66,7 +80,7 @@ function cassa_flags_file(): string
 
 function cassa_leggi_fiera(): bool
 {
-    $raw = @file_get_contents(cassa_flags_file());
+    $raw = is_readable(cassa_flags_file()) ? file_get_contents(cassa_flags_file()) : false;
     if (is_string($raw) && $raw !== '')
     {
         $j = json_decode($raw, true);
@@ -76,7 +90,7 @@ function cassa_leggi_fiera(): bool
     $cfg = __DIR__ . '/config/cassa.php';
     if (is_readable($cfg))
     {
-        $arr = @include $cfg;
+        $arr = is_readable($cfg) ? include $cfg : false;
         if (is_array($arr) && isset($arr['MODALITA_FIERA']))
             return (string)$arr['MODALITA_FIERA'] === '1';
     }
@@ -92,8 +106,12 @@ function cassa_imposta_fiera($valore): void
     $json = json_encode(array('modalita_fiera' => $v));
     if (!is_string($json))
         return;
-    if (@file_put_contents($tmp, $json, LOCK_EX) === false)
+    if (file_put_contents($tmp, $json, LOCK_EX) === false)
+    {
+        cassa_log('error', 'cassa_flags scrittura fallita');
         return;
-    @rename($tmp, $f);
+    }
+    if (!rename($tmp, $f))
+        cassa_log('error', 'cassa_flags rename fallita');
 }
 ?>

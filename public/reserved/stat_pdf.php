@@ -14,7 +14,7 @@ declare(strict_types=1);
 function stat_pdf_testo($s)
 {
     $s = (string)$s;
-    $latin = @iconv('UTF-8', 'CP1252//TRANSLIT', $s);
+    $latin = iconv('UTF-8', 'CP1252//TRANSLIT', $s);
     return ($latin === false) ? $s : $latin;
 }
 

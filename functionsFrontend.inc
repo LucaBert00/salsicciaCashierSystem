@@ -756,7 +756,7 @@ function mostraRipristinaDb()
             $table = $row[0];
             if (!preg_match('/^[A-Za-z0-9_]+$/', $table))
             {
-                error_log("REPAIR bloccato: tabella non whitelistata");
+                cassa_log('warning', "REPAIR bloccato: tabella non whitelistata");
                 continue;
             }
             if ($mysqli->query("REPAIR TABLE `$table`"))
@@ -813,7 +813,7 @@ function mostraPrintReset()
 
         //salva il comando di reset nel file di stampa.
         if (file_put_contents(LABELS_FILE, $cmd) === false)
-            error_log("print_reset: scrittura " . LABELS_FILE . " fallita");
+            cassa_log('error', "print_reset: scrittura " . LABELS_FILE . " fallita");
 
         if (invia_file_stampa())
         {
@@ -1038,7 +1038,7 @@ function mostraSchermataStampa()
         }
         catch (Throwable $e)
         {
-            error_log('fiscale non bloccante: ' . $e->getMessage());
+            cassa_log('warning', 'fiscale non bloccante: ' . $e->getMessage());
         }
     }
 
