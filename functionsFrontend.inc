@@ -111,9 +111,16 @@ function coloreCategoriaHex($codice)
     return isset($hex[$c]) ? $hex[$c] : '#FFFFFF';
 }
 
-function gestisciAzioni()
+// T23: mutazioni cassa come handler nominati, dispatch via routes/cassa.php.
+// Corpi verbatim dai rami del vecchio if-chain (stessi guard POST/CSRF/redirect,
+// stessa semantica T05/T06/T08/T14); sparita solo la catena ($action ==).
+// Flussi ordine (T18): logica in Salsiccia\Cassa\OrderService con DB iniettato;
+// qui resta solo HTTP/CSRF/redirect (thin caller).
+// T14: mutazioni cassa solo via POST con token; GET resta lettura:
+// prefetch/link non mutano mai l'ordine live ($post_ok ricalcolato per handler).
+function cassa_azione_login()
 {
-    global $mysqli, $id_cassa, $HTTP_GET_VARS;
+    global $HTTP_GET_VARS;
 
     // Login admin via POST (issue): code mai in URL/log; OK -> flag sessione + redirect pulito.
     if (($_SERVER['REQUEST_METHOD'] ?? '') == 'POST' && ($HTTP_GET_VARS['action'] ?? '') == 'c' && isset($_POST['code']))
@@ -142,6 +149,11 @@ function gestisciAzioni()
         }
         exit;
     }
+}
+
+function cassa_azione_logout()
+{
+    global $HTTP_GET_VARS;
 
     if (isset($HTTP_GET_VARS['action']) && $HTTP_GET_VARS['action'] == 'logout')
     {
@@ -150,6 +162,11 @@ function gestisciAzioni()
         header("Location: index.php");
         exit;
     }
+}
+
+function cassa_azione_cassa()
+{
+    global $id_cassa, $HTTP_GET_VARS;
 
     // Scelta esplicita cassa da pannello admin: salva in sessione, mai da IP.
     if (($_SERVER['REQUEST_METHOD'] ?? '') == 'POST' && ($HTTP_GET_VARS['action'] ?? '') == 'cassa' && isset($_POST['id_cassa']))
@@ -166,6 +183,11 @@ function gestisciAzioni()
         header("Location: index.php?action=c&ok=1");
         exit;
     }
+}
+
+function cassa_azione_fiera()
+{
+    global $HTTP_GET_VARS;
 
     // Toggle fiera da pannello admin: solo POST con token, GET resta lettura.
     if (($HTTP_GET_VARS['action'] ?? '') == 'fiera')
@@ -180,69 +202,108 @@ function gestisciAzioni()
         header("Location: index.php");
         exit;
     }
+}
 
-    if (isset($HTTP_GET_VARS['action']))
-    {
-        $action = $HTTP_GET_VARS['action'];
-    }
-    else
-    {
-        $action = '';
-    }
-
-    // T14: mutazioni cassa solo via POST con token (come fiera/cassa sopra);
-    // GET resta lettura: prefetch/link non mutano mai l'ordine live.
+function cassa_azione_annulla()
+{
+    global $mysqli, $id_cassa;
     $post_ok = (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') && csrf_ok();
-
-    // Flussi ordine (T18): logica in Salsiccia\Cassa\OrderService con DB iniettato;
-    // qui resta solo HTTP/CSRF/redirect (thin caller).
-    if ($action == 'r' && $post_ok) // annulla ordine
+    if ($post_ok) // annulla ordine
     {
         (new \Salsiccia\Cassa\OrderService($mysqli, (int)$id_cassa))->annullaOrdine();
     }
+}
 
-    if ($action == 'a' && $post_ok && isset($HTTP_GET_VARS['id'])) // aggiungi prodotto
+function cassa_azione_aggiungi()
+{
+    global $mysqli, $id_cassa, $HTTP_GET_VARS;
+    $post_ok = (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') && csrf_ok();
+    if ($post_ok && isset($HTTP_GET_VARS['id'])) // aggiungi prodotto
     {
         (new \Salsiccia\Cassa\OrderService($mysqli, (int)$id_cassa))->aggiungiProdotto((int)$HTTP_GET_VARS['id']);
     }
+}
 
-    if ($action == 'mq' && $post_ok && isset($HTTP_GET_VARS['id']) && isset($HTTP_GET_VARS['qta']))
+function cassa_azione_quantita()
+{
+    global $mysqli, $id_cassa, $HTTP_GET_VARS;
+    $post_ok = (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') && csrf_ok();
+    if ($post_ok && isset($HTTP_GET_VARS['id']) && isset($HTTP_GET_VARS['qta']))
     {
         (new \Salsiccia\Cassa\OrderService($mysqli, (int)$id_cassa))->impostaQuantita((int)$HTTP_GET_VARS['id'], (int)$HTTP_GET_VARS['qta']);
 
         header("Location: ?action=m");
         exit;
     }
+}
 
-    if ($action == 'mr' && $post_ok && isset($HTTP_GET_VARS['id']))
+function cassa_azione_rimuovi()
+{
+    global $mysqli, $id_cassa, $HTTP_GET_VARS;
+    $post_ok = (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') && csrf_ok();
+    if ($post_ok && isset($HTTP_GET_VARS['id']))
     {
         (new \Salsiccia\Cassa\OrderService($mysqli, (int)$id_cassa))->rimuoviRiga((int)$HTTP_GET_VARS['id']);
 
         header("Location: ?action=m");
         exit;
     }
+}
 
-    if ($action == 'st' && $post_ok && isset($HTTP_GET_VARS['t']))
+function cassa_azione_tipo()
+{
+    global $mysqli, $id_cassa, $HTTP_GET_VARS;
+    $post_ok = (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') && csrf_ok();
+    if ($post_ok && isset($HTTP_GET_VARS['t']))
     {
         (new \Salsiccia\Cassa\OrderService($mysqli, (int)$id_cassa))->impostaTipo((string)$HTTP_GET_VARS['t']);
 
         header("Location: ?action=o");
         exit;
     }
+}
 
-    if ($action == 'sb' && $post_ok) // set ordine in standby
+function cassa_azione_standby()
+{
+    global $mysqli, $id_cassa;
+    $post_ok = (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') && csrf_ok();
+    if ($post_ok) // set ordine in standby
     {
         (new \Salsiccia\Cassa\OrderService($mysqli, (int)$id_cassa))->mettiStandby();
         header("Location: index.php");
         exit;
     }
+}
 
-    if ($action == 'ra' && $post_ok && isset($HTTP_GET_VARS['id'])) // reactivate da standby
+function cassa_azione_riattiva()
+{
+    global $mysqli, $id_cassa, $HTTP_GET_VARS;
+    $post_ok = (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') && csrf_ok();
+    if ($post_ok && isset($HTTP_GET_VARS['id'])) // reactivate da standby
     {
         (new \Salsiccia\Cassa\OrderService($mysqli, (int)$id_cassa))->riattiva((int)$HTTP_GET_VARS['id']);
         header("Location: index.php");
         exit;
     }
+}
+
+function gestisciAzioni()
+{
+    global $HTTP_GET_VARS;
+
+    // T23: dispatch via tabella (routes/cassa.php, nessun if); action non
+    // stringa o non listata = schermata sola lettura o errore kiosk in
+    // public/index.php, mai fatal. Handler null = sola lettura.
+    static $tabella = null;
+    if ($tabella === null)
+        $tabella = (array)require __DIR__ . '/routes/cassa.php';
+    $action = $HTTP_GET_VARS['action'] ?? '';
+    if (!is_string($action) || $action === '' || !array_key_exists($action, $tabella))
+        return;
+    $handler = $tabella[$action];
+    if (!is_string($handler) || $handler === '' || !function_exists($handler))
+        return;
+    $handler();
 }
 
 // pulsanti categorie (T19: thin caller, query in CatalogRepo, HTML in CatalogView).

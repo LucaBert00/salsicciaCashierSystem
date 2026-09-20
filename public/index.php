@@ -1,7 +1,13 @@
-<?php declare(strict_types=1); require_once __DIR__ . '/../functionsFrontend.inc'; ?>
+<?php declare(strict_types=1);
+require_once __DIR__ . '/../src/Support/ErrorHandler.php';
+\Salsiccia\Support\ErrorHandler::registra();
+require_once __DIR__ . '/../functionsFrontend.inc'; ?>
 <?php
 $action = isset($_GET['action']) ? $_GET['action'] : '';
 $isAdmin = isAdmin();
+// T23: validita via tabella (routes/cassa.php); non listata = schermata errore kiosk, mai fatal.
+$tabellaCassa = (array)require __DIR__ . '/../routes/cassa.php';
+$azioneNonValida = is_string($action) && $action !== '' && !array_key_exists($action, $tabellaCassa);
 // Vecchi bookmark ?action=c&ok&code= rifiutati: code in URL non abilita piu nulla (issue).
 $showModifica = $action == 'm';
 $showOpzioni = $action == 'o';
@@ -13,7 +19,7 @@ $showRepair = $action == 'repair' && $isAdmin;
 $showContatori = $action == 'contatori' && $isAdmin;
 $showPrintReset = $action == 'print_reset' && $isAdmin;
 // Sfondo tinta categoria solo sulla schermata principale cassa, mai su admin/stampa/modifica/standby.
-$isCassaMain = !$showAdmin && !$showStampa && !$showModifica && !$showOpzioni && !$showStandby && !$showRepair && !$showContatori && !$showPrintReset && !($showConfig && isset($_GET['ok']) && !$showAdmin);
+$isCassaMain = !$azioneNonValida && !$showAdmin && !$showStampa && !$showModifica && !$showOpzioni && !$showStandby && !$showRepair && !$showContatori && !$showPrintReset && !($showConfig && isset($_GET['ok']) && !$showAdmin);
 $hexCassa = '#e7e9eb';
 if ($isCassaMain)
 {
@@ -77,6 +83,8 @@ if (!$isAdmin && in_array($action, array('repair', 'print_reset', 'contatori'), 
             <section style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex-grow:1;">
                 <p style="font-size:24px;font-weight:800;color:#e54b3c;margin-bottom:30px;">ERRORE CODICE DI AUTORIZZAZIONE ERRATO</p>
             </section>
+        <?php elseif ($azioneNonValida): ?>
+            <?php \Salsiccia\Support\ErrorHandler::mostraErrore('AZIONE NON VALIDA'); ?>
         <?php else: ?>
             <nav><?php mostraNavCategorie(); ?><?php mostraIndicatoreTipo(); ?></nav>
             <header><h1><?php mostraTitolo(); ?></h1></header>
