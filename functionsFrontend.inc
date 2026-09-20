@@ -353,7 +353,7 @@ function gestisciAzioni()
     if ($action == 'ra' && isset($HTTP_GET_VARS['id'])) // reactivate da standby
     {
         $id_ordine = (int)$HTTP_GET_VARS['id'];
-        $query = "UPDATE ordini SET chiuso = '0' WHERE id_ordine = $id_ordine";
+        $query = "UPDATE ordini SET chiuso = '0' WHERE id_ordine = $id_ordine AND id_cassa = $id_cassa AND chiuso = 'S'";
         mysql_query_safe($mysqli, $query);
         header("Location: index.php");
         exit;
