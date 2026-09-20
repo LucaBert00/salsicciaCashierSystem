@@ -5,6 +5,8 @@ require_once __DIR__ . '/dbConnect.php';
 require_once __DIR__ . '/funzioni.inc';
 require_once __DIR__ . '/fiscale.inc';
 require_once __DIR__ . '/src/Cassa/OrderService.php';
+require_once __DIR__ . '/src/Catalog/CatalogRepo.php';
+require_once __DIR__ . '/src/Catalog/CatalogView.php';
 
 // Auth admin cassa (issue): sessione come reserved/login.php, mai code in URL.
 if (session_status() === PHP_SESSION_NONE)
@@ -33,18 +35,19 @@ function cassaCorrente()
 function defaultCat($mysqli)
 {
     $raw = trim((string)(getenv('SALSICCIA_DEFAULT_CAT') ?: ''));
+    // T19: letture catalogo via CatalogRepo (prepared), qui resta solo env.
+    $repo = new \Salsiccia\Catalog\CatalogRepo($mysqli);
     if ($raw !== '')
     {
         if (ctype_digit($raw) && (int)$raw > 0)
             return (int)$raw; // fiducia all'env, niente query extra
-        $nome = strtoupper($raw);
-        $q = db_select($mysqli, "SELECT id_categoria FROM categorie WHERE UPPER(descrizione_cat) = ? LIMIT 1", 's', array($nome));
-        if ($q && ($r = mysqli_fetch_array($q)) && (int)$r['id_categoria'] > 0)
-            return (int)$r['id_categoria'];
+        $trovato = $repo->trovaIdPerNome(strtoupper($raw));
+        if ($trovato !== null)
+            return $trovato;
     }
-    $qmin = mysql_query_safe($mysqli, "SELECT MIN(id_categoria) AS m FROM categorie");
-    if ($qmin && ($rmin = mysqli_fetch_array($qmin)) && (int)$rmin['m'] > 0)
-        return (int)$rmin['m'];
+    $min = $repo->minCategoriaId();
+    if ($min !== null)
+        return $min;
     return DEFAULT_CAT;
 }
 
@@ -241,42 +244,20 @@ function gestisciAzioni()
     }
 }
 
-// pulsanti categorie
+// pulsanti categorie (T19: thin caller, query in CatalogRepo, HTML in CatalogView).
 function mostraNavCategorie()
 {
     global $mysqli, $cat;
-    $query = "SELECT * FROM categorie ORDER BY id_categoria";
-    $ris = mysql_query_safe($mysqli, $query);
-    while ($riga = mysqli_fetch_array($ris))
-    {
-        $attivo = '';
-
-        if ($riga['id_categoria'] == $cat)
-        {
-            $attivo = 'attivo';
-        }
-        $hex = coloreCategoriaHex($riga['colore']);
-        $stileAttivo = $attivo !== '' ? 'border:2px solid #2b3d4e;' : '';
-        echo "<button class=\"nav-cat {$attivo}\" style=\"background-color:{$hex};{$stileAttivo}\" onclick=\"location.href='?cat=" . (int)$riga['id_categoria'] . "'\">" . htmlspecialchars($riga['descrizione_cat'], ENT_QUOTES, 'UTF-8') . "</button>";
-    }
+    $repo = new \Salsiccia\Catalog\CatalogRepo($mysqli);
+    \Salsiccia\Catalog\CatalogView::navCategorie($repo->allCategorie(), (int)$cat);
 }
 
-//Categoria corrente
+//Categoria corrente (T19: thin caller).
 function mostraTitolo()
 {
     global $mysqli, $cat;
-    $cat = (int)$cat;
-    $ris = db_select($mysqli, "SELECT descrizione_cat FROM categorie WHERE id_categoria = ?", 'i', array($cat));
-
-    if ($ris && mysqli_num_rows($ris) > 0)
-    {
-        $riga = mysqli_fetch_array($ris);
-        echo htmlspecialchars($riga['descrizione_cat'], ENT_QUOTES, 'UTF-8');
-    }
-    else
-    {
-        echo 'SAKE';
-    }
+    $repo = new \Salsiccia\Catalog\CatalogRepo($mysqli);
+    \Salsiccia\Catalog\CatalogView::titolo($repo->descrizioneCategoria((int)$cat));
 }
 
 //indicatore tipo ordine nav
@@ -299,61 +280,16 @@ function mostraIndicatoreTipo()
     }
 }
 
-// tabella prodotti
+// tabella prodotti (T19: thin caller, query in CatalogRepo, HTML in CatalogView).
 function mostraTabellaProdotti()
 {
     global $mysqli, $cat, $but_x_row, $but_x_col;
 
-    $but_x_pag = $but_x_col * $but_x_row;
     $cat = (int)$cat;
-
-    $ris = db_select($mysqli, "SELECT * FROM prodotti, categorie, prodotti_categorie WHERE prodotti_categorie.id_prodotto = prodotti.id_prodotto AND prodotti_categorie.id_categoria = categorie.id_categoria AND categorie.id_categoria = ? ORDER BY posizione", 'i', array($cat));
-
-    if (!$ris || mysqli_num_rows($ris) == 0)
-    {
-        $r = db_select($mysqli, "SELECT * FROM categorie WHERE id_categoria = ?", 'i', array($cat));
-        $riga = $r ? mysqli_fetch_array($r) : false;
-        $colore = $riga ? $riga['colore'] : '';
-        $hexVuoto = coloreCategoriaHex($colore);
-        echo "<div style=\"background-color:{$hexVuoto}; height: 100%;\">";
-        echo "<center><h1>NESSUN PRODOTTO IN QUESTA CATEGORIA</h1></center></div>";
-        return;
-    }
-
-    $riga = mysqli_fetch_array($ris);
-
-    echo '<table><tbody><tr>';
-
-    // griglia bottoni
-    $control = $riga['posizione'];
-    for ($i = 1; $i <= $but_x_pag; $i++)
-    {
-        if ($control == $i)
-        {
-            $prezzo = number_format($riga['prezzo'], 2, ',', '.');
-            $desc = htmlspecialchars(strtoupper($riga['descrizione_prod']), ENT_QUOTES, 'UTF-8');
-            $id_prodotto = (int)$riga['id_prodotto'];
-            echo "<td class=\"td_bottone\">
-                    <form method=\"post\" action=\"?cat=" . (int)$cat . "&action=a&id={$id_prodotto}\" style=\"display:contents;\">";
-            csrf_field();
-            echo "<button type=\"submit\" class=\"bottone\">
-                      {$desc}<br><b>&euro; {$prezzo}</b>
-                    </button>
-                    </form>
-                  </td>";
-            $riga = mysqli_fetch_array($ris, MYSQLI_ASSOC);
-            if ($riga)
-                $control = $riga['posizione'];
-        }
-        else
-        {
-            echo '<td class="td_bottone">&nbsp;</td>';
-        }
-        // Vai a capo dopo but_x_col colonne
-        if ($i % $but_x_col == 0 && $i < $but_x_pag)
-            echo "</tr><tr>";
-    }
-    echo '</tr></tbody></table>';
+    $repo = new \Salsiccia\Catalog\CatalogRepo($mysqli);
+    $prodotti = $repo->prodottiByCategoria($cat);
+    $vuota = count($prodotti) === 0 ? $repo->categoria($cat) : null;
+    \Salsiccia\Catalog\CatalogView::tabellaProdotti($prodotti, $vuota, $cat, (int)$but_x_row, (int)$but_x_col);
 }
 
 //Modifica ordine

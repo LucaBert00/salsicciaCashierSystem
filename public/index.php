@@ -18,8 +18,9 @@ $hexCassa = '#e7e9eb';
 if ($isCassaMain)
 {
     $cat = (int)$cat;
-    $qc = db_select($mysqli, "SELECT colore FROM categorie WHERE id_categoria = ? LIMIT 1", 'i', array($cat));
-    if ($qc && ($rc = mysqli_fetch_array($qc))) $hexCassa = coloreCategoriaHex($rc['colore']);
+    // T19: tinta via CatalogRepo (stessa riga categoria del ramo vuoto).
+    $rcCassa = (new \Salsiccia\Catalog\CatalogRepo($mysqli))->categoria($cat);
+    if ($rcCassa && isset($rcCassa['colore'])) $hexCassa = coloreCategoriaHex($rcCassa['colore']);
 }
 // Schermate sensibili senza flag admin -> login, mai cassa muta ne accesso anonimo.
 if (!$isAdmin && in_array($action, array('repair', 'print_reset', 'contatori'), true))
