@@ -1,0 +1,4 @@
+[
+    { "id_ordine": 7, "tot_ord": 12.50, "tipo": "cibo", "testo": "Panino salsiccia", "quantita": 2, "totale": 10.00, "id_prodotto": 3 },
+    { "id_ordine": 7, "tot_ord": 12.50, "tipo": "bibita", "testo": "Acqua naturale", "quantita": 1, "totale": 2.50, "id_prodotto": 9 }
+]
