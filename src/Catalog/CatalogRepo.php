@@ -8,7 +8,7 @@ namespace Salsiccia\Catalog;
 // mostraNavCategorie/mostraTitolo/mostraTabellaProdotti + defaultCat +
 // tinta categoria in public/index.php). DB iniettato via costruttore, mai
 // preso dallo stato globale (come OrderService in src/Cassa/OrderService.php
-// e il sender iniettabile di fiscale_ritenta_coda() in fiscale.inc:153).
+// e il sender iniettabile di Fiscale::ritentaCoda() in src/Fiscale/Fiscale.php).
 // Query verbatim dai call-site (prepared via db_select, statiche via
 // mysql_query_safe per T09); ritorna array puri, mai output HTML.
 if (!function_exists('db_select')) {

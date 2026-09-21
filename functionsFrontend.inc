@@ -1,11 +1,12 @@
 <?php
 declare(strict_types=1);
-// T31: file canonico (non shim) — successori parziali esistenti src/Cassa/OrderService.php + src/Catalog/* (§7); rimozione solo a migrazione completa, rivalutare entro 2026-12-31.
+// T31: file canonico (non shim) — successori parziali esistenti src/Cassa/OrderService.php + src/Catalog/* + src/Cassa/PrintService.php + src/Fiscale/Fiscale.php (§7); rimozione solo a migrazione completa, rivalutare entro 2026-12-31.
 
 require_once __DIR__ . '/set.inc';
 require_once __DIR__ . '/dbConnect.php';
 require_once __DIR__ . '/funzioni.inc';
-require_once __DIR__ . '/fiscale.inc';
+require_once __DIR__ . '/src/Fiscale/Fiscale.php';
+require_once __DIR__ . '/src/Cassa/PrintService.php';
 require_once __DIR__ . '/src/Cassa/OrderService.php';
 require_once __DIR__ . '/src/Cassa/OrderType.php';
 require_once __DIR__ . '/src/Cassa/PayMethod.php';
@@ -759,7 +760,7 @@ function mostraRipristinaDb($mysqli)
 }
 
 // Print reset: sblocca le Zebra quando si impiantano (cancella buffer + reset),
-// riusa invia_file_stampa() cosi DIRETTA/RETE restano quelle di set.inc
+// riusa PrintService::inviaFileStampa() cosi DIRETTA/RETE restano quelle di set.inc
 function mostraPrintReset()
 {
     // difesa in profondita, index.php filtra gia via isAdmin+redirect; mai GET anonimo.
@@ -792,7 +793,7 @@ function mostraPrintReset()
         if (file_put_contents(LABELS_FILE, $cmd) === false)
             cassa_log('error', "print_reset: scrittura " . LABELS_FILE . " fallita");
 
-        if (invia_file_stampa())
+        if (\Salsiccia\Cassa\PrintService::inviaFileStampa())
         {
             echo '<p style="background:#5cb85c;color:#fff;font-weight:800;text-align:center;padding:12px;border-radius:6px;">Reset inviato a ' . PRINTER_NAME . '.</p>';
         }
@@ -970,7 +971,7 @@ function mostraSchermataStampa($mysqli)
             return;
         }
 
-        $ret_val = genera_file_stampa($ris, $numero_righe);
+        $ret_val = \Salsiccia\Cassa\PrintService::generaFileStampa($ris, $numero_righe);
         if ($ret_val === false)
             return; // errore configurazione stampante, messaggio gia' mostrato
 
@@ -1012,7 +1013,7 @@ function mostraSchermataStampa($mysqli)
     {
         try
         {
-            $fisc = fiscale_emetti_scontrino($mysqli, $id_ordine, $metodo);
+            $fisc = \Salsiccia\Fiscale\Fiscale::emettiScontrino($mysqli, $id_ordine, $metodo);
             if (empty($fisc['ok']) && !empty($fisc['fallback']))
                 echo '<p style="background:#f0ad4e;color:#fff;font-weight:800;text-align:center;padding:10px;border-radius:6px;">REGISTRATORE NON RISPONDE: scontrino in coda, la vendita prosegue.</p>';
         }

@@ -44,7 +44,7 @@ define("LABELS_FILE", salsiccia_storage_path("label"));
 define("COMMAND_FILE", salsiccia_storage_dir() . "/cmd/cmd");
 
 #Stampante etichette: Zebra_Net = RETE+ZPL (unica combo RETE supportata),
-#vedi gate stampa_permessa in genera_file_stampa()
+#vedi gate stampa_permessa in PrintService::generaFileStampa()
 define("PRINTER_NAME", "Zebra_Net");
 define("PRINTER_CONNECTION", "RETE");
 define("PRINTER_LANGUAGE", "ZPL");
@@ -59,7 +59,7 @@ define("PRINTER_IP", $__printer_ip);
 
 #Carta continua (scontrino unico) vs biglietti singoli: default dal gate unico
 #printer_is_continuous() in env.inc (stessa tabella di stampa_permessa in
-#genera_file_stampa(), nessun valore hardcoded). Default: Zebra_Multi in
+#PrintService::generaFileStampa(), nessun valore hardcoded). Default: Zebra_Multi in
 #DIRETTA (ZPL o EPL) e Zebra_Net (RETE o DIRETTA, ZPL) fanno scontrino unico;
 #Zebra_EPL_1/2 fanno biglietti singoli. Combo non permessa => stampa bloccata a monte.
 #Override senza toccare il codice: se SALSICCIA_CONTINUOUS_LABEL e' impostata a "1"/"0"
@@ -75,7 +75,7 @@ define("ZPL_DOTS_PER_MM", 8);
 #Durata Festa in Giorni. Costante deploy come EVENT_NAME (decisione #55).
 define("DURATA_FESTA", "1");
 #Ora cambio data: la imposta l'utente via .env (SALSICCIA_ORA_CAMBIO=6), fallback 5.
-#Range 0..23 validato in stat_ora_cambio() (reserved/stat_dati.inc), come CONTINUOUS_LABEL.
+#Range 0..23 validato in StatsData::oraCambio() (src/Stats/StatsData.php), come CONTINUOUS_LABEL.
 $__ora_env = getenv('SALSICCIA_ORA_CAMBIO');
 if ($__ora_env !== false && trim((string)$__ora_env) !== '')
     define("ORA_CAMBIO_DATA", (string)$__ora_env);

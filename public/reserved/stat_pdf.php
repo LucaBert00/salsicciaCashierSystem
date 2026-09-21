@@ -2,7 +2,7 @@
 declare(strict_types=1);
 // reserved/stat_pdf.php — export PDF della tab riservata Statistiche (#95).
 // Deciso in #90 (PDF = si): FPDF leggero dagli stessi dati della pagina
-// (stat_dati.inc, KPI tutto: incasso fine-giornata + per-prodotto + fasce +
+// (src/Stats/StatsData.php, KPI tutto: incasso fine-giornata + per-prodotto + fasce +
 // per-giorno), servito per-richiesta in download, mai scritto su disco
 // (niente path web-diretti, niente file condivisi, niente race).
 // Solo lettura via GET come i filtri di statistiche.php: nessuna mutazione,
@@ -63,7 +63,7 @@ function stat_pdf_titolo($pdf, $titolo)
     $pdf->Cell(0, 8, stat_pdf_testo($titolo), 0, 1, 'L');
 }
 
-// $dati da stat_carica_dati(): solo i KPI decisi in #90, niente chart.
+// $dati da StatsData::caricaDati(): solo i KPI decisi in #90, niente chart.
 function stat_pdf_render($dati)
 {
     $pdf = new StatPDF();
@@ -127,17 +127,17 @@ if (PHP_SAPI !== 'cli')
 
     require_once __DIR__ . '/../../dbConnect.php';
     require_once __DIR__ . '/../../set.inc';
-    require_once __DIR__ . '/../../reserved/stat_dati.inc';
+    require_once __DIR__ . '/../../src/Stats/StatsData.php';
     require_once __DIR__ . '/../../vendor/autoload.php'; // T31: FPDF via Composer (setasign/fpdf), vendored reserved/fpdf rimosso.
 
     $giorno = isset($_GET['giorno']) ? $_GET['giorno'] : date('Y-m-d');
-    if (!stat_giorno_valido($giorno))
+    if (!\Salsiccia\Stats\StatsData::giornoValido($giorno))
     {
         $giorno = date('Y-m-d');
     }
     $ordCorrente = isset($_GET['ord']) ? $_GET['ord'] : 'totale';
     $dirCorrente = isset($_GET['dir']) && strtoupper($_GET['dir']) === 'ASC' ? 'ASC' : 'DESC';
-    $dati = stat_carica_dati($mysqli, $giorno, stat_categorie_get(), stat_ordina_per_prodotto($ordCorrente, $dirCorrente));
+    $dati = \Salsiccia\Stats\StatsData::caricaDati($mysqli, $giorno, \Salsiccia\Stats\StatsData::categorieGet(), \Salsiccia\Stats\StatsData::ordinaPerProdotto($ordCorrente, $dirCorrente));
     $pdf = stat_pdf_render($dati);
     $pdf->Output('stat-' . $dati['giorno'] . '.pdf', 'I');
 }

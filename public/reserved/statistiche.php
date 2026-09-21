@@ -5,7 +5,7 @@ declare(strict_types=1);
 // tabella primaria e SVG secondario (SVG nel ticket dedicato), niente libchart,
 // niente file immagine condiviso, output per-richiesta. Solo lettura: filtri via GET,
 // nessuna mutazione quindi nessun token (come ricerca/ordinamento in visualizza.php).
-// Filtri + query in stat_dati.inc (#95, condiviso con l'export PDF per-richiesta).
+// Filtri + query in src/Stats/StatsData.php (#95, condiviso con l'export PDF per-richiesta).
 
 require_once __DIR__ . '/../../env.inc';
 salsiccia_session_start();
@@ -23,7 +23,7 @@ if (!defined('DEBUG'))
     define('DEBUG', 0);
 }
 require_once __DIR__ . '/../../funzioni.inc';
-require_once __DIR__ . '/../../reserved/stat_dati.inc';
+require_once __DIR__ . '/../../src/Stats/StatsData.php';
 
 // Link a statistiche.php con parametri dati, gia url-encoded.
 function urlStat($params)
@@ -188,7 +188,7 @@ function stat_svg_affluenza($fasce, $oraCambio)
 
 // Filtri GET in sola lettura + tutti i KPI via strato condiviso (#95).
 $giorno = isset($_GET['giorno']) ? $_GET['giorno'] : date('Y-m-d');
-if (!stat_giorno_valido($giorno))
+if (!\Salsiccia\Stats\StatsData::giornoValido($giorno))
 {
     $giorno = date('Y-m-d');
 }
@@ -196,7 +196,7 @@ if (!stat_giorno_valido($giorno))
 // Ordinamento per-prodotto validato, default totale giu (i piu venduti prima).
 $ordCorrente = isset($_GET['ord']) ? $_GET['ord'] : 'totale';
 $dirCorrente = isset($_GET['dir']) && strtoupper($_GET['dir']) === 'ASC' ? 'ASC' : 'DESC';
-$ordinaPerProdotto = stat_ordina_per_prodotto($ordCorrente, $dirCorrente);
+$ordinaPerProdotto = \Salsiccia\Stats\StatsData::ordinaPerProdotto($ordCorrente, $dirCorrente);
 
 // Viste ibride (#109, Decide ibrido): una sezione alla volta via GET,
 // whitelist fissa, default INCASSO. Paginazione 5/pagina stile gestioni
@@ -217,8 +217,8 @@ if ($paginaStat < 1)
     $paginaStat = 1;
 }
 
-$categorie = stat_categorie_get();
-$dati = stat_carica_dati($mysqli, $giorno, $categorie, $ordinaPerProdotto);
+$categorie = \Salsiccia\Stats\StatsData::categorieGet();
+$dati = \Salsiccia\Stats\StatsData::caricaDati($mysqli, $giorno, $categorie, $ordinaPerProdotto);
 $oraCambio = $dati['oraCambio'];
 $oraErrore = $dati['oraErrore'];
 $durataFesta = $dati['durataFesta'];
@@ -230,7 +230,7 @@ $fasce = $dati['fasce'];
 $righeGiorni = $dati['righeGiorni'];
 
 // Categorie per le checkbox: query fissa, nessun input.
-$opzioniCategorie = stat_opzioni_categorie($mysqli);
+$opzioniCategorie = \Salsiccia\Stats\StatsData::opzioniCategorie($mysqli);
 
 // Parametri filtri da conservare nei link di ordinamento.
 $paramsFiltri = array('giorno' => $giorno);

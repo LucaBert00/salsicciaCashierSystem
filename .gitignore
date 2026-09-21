@@ -4,7 +4,7 @@ labelCards
 last_id.inc
 salsiccia.sql
 salsiccia-*.sql
-backup/
+/backup/
 Thumbs.db
 .idea/
 .env

@@ -17,7 +17,7 @@ final class PureBuildersTest extends TestCase
             true
         );
 
-        $xml = fiscale_build_xml($righe, 'contanti');
+        $xml = \Salsiccia\Fiscale\Fiscale::buildXml($righe, 'contanti');
 
         $this->assertStringContainsString('<cmd>=K</cmd>', $xml);
         $this->assertStringContainsString('<cmd>=R3/$1000</cmd>', $xml);
@@ -33,29 +33,29 @@ final class PureBuildersTest extends TestCase
             true
         );
 
-        $this->assertStringContainsString('<cmd>=T3</cmd>', fiscale_build_xml($righe, 'carta'));
-        $this->assertSame('', fiscale_build_xml($righe, 'buono'));
-        $this->assertSame('', fiscale_build_xml([], 'contanti'));
-        $this->assertSame('', fiscale_build_xml([['iva' => 0.99, 'totale' => 3.0]], 'contanti'));
+        $this->assertStringContainsString('<cmd>=T3</cmd>', \Salsiccia\Fiscale\Fiscale::buildXml($righe, 'carta'));
+        $this->assertSame('', \Salsiccia\Fiscale\Fiscale::buildXml($righe, 'buono'));
+        $this->assertSame('', \Salsiccia\Fiscale\Fiscale::buildXml([], 'contanti'));
+        $this->assertSame('', \Salsiccia\Fiscale\Fiscale::buildXml([['iva' => 0.99, 'totale' => 3.0]], 'contanti'));
     }
 
     public function testParseStatoOkKoEMalformato(): void
     {
-        $ok = fiscale_parse_stato(
+        $ok = \Salsiccia\Fiscale\Fiscale::parseStato(
             (string) file_get_contents(__DIR__ . '/../fixtures/fiscale_ok.xml')
         );
         $this->assertTrue($ok['ok']);
         $this->assertSame(0, $ok['errorCode']);
 
-        $ko = fiscale_parse_stato(
+        $ko = \Salsiccia\Fiscale\Fiscale::parseStato(
             (string) file_get_contents(__DIR__ . '/../fixtures/fiscale_errore.xml')
         );
         $this->assertFalse($ko['ok']);
         $this->assertSame(5, $ko['errorCode']);
         $this->assertSame(1, $ko['paperEnd']);
 
-        $this->assertFalse(fiscale_parse_stato('non-xml')['ok']);
-        $this->assertFalse(fiscale_parse_stato('<Service/>')['ok']);
+        $this->assertFalse(\Salsiccia\Fiscale\Fiscale::parseStato('non-xml')['ok']);
+        $this->assertFalse(\Salsiccia\Fiscale\Fiscale::parseStato('<Service/>')['ok']);
     }
 
     public function testEtichettaContinuaZplSenzaDbNeStampante(): void
@@ -85,15 +85,15 @@ final class PureBuildersTest extends TestCase
     {
         $this->assertSame(
             ['2026-01-15 05:00:00', '2026-01-16 05:00:00'],
-            stat_limiti_giorno('2026-01-15', 5)
+            \Salsiccia\Stats\StatsData::limitiGiorno('2026-01-15', 5)
         );
         $this->assertSame(
             ['2026-01-31 23:00:00', '2026-02-01 23:00:00'],
-            stat_limiti_giorno('2026-01-31', 23)
+            \Salsiccia\Stats\StatsData::limitiGiorno('2026-01-31', 23)
         );
         $this->assertSame(
             ['2026-01-15 00:00:00', '2026-01-16 00:00:00'],
-            stat_limiti_giorno('2026-01-15', 0)
+            \Salsiccia\Stats\StatsData::limitiGiorno('2026-01-15', 0)
         );
     }
 }

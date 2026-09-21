@@ -6,7 +6,7 @@ namespace Salsiccia\Cassa;
 
 // Unica casa testabile dei flussi ordine (T18, da gestisciAzioni()).
 // DB iniettato via costruttore, mai preso dallo stato globale (come il sender
-// iniettabile di fiscale_ritenta_coda() in fiscale.inc:153); T06-T09
+// iniettabile di Fiscale::ritentaCoda() in src/Fiscale/Fiscale.php); T06-T09
 // preservati verbatim: transazioni + prepared + scope id_cassa (T05).
 if (!function_exists('db_select')) {
     require_once dirname(__DIR__, 2) . '/funzioni.inc';

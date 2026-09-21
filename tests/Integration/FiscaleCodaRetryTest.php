@@ -7,7 +7,7 @@ namespace Salsiccia\Tests\Integration;
 use PHPUnit\Framework\TestCase;
 
 // Retry della Coda senza DB ne' registratore: il sender e' il callable
-// iniettabile $trasmetti di fiscale_ritenta_coda, i file stanno in una
+// iniettabile $trasmetti di Fiscale::ritentaCoda, i file stanno in una
 // cartella temporanea. Separazione puro/trasporto intatta: nessun
 // cambiamento al codice di produzione.
 final class FiscaleCodaRetryTest extends TestCase
@@ -53,11 +53,11 @@ final class FiscaleCodaRetryTest extends TestCase
 
     public function testRetryRecapitaESpostaInInviatiScartandoRigheCorrotte(): void
     {
-        $this->accoda(fiscale_build_xml([['iva' => 0.22, 'totale' => 10.0]], 'contanti'), 1);
-        $this->accoda(fiscale_build_xml([['iva' => 0.10, 'totale' => 5.0]], 'contanti'), 2);
+        $this->accoda(\Salsiccia\Fiscale\Fiscale::buildXml([['iva' => 0.22, 'totale' => 10.0]], 'contanti'), 1);
+        $this->accoda(\Salsiccia\Fiscale\Fiscale::buildXml([['iva' => 0.10, 'totale' => 5.0]], 'contanti'), 2);
         file_put_contents((string) $this->cfg['queue_file'], "riga-corrotta\n", FILE_APPEND | LOCK_EX);
 
-        $esito = fiscale_ritenta_coda($this->cfg, static fn (): array => ['ok' => true]);
+        $esito = \Salsiccia\Fiscale\Fiscale::ritentaCoda($this->cfg, static fn (): array => ['ok' => true]);
 
         $this->assertSame(2, $esito['inviati']);
         $this->assertSame(1, $esito['scarti']);
@@ -68,10 +68,10 @@ final class FiscaleCodaRetryTest extends TestCase
 
     public function testRetryLasciaInCodaQuandoIlSenderFallisceELimitaAMax(): void
     {
-        $this->accoda(fiscale_build_xml([['iva' => 0.22, 'totale' => 10.0]], 'contanti'), 1);
-        $this->accoda(fiscale_build_xml([['iva' => 0.22, 'totale' => 20.0]], 'contanti'), 2);
+        $this->accoda(\Salsiccia\Fiscale\Fiscale::buildXml([['iva' => 0.22, 'totale' => 10.0]], 'contanti'), 1);
+        $this->accoda(\Salsiccia\Fiscale\Fiscale::buildXml([['iva' => 0.22, 'totale' => 20.0]], 'contanti'), 2);
 
-        $esito = fiscale_ritenta_coda($this->cfg, static fn (): array => ['ok' => false], 1);
+        $esito = \Salsiccia\Fiscale\Fiscale::ritentaCoda($this->cfg, static fn (): array => ['ok' => false], 1);
 
         $this->assertSame(0, $esito['inviati']);
         $this->assertSame(2, $esito['residui']);

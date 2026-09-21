@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-// T31: file canonico (non shim) — migrazione per-funzione verso src/ (nessun singolo successore, v. §7); rimozione solo dopo lo split, rivalutare entro 2026-12-31.
+// T31: file canonico (non shim) — migrazione per-funzione verso src/ (nessun singolo successore, v. §7); genera/invia/ftp stampa estratti in src/Cassa/PrintService.php (#43); rimozione solo dopo lo split, rivalutare entro 2026-12-31.
 if (!function_exists('cassa_log'))
     require_once __DIR__ . '/env.inc';
 //define("DEBUG", 1);
@@ -49,7 +49,7 @@ function mysql_query_safe($mysqli, $query)
     return $risultato;
 }
 
-// T09: SELECT parametrizzata (pattern backoffice visualizza.php / fiscale.inc:221).
+// T09: SELECT parametrizzata (pattern backoffice visualizza.php / Fiscale::emettiScontrino in src/Fiscale/Fiscale.php).
 // Ritorna mysqli_result o false come mysql_query_safe; solo "?" mai interpolazioni.
 function db_select($mysqli, $sql, $tipi = '', $params = array())
 {
@@ -748,135 +748,6 @@ function etichetta_continua($righe, $numero_righe, $evento, $credits, $cassa, $n
     return $ret_c;
 }
 
-function genera_file_stampa($ris, $numero_righe)
-{
-    $print_order_id = PRINT_ORDER_ID;
-    $evento = EVENT_NAME;
-    $credits = CREDITS;
-    $cassa = function_exists('cassaCorrente') ? cassaCorrente() : ID_CASSA;
-
-
-    // Unica chiave linguaggio: "ZPL" o "EPL" da PRINTER_LANGUAGE.
-    $tipo_stampante = PRINTER_LANGUAGE;
-
-    // Gate unico in env.inc: stessa tabella di CONTINUOUS_LABEL in set.inc.
-    $stampa_permessa = printer_gate_allowed(PRINTER_NAME, PRINTER_CONNECTION, PRINTER_LANGUAGE);
-
-    if ($stampa_permessa==false)
-    {
-        $specifiche = "";
-        if (PRINTER_NAME == "Zebra_Multi") {
-            $specifiche = "supporta ZPL e EPL, ma lavora solo in modalità DIRETTA.";
-        } elseif (PRINTER_NAME == "Zebra_Net") {
-            $specifiche = "lavora in DIRETTA e RETE, ma supporta solo il linguaggio ZPL.";
-        } elseif (PRINTER_NAME == "Zebra_EPL_1" || PRINTER_NAME == "Zebra_EPL_2") {
-            $specifiche = "supporta solo il linguaggio EPL e solo in modalità DIRETTA.";
-        }
-
-        print "<div style='background-color: #d9534f; color: white; padding: 20px; font-family: \"Trebuchet MS\"; font-weight: bold; text-align: center; border-radius: 5px; margin: 20px 0;'>";
-        print " ERRORE DI CONFIGURAZIONE <br>";
-
-        // Ecco la tua riga modificata che concatena la variabile dinamica:
-        print "<span style='font-size: 14px; font-weight: normal;'>La stampante <b>" . PRINTER_NAME . "</b> non è compatibile con la modalità <b>" . PRINTER_CONNECTION . "</b> in linguaggio <b>" . PRINTER_LANGUAGE . "</b>. Impostazioni bloccate.<br> Questa stampante " . $specifiche . "</span>";
-
-        print "</div>";
-        print "<center><button class=\"bottone_conf\" onclick=\"location.href='index.php'\"><b>TORNA AL MENU</b></button></center>";
-
-        return false;
-    }
-
-    #apertura file
-    $pf = fopen(LABELS_FILE, "w") or die("Impossibile aprire il file di stampa");
-
-    if(CONTINUOUS_LABEL)
-    {
-        $righe = array();
-        while($riga_tmp = mysqli_fetch_array($ris)) $righe[] = $riga_tmp;
-        $id_ordine = $righe[0]['id_ordine'];
-        $totale = number_format((float)$righe[0]['tot_ord'], 2, '.', '.');
-        $now = date("d/m/y H:i");
-        $ret_c = etichetta_continua($righe, $numero_righe, $evento, $credits, $cassa, $now, $tipo_stampante);
-        $label = $ret_c['label'];
-
-        $num_pezzi = 1;
-    }
-    else
-    {
-        // BIGLIETTI SINGOLI (Passaggio parametri a get_product_label)
-
-        $riga_biglietto = mysqli_fetch_array($ris);
-        $id_ordine = $riga_biglietto['id_ordine'];
-        $totale = number_format((float)$riga_biglietto['tot_ord'], 2, '.', '.');
-        $tipo = $riga_biglietto['tipo'];
-        $t = "";
-
-        if($print_order_id == 1) $id = "N.$id_ordine"; else $id = "";
-
-        if($tipo == "pre") $t = "#P#";
-        if($tipo == "mus") $t = "#M#";
-        if($tipo == "stf") $t = "#S#";
-        if($tipo == "asp") $t = "#A#";
-
-        mysqli_data_seek($ris,0);
-        $label = "";
-
-        # Singola: mai biglietto totale ne' "Arrivederci e grazie" (solo ramo continuo).
-        # Ogni etichetta ha solo il prodotto; TOTAL_LABEL resta disattivo qui.
-        $label = "";
-        $num_pezzi = 0;
-
-        while($riga = mysqli_fetch_array($ris))
-        {
-            $now = date("d/m/y H:i");
-            $testo = testo_biglietti($riga['testo']);
-            $quantita = $riga['quantita'];
-            $olpp_2 = $riga['olpp'];
-
-            // Compilazione dei parametri da passare
-            $parametri["now"] = $now;
-            $parametri["id"] = $id;
-            $parametri["cassa"] = $cassa;
-            $parametri["credits"] = $credits;
-            $parametri["evento"] = $evento;
-            $parametri["t"] = $t;
-            $parametri["quantita"] = $quantita;
-            $parametri["testo"] = $testo;
-            $parametri["olpp"] = $olpp_2;
-            $parametri["num_pezzi"] = $num_pezzi;
-            $parametri["print_order_id"] = $print_order_id;
-
-            // PASSA LA COSTANTE DI LINGUAGGIO DINAMICA
-            $parametri["tipo_stampante"] = $tipo_stampante;
-
-            if(($riga["id_prodotto"] == 60 || $riga["id_prodotto"] == 61 || $riga["id_prodotto"] == 62 || $riga["id_prodotto"] == 63) && MENU_ENABLE)
-            {
-                $vect = stampaMenu($testo,$quantita,0,$parametri);
-                $num_pezzi += $vect["num_pezzi"];
-                $label .= $vect["label"];
-            }
-            else
-            {
-                // Richiama get_product_label passandogli il tipo stampante impostato dalla costante
-                $ret = get_product_label($parametri);
-                $num_pezzi = $ret['num_pezzi'];
-                $label .= $ret['label'];
-            }
-        }
-    }
-
-    #Scrittura finale del file unico generato
-    fwrite($pf, $label, strlen($label));
-    fclose($pf);
-
-    #L'invio in stampante avviene in entrambe le modalita (continua e biglietti singoli)
-    $vect["inviato"] = invia_file_stampa();
-
-    $vect["num_pezzi"] = $num_pezzi;
-    $vect["id_ordine"] = $id_ordine;
-    $vect["totale"] = $totale;
-    return $vect;
-}
-
 function get_product_label($parametri)
 {
     $label = "";
@@ -891,7 +762,7 @@ function get_product_label($parametri)
     $olpp = $parametri["olpp"];
     $num_pezzi = $parametri["num_pezzi"];
     $print_order_id = $parametri["print_order_id"];
-    // Unica chiave linguaggio (issue #54): EPL o ZPL da genera_file_stampa.
+    // Unica chiave linguaggio (issue #54): EPL o ZPL da PrintService::generaFileStampa.
     $tipo_stampante = isset($parametri["tipo_stampante"]) ? $parametri["tipo_stampante"] : "ZPL";
 
     if ($tipo_stampante == "EPL")
@@ -1013,58 +884,6 @@ function get_product_label($parametri)
     $ret['label'] = $label;
     return $ret;
 
-}
-
-function invia_file_stampa()
-{
-    // nessun input GET/POST qui, solo costanti set.inc; whitelist+escapeshellarg+error_log.
-    // T16: LABELS_FILE e' assoluto in storage/, whitelist sul basename.
-    if (!preg_match('/^[A-Za-z0-9_-]+$/', PRINTER_NAME) || !preg_match('/^[A-Za-z0-9_.-]+$/', basename(LABELS_FILE)))
-    {
-        cassa_log('warning', "invia_file_stampa bloccato: costanti stampa non whitelistate");
-        return false;
-    }
-    if (PRINTER_CONNECTION == "DIRETTA")
-    {
-        $cmd = "lpr -P " . escapeshellarg(PRINTER_NAME) . " " . escapeshellarg(LABELS_FILE);
-        system($cmd, $rc);
-        if ($rc !== 0)
-            cassa_log('error', "lpr fallito rc=$rc printer=" . PRINTER_NAME . " file=" . LABELS_FILE);
-        return $rc === 0;
-    }
-    return ftpPut();
-}
-
-function ftpPut()
-{
-    $file = LABELS_FILE;
-
-    // set up basic connection
-    // Il print server Zebra accetta solo FTP anonimo, senza credenziali;
-    // timeout corto cosi' in fiera la cassa fallisce in fretta invece di bloccarsi.
-    $ftp = ftp_connect(PRINTER_IP, 21, 5);
-    if ($ftp === false)
-    {
-        cassa_log('error', "ftp_connect fallito verso " . PRINTER_IP);
-        return false;
-    }
-
-    // login with username and password
-    if (!ftp_login($ftp, "", ""))
-    {
-        cassa_log('error', "ftp_login anonimo fallito verso " . PRINTER_IP);
-        ftp_close($ftp);
-        return false;
-    }
-
-    // upload a file (spool locale assoluto in storage/ da T16, nome remoto solo basename)
-    $ok = ftp_put($ftp, basename($file), $file, FTP_BINARY);
-    if (!$ok)
-        cassa_log('error', "ftp_put fallito file=$file verso " . PRINTER_IP);
-
-    // close the connection
-    ftp_close($ftp);
-    return $ok;
 }
 
 

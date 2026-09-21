@@ -14,9 +14,9 @@
     </testsuites>
     <source>
         <include>
-            <file>fiscale.inc</file>
+            <file>src/Fiscale/Fiscale.php</file>
             <file>funzioni.inc</file>
-            <file>reserved/stat_dati.inc</file>
+            <file>src/Stats/StatsData.php</file>
         </include>
     </source>
 </phpunit>

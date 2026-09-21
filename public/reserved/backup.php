@@ -13,7 +13,7 @@ if (empty($_SESSION['reserved_auth']))
 
 require_once __DIR__ . '/../../dbConnect.php';
 require_once __DIR__ . '/../../funzioni.inc';
-require_once __DIR__ . '/../../backup.inc';
+require_once __DIR__ . '/../../src/Backup/BackupRun.php';
 
 $messaggioStato = '';
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['backup']))
@@ -24,7 +24,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['backup']))
     }
     else
     {
-        $esito = backup_run($mysqli, backup_config());
+        $esito = \Salsiccia\Backup\BackupRun::run($mysqli, \Salsiccia\Backup\BackupRun::config());
         if (!empty($esito['ok']))
         {
             $messaggioStato = 'DUMP OK: ' . $esito['file']

@@ -134,7 +134,7 @@ function salsiccia_login_ok(string $scope, string $ip = '', string $file = ''): 
 
 // Gate stampa etichette (issue #54): unico punto di definizione della
 // tabella di verita' stampante/connessione/linguaggio. Usato sia dal gate
-// stampa_permessa in genera_file_stampa() (funzioni.inc) sia dal calcolo
+// stampa_permessa in PrintService::generaFileStampa() (src/Cassa/PrintService.php) sia dal calcolo
 // di CONTINUOUS_LABEL (set.inc): stessa tabella, nessun duplicato.
 function printer_gate_allowed($name, $conn, $lang)
 {
