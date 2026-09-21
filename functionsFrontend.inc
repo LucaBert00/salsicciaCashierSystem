@@ -64,8 +64,8 @@ $but_x_col = BOT_X_COL;
 $bot_width = BOT_WIDTH;
 $bot_height = BOT_HEIGHT;
 
-// Azioni del riepilogo
-gestisciAzioni();
+// Azioni del riepilogo (T30: DB/cassa iniettati, mai globali).
+gestisciAzioni($mysqli, $id_cassa);
 
 // Modalita' fiera (issue, consumata in): "1" = barcode visibile/obbligatorio, "0" = nascosto con default '-'.
 function isFieraAttiva()
@@ -119,7 +119,7 @@ function coloreCategoriaHex($codice)
 // qui resta solo HTTP/CSRF/redirect (thin caller).
 // T14: mutazioni cassa solo via POST con token; GET resta lettura:
 // prefetch/link non mutano mai l'ordine live ($post_ok ricalcolato per handler).
-function cassa_azione_login()
+function cassa_azione_login($mysqli = null, $id_cassa = null)
 {
 
     // Login admin via POST (issue): code mai in URL/log; OK -> flag sessione + redirect pulito.
@@ -155,7 +155,7 @@ function cassa_azione_login()
     }
 }
 
-function cassa_azione_logout()
+function cassa_azione_logout($mysqli = null, $id_cassa = null)
 {
 
     if (isset($_GET['action']) && $_GET['action'] == 'logout')
@@ -167,10 +167,8 @@ function cassa_azione_logout()
     }
 }
 
-function cassa_azione_cassa()
+function cassa_azione_cassa($mysqli = null, $id_cassa = null)
 {
-    global $id_cassa;
-
     // Scelta esplicita cassa da pannello admin: salva in sessione, mai da IP.
     if (($_SERVER['REQUEST_METHOD'] ?? '') == 'POST' && ($_GET['action'] ?? '') == 'cassa' && isset($_POST['id_cassa']))
     {
@@ -182,13 +180,12 @@ function cassa_azione_cassa()
         $c = (int)$_POST['id_cassa'];
         if ($c >= 1 && $c <= 999)
             $_SESSION['id_cassa'] = $c;
-        $id_cassa = cassaCorrente();
         header("Location: index.php?action=c&ok=1");
         exit;
     }
 }
 
-function cassa_azione_fiera()
+function cassa_azione_fiera($mysqli = null, $id_cassa = null)
 {
 
     // Toggle fiera da pannello admin: solo POST con token, GET resta lettura.
@@ -206,9 +203,8 @@ function cassa_azione_fiera()
     }
 }
 
-function cassa_azione_annulla()
+function cassa_azione_annulla($mysqli, $id_cassa)
 {
-    global $mysqli, $id_cassa;
     $post_ok = (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') && csrf_ok();
     if ($post_ok) // annulla ordine
     {
@@ -216,9 +212,8 @@ function cassa_azione_annulla()
     }
 }
 
-function cassa_azione_aggiungi()
+function cassa_azione_aggiungi($mysqli, $id_cassa)
 {
-    global $mysqli, $id_cassa;
     $post_ok = (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') && csrf_ok();
     if ($post_ok && isset($_GET['id'])) // aggiungi prodotto
     {
@@ -226,9 +221,8 @@ function cassa_azione_aggiungi()
     }
 }
 
-function cassa_azione_quantita()
+function cassa_azione_quantita($mysqli, $id_cassa)
 {
-    global $mysqli, $id_cassa;
     $post_ok = (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') && csrf_ok();
     if ($post_ok && isset($_GET['id']) && isset($_GET['qta']))
     {
@@ -239,9 +233,8 @@ function cassa_azione_quantita()
     }
 }
 
-function cassa_azione_rimuovi()
+function cassa_azione_rimuovi($mysqli, $id_cassa)
 {
-    global $mysqli, $id_cassa;
     $post_ok = (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') && csrf_ok();
     if ($post_ok && isset($_GET['id']))
     {
@@ -252,9 +245,8 @@ function cassa_azione_rimuovi()
     }
 }
 
-function cassa_azione_tipo()
+function cassa_azione_tipo($mysqli, $id_cassa)
 {
-    global $mysqli, $id_cassa;
     $post_ok = (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') && csrf_ok();
     if ($post_ok && isset($_GET['t']))
     {
@@ -265,9 +257,8 @@ function cassa_azione_tipo()
     }
 }
 
-function cassa_azione_standby()
+function cassa_azione_standby($mysqli, $id_cassa)
 {
-    global $mysqli, $id_cassa;
     $post_ok = (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') && csrf_ok();
     if ($post_ok) // set ordine in standby
     {
@@ -277,9 +268,8 @@ function cassa_azione_standby()
     }
 }
 
-function cassa_azione_riattiva()
+function cassa_azione_riattiva($mysqli, $id_cassa)
 {
-    global $mysqli, $id_cassa;
     $post_ok = (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') && csrf_ok();
     if ($post_ok && isset($_GET['id'])) // reactivate da standby
     {
@@ -289,12 +279,14 @@ function cassa_azione_riattiva()
     }
 }
 
-function gestisciAzioni()
+function gestisciAzioni($mysqli, $id_cassa)
 {
 
     // T23: dispatch via tabella (routes/cassa.php, nessun if); action non
     // stringa o non listata = schermata sola lettura o errore kiosk in
     // public/index.php, mai fatal. Handler null = sola lettura.
+    // T30: ogni handler ha la stessa interfaccia ($mysqli, $id_cassa);
+    // chi non usa il DB li dichiara opzionali e li ignora.
     static $tabella = null;
     if ($tabella === null)
         $tabella = (array)require __DIR__ . '/routes/cassa.php';
@@ -304,29 +296,26 @@ function gestisciAzioni()
     $handler = $tabella[$action];
     if (!is_string($handler) || $handler === '' || !function_exists($handler))
         return;
-    $handler();
+    $handler($mysqli, $id_cassa);
 }
 
 // pulsanti categorie (T19: thin caller, query in CatalogRepo, HTML in CatalogView).
-function mostraNavCategorie()
+function mostraNavCategorie($mysqli, $cat)
 {
-    global $mysqli, $cat;
     $repo = new \Salsiccia\Catalog\CatalogRepo($mysqli);
     \Salsiccia\Catalog\CatalogView::navCategorie($repo->allCategorie(), (int)$cat);
 }
 
 //Categoria corrente (T19: thin caller).
-function mostraTitolo()
+function mostraTitolo($mysqli, $cat)
 {
-    global $mysqli, $cat;
     $repo = new \Salsiccia\Catalog\CatalogRepo($mysqli);
     \Salsiccia\Catalog\CatalogView::titolo($repo->descrizioneCategoria((int)$cat));
 }
 
 //indicatore tipo ordine nav (T26: lettere da OrderType enum, unica fonte)
-function mostraIndicatoreTipo()
+function mostraIndicatoreTipo($mysqli)
 {
-    global $mysqli;
     $id_cassa = cassaCorrente();
 
     $ris = db_select($mysqli, "SELECT tipo FROM ordini WHERE id_cassa = ? AND chiuso = '0' LIMIT 1", 'i', array($id_cassa));
@@ -343,10 +332,8 @@ function mostraIndicatoreTipo()
 }
 
 // tabella prodotti (T19: thin caller, query in CatalogRepo, HTML in CatalogView).
-function mostraTabellaProdotti()
+function mostraTabellaProdotti($mysqli, $cat, $but_x_row, $but_x_col)
 {
-    global $mysqli, $cat, $but_x_row, $but_x_col;
-
     $cat = (int)$cat;
     $repo = new \Salsiccia\Catalog\CatalogRepo($mysqli);
     $prodotti = $repo->prodottiByCategoria($cat);
@@ -355,9 +342,8 @@ function mostraTabellaProdotti()
 }
 
 //Modifica ordine
-function mostraModificaOrdine()
+function mostraModificaOrdine($mysqli)
 {
-    global $mysqli;
     $id_cassa = cassaCorrente();
 
     $ris = db_select($mysqli, "SELECT prodotti.id_prodotto AS id, prodotti.descrizione_prod, righe_ordini.quantita, righe_ordini.totale, ordini.totale as tot_ord, ordini.id_ordine AS id_ord FROM prodotti, ordini, righe_ordini WHERE ordini.id_ordine = righe_ordini.id_ordine AND prodotti.id_prodotto = righe_ordini.id_prodotto AND id_cassa = ? AND ordini.chiuso = 0", 'i', array($id_cassa));
@@ -422,9 +408,8 @@ function mostraModificaOrdine()
 }
 
 // Footer modifica
-function mostraFooterModifica()
+function mostraFooterModifica($cat)
 {
-    global $cat;
     echo '<form method="post" action="?cat=' . (int)$cat . '&action=r" style="display:contents;">';
     csrf_field();
     echo '<button type="submit" id="annulla-btn"><span id="annullaOrdine-sign">🗑️️ ANNULLA ORDINE</span></button></form>
@@ -455,10 +440,8 @@ function mostraOpzioni()
     echo '</section>';
 }
 
-function mostraOrdiniStandby()
+function mostraOrdiniStandby($mysqli)
 {
-    global $mysqli;
-
     $query = "SELECT * FROM ordini WHERE chiuso = 'S'";
     $ris = mysql_query_safe($mysqli, $query);
 
@@ -502,9 +485,8 @@ function mostraOrdiniStandby()
 }
 
 // Pulsanti annulla ordine e stampa
-function mostraFooterBottoni()
+function mostraFooterBottoni($cat)
 {
-    global $cat;
     echo '<form method="post" action="?cat=' . (int)$cat . '&action=r" style="display:contents;">';
     csrf_field();
     echo '<button type="submit" id="annulla-btn"><span id="annullaOrdine-sign">🗑️️ ANNULLA ORDINE</span></button></form>
@@ -512,9 +494,8 @@ function mostraFooterBottoni()
 }
 
 //R iepilogo ordine
-function mostraBoxRiepilogo()
+function mostraBoxRiepilogo($mysqli)
 {
-    global $mysqli;
     $id_cassa = cassaCorrente();
 
     $ris = db_select($mysqli, "SELECT id_ordine, totale FROM ordini WHERE id_cassa = ? AND chiuso = '0'", 'i', array($id_cassa));
@@ -548,9 +529,8 @@ function mostraAzioniLaterali()
 }
 
 // elenco prodotti ordine
-function mostraListaProdotti()
+function mostraListaProdotti($mysqli)
 {
-    global $mysqli;
     $id_cassa = cassaCorrente();
 
     $ris = db_select($mysqli, "SELECT prodotti.descrizione_prod, righe_ordini.quantita, righe_ordini.totale FROM prodotti, ordini, righe_ordini WHERE ordini.id_ordine = righe_ordini.id_ordine AND prodotti.id_prodotto = righe_ordini.id_prodotto AND id_cassa = ? AND ordini.chiuso = '0'", 'i', array($id_cassa));
@@ -670,9 +650,8 @@ function mostraPannelloAdmin()
 
 // Schermata unica CONTATORI: tutti i venduti monitorati con nome + quantita
 // (un solo GROUP BY via contatori_totali, paginato in PHP come le viste stat).
-function mostraContatori()
+function mostraContatori($mysqli)
 {
-    global $mysqli;
     if (!isAdmin())
     {
         header("Location: index.php?action=c");
@@ -727,9 +706,8 @@ function mostraContatori()
 
 // Repair database: REPAIR TABLE su tutte le tabelle
 // (port di 1.0/ripristino.php dal branch modificaStampa, riusa $mysqli)
-function mostraRipristinaDb()
+function mostraRipristinaDb($mysqli)
 {
-    global $mysqli;
     // difesa in profondita, index.php filtra gia via isAdmin+redirect; mai GET anonimo.
     if (!isAdmin())
     {
@@ -938,9 +916,8 @@ function mostraLayoutResto($totale, $pagato, $metodo, $base_url, $mostra_nuovo =
 }
 
 // Stampa
-function mostraSchermataStampa()
+function mostraSchermataStampa($mysqli)
 {
-    global $mysqli;
     $id_cassa = cassaCorrente();
 
     // Errore stampante (#102): ordine ancora aperto (chiuso=0), stesso layout

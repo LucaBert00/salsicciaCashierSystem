@@ -47,36 +47,36 @@ if (!$isAdmin && in_array($action, array('repair', 'print_reset', 'contatori'), 
 <body>
     <main<?php if (!empty($isCassaMain)) echo ' class="cassa-c" style="--hex-cat:' . $hexCassa . ';"'; ?>>
         <?php if ($showAdmin): ?>
-            <nav><?php mostraNavCategorie(); ?><?php mostraIndicatoreTipo(); ?></nav>
+            <nav><?php mostraNavCategorie($mysqli, $cat); ?><?php mostraIndicatoreTipo($mysqli); ?></nav>
             <header><h1>PANNELLO ADMIN</h1></header>
             <?php mostraPannelloAdmin(); ?>
         <?php elseif ($showStampa): ?>
-            <nav><?php mostraNavCategorie(); ?><?php mostraIndicatoreTipo(); ?></nav>
-            <?php mostraSchermataStampa(); ?>
+            <nav><?php mostraNavCategorie($mysqli, $cat); ?><?php mostraIndicatoreTipo($mysqli); ?></nav>
+            <?php mostraSchermataStampa($mysqli); ?>
         <?php elseif ($showModifica): ?>
-            <nav><?php mostraNavCategorie(); ?><?php mostraIndicatoreTipo(); ?></nav>
+            <nav><?php mostraNavCategorie($mysqli, $cat); ?><?php mostraIndicatoreTipo($mysqli); ?></nav>
             <header><h1>MODIFICA ORDINE</h1></header>
-            <?php mostraModificaOrdine(); ?>
-            <div class="footer"><?php mostraFooterModifica(); ?></div>
+            <?php mostraModificaOrdine($mysqli); ?>
+            <div class="footer"><?php mostraFooterModifica($cat); ?></div>
         <?php elseif ($showOpzioni): ?>
-            <nav><?php mostraNavCategorie(); ?><?php mostraIndicatoreTipo(); ?></nav>
+            <nav><?php mostraNavCategorie($mysqli, $cat); ?><?php mostraIndicatoreTipo($mysqli); ?></nav>
             <header><h1>TIPOLOGIA ORDINE</h1></header>
             <?php mostraOpzioni(); ?>
-            <div class="footer"><?php mostraFooterModifica(); ?></div>
+            <div class="footer"><?php mostraFooterModifica($cat); ?></div>
         <?php elseif ($showStandby): ?>
-            <nav><?php mostraNavCategorie(); ?><?php mostraIndicatoreTipo(); ?></nav>
+            <nav><?php mostraNavCategorie($mysqli, $cat); ?><?php mostraIndicatoreTipo($mysqli); ?></nav>
             <header><h1>ORDINI IN STANDBY</h1></header>
-            <?php mostraOrdiniStandby(); ?>
+            <?php mostraOrdiniStandby($mysqli); ?>
         <?php elseif ($showRepair): ?>
-            <nav><?php mostraNavCategorie(); ?><?php mostraIndicatoreTipo(); ?></nav>
+            <nav><?php mostraNavCategorie($mysqli, $cat); ?><?php mostraIndicatoreTipo($mysqli); ?></nav>
             <header><h1>RIPRISTINA DB</h1></header>
-            <?php mostraRipristinaDb(); ?>
+            <?php mostraRipristinaDb($mysqli); ?>
         <?php elseif ($showContatori): ?>
-            <nav><?php mostraNavCategorie(); ?><?php mostraIndicatoreTipo(); ?></nav>
+            <nav><?php mostraNavCategorie($mysqli, $cat); ?><?php mostraIndicatoreTipo($mysqli); ?></nav>
             <header><h1>CONTATORI</h1></header>
-            <?php mostraContatori(); ?>
+            <?php mostraContatori($mysqli); ?>
         <?php elseif ($showPrintReset): ?>
-            <nav><?php mostraNavCategorie(); ?><?php mostraIndicatoreTipo(); ?></nav>
+            <nav><?php mostraNavCategorie($mysqli, $cat); ?><?php mostraIndicatoreTipo($mysqli); ?></nav>
             <header><h1>PRINT RESET</h1></header>
             <?php mostraPrintReset(); ?>
         <?php elseif ($showConfig && isset($_GET['ok']) && !$showAdmin): ?>
@@ -86,16 +86,16 @@ if (!$isAdmin && in_array($action, array('repair', 'print_reset', 'contatori'), 
         <?php elseif ($azioneNonValida): ?>
             <?php \Salsiccia\Support\ErrorHandler::mostraErrore('AZIONE NON VALIDA'); ?>
         <?php else: ?>
-            <nav><?php mostraNavCategorie(); ?><?php mostraIndicatoreTipo(); ?></nav>
-            <header><h1><?php mostraTitolo(); ?></h1></header>
-            <section id="main"><?php mostraTabellaProdotti(); ?></section>
-            <div class="footer"><?php mostraFooterBottoni(); ?></div>
+            <nav><?php mostraNavCategorie($mysqli, $cat); ?><?php mostraIndicatoreTipo($mysqli); ?></nav>
+            <header><h1><?php mostraTitolo($mysqli, $cat); ?></h1></header>
+            <section id="main"><?php mostraTabellaProdotti($mysqli, $cat, $but_x_row, $but_x_col); ?></section>
+            <div class="footer"><?php mostraFooterBottoni($cat); ?></div>
         <?php endif; ?>
     </main>
     <aside>
         <header>
             <h2>RIEPILOGO ORDINE</h2>
-            <div class="order-summary-box"><?php mostraBoxRiepilogo(); ?></div>
+            <div class="order-summary-box"><?php mostraBoxRiepilogo($mysqli); ?></div>
             <div class="aside-actions"><?php mostraAzioniLaterali(); ?></div>
         </header>
         <?php if ($showConfig && !$showAdmin): ?>
@@ -103,7 +103,7 @@ if (!$isAdmin && in_array($action, array('repair', 'print_reset', 'contatori'), 
         <?php else: ?>
             <section>
                 <h3>RIEPILOGO PRODOTTI</h3>
-                <ul class="cart-list"><?php mostraListaProdotti(); ?></ul>
+                <ul class="cart-list"><?php mostraListaProdotti($mysqli); ?></ul>
             </section>
         <?php endif; ?>
         <?php mostraAzioniExtra(); ?>
