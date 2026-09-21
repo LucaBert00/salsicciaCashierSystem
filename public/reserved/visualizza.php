@@ -48,9 +48,12 @@ if (isset($_GET['logout']))
 // niente SQL da $_GET non validato: whitelist tab/OR/DIR + pagina int
 //$righePerPagina -> righe per pagina della lista
 $righePerPagina = 5;
+// Barcode facoltativo (#47, da e6559f4): i DB storici senza
+// prodotti.barcode lavorano senza; sonda fail-open, mai un blocco.
+$haBarcode = VisualizzaStore::haColonna($mysqli, 'prodotti', 'barcode');
 $configTabs = array(
     'categorie' => CategorieTab::config(),
-    'prodotti' => ProdottiTab::config(),
+    'prodotti' => ProdottiTab::config($haBarcode),
     'prodotti_categorie' => ProdottiCategorieTab::config(),
     'contatori' => ContatoriTab::config(),
     'prodotti_contatori' => ProdottiContatoriTab::config(),
@@ -164,7 +167,7 @@ $mostraForm = isset($_GET['nuovo'])
 // Carica il prodotto da modificare, torna in lista se l'id non esiste
 if ($tabForm === 'prodotti' && isset($_GET['edit']) && (!$tabValido || $tabCorrente === 'prodotti'))
 {
-    $rigaInModifica = ProdottiTab::caricaModifica($mysqli, $_GET);
+    $rigaInModifica = ProdottiTab::caricaModifica($mysqli, $_GET, $haBarcode);
     if (!$rigaInModifica)
     {
         $mostraForm = false;
@@ -219,7 +222,11 @@ if (isset($_POST['save']))
     else
     {
         $classeSave = $classiTab[$tabInviato];
-        $esitoSave = $classeSave::salva($mysqli, $_POST);
+        if ($tabInviato === 'prodotti') {
+            $esitoSave = $classeSave::salva($mysqli, $_POST, $haBarcode);
+        } else {
+            $esitoSave = $classeSave::salva($mysqli, $_POST);
+        }
         if (isset($esitoSave['redirect']))
         {
             header('Location: visualizza.php?tab=' . $esitoSave['redirect']);

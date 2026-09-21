@@ -70,6 +70,26 @@ final class VisualizzaStore
         return array($totRighe, $totPagine, $pagina, $righe);
     }
 
+    // Barcode facoltativo (#47, da e6559f4): la colonna puo mancare nei DB
+    // storici. Sonda SHOW COLUMNS con whitelist sugli identificatori e
+    // fail-open true su qualsiasi errore: una sonda rotta non deve mai
+    // murare il backoffice sul laptop di fiera.
+    public static function haColonna($db, string $tabella, string $colonna): bool
+    {
+        if (!preg_match('/^[A-Za-z0-9_]+$/', $tabella) || !preg_match('/^[A-Za-z0-9_]+$/', $colonna)) {
+            return true;
+        }
+        try {
+            $res = $db->query("SHOW COLUMNS FROM `" . $tabella . "` LIKE '" . $colonna . "'");
+            if (!$res) {
+                return true;
+            }
+            return $res->num_rows > 0;
+        } catch (\Throwable $e) {
+            return true;
+        }
+    }
+
     // Conta righe con prepared per controlli referenziali e duplicati (verbatim).
     public static function contaRighe($db, string $sql, string $tipiBind, array $valoriBind): int
     {

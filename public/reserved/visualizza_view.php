@@ -249,7 +249,7 @@ function fieraAttiva()
                     <button type="button" class="opzione-btn" id="svuota-regola">SVUOTA CAMPI</button>
                 </div>
             </form>
-            <!-- Form prodotto: ramo else perché prodotti è il tab di fallback (issue: solo PREZZO, barcode solo a fiera attiva, SVUOTA; tastiera come categorie con PREZZO double-only come QUANTITA in regole) -->
+            <!-- Form prodotto: ramo else perché prodotti è il tab di fallback (issue: solo PREZZO, barcode facoltativo solo se la colonna esiste, SVUOTA; tastiera come categorie con PREZZO double-only come QUANTITA in regole) -->
             <?php else: ?>
             <form action="<?php echo htmlspecialchars($actionForm); ?>" method="post" id="form-prodotto" style="display:flex;flex-direction:column;gap:8px;max-width:560px;width:100%;">
                 <input type="hidden" name="t" value="prodotti">
@@ -263,8 +263,10 @@ function fieraAttiva()
                         <option value="T"<?php echo ($rigaInModifica['olpp'] ?? 'T') == 'T' ? ' selected' : ''; ?>>OLPP T</option>
                         <option value="F"<?php echo ($rigaInModifica['olpp'] ?? '') == 'F' ? ' selected' : ''; ?>>OLPP F</option>
                     </select>
-                    <?php if (fieraAttiva()): ?>
-                    <input type="text" name="barcode" class="codice-text-field" maxlength="20" required placeholder="BARCODE" value="<?php echo htmlspecialchars($rigaInModifica['barcode'] ?? ''); ?>" style="flex:2;">
+                    <?php if (!$haBarcode): ?>
+                    <input type="hidden" name="barcode" value="">
+                    <?php elseif (fieraAttiva()): ?>
+                    <input type="text" name="barcode" class="codice-text-field" maxlength="20" placeholder="BARCODE (FACOLTATIVO)" value="<?php echo htmlspecialchars($rigaInModifica['barcode'] ?? ''); ?>" style="flex:2;">
                     <?php else: ?>
                     <input type="hidden" name="barcode" value="<?php echo htmlspecialchars($rigaInModifica['barcode'] ?? '-'); ?>">
                     <?php endif; ?>

@@ -13,9 +13,12 @@ require_once __DIR__ . '/../VisualizzaStore.php';
 // Il router verifica csrf_ok() prima di salva; elimina lo verifica da se'.
 final class ProdottiTab
 {
-    public static function config(): array
+    // Config lista: con colonna barcode tutto come oggi, senza colonna
+    // select/search/orders perdono ogni riferimento barcode (#47, da e6559f4).
+    // G3: senza la chiave 'barcode' resolveOrderBy non puo mai ordinarci sopra.
+    public static function config(bool $haBarcode = true): array
     {
-        return array('label' => 'PRODOTTI', 'titolo' => 'GESTIONE PRODOTTI',
+        $cfg = array('label' => 'PRODOTTI', 'titolo' => 'GESTIONE PRODOTTI',
             'from' => '`prodotti`',
             'select' => '`id_prodotto`, `descrizione_prod`, `prezzo`, `olpp`, `barcode`, `testo_biglietto`',
             'cnt' => 'COUNT(*)',
@@ -23,6 +26,12 @@ final class ProdottiTab
             'default' => '`descrizione_prod` ASC',
             'search' => array('`descrizione_prod`', '`testo_biglietto`', '`barcode`'),
             'headers' => array(array('descrizione_prod', 'DESCRIZIONE'), array('prezzo', 'PREZZO'), array('olpp', 'ETICH')));
+        if (!$haBarcode) {
+            $cfg['select'] = '`id_prodotto`, `descrizione_prod`, `prezzo`, `olpp`, `testo_biglietto`';
+            $cfg['search'] = array('`descrizione_prod`', '`testo_biglietto`');
+            unset($cfg['orders']['barcode']);
+        }
+        return $cfg;
     }
 
     // Elimina prodotto solo se non citato in posizioni, regole e righe ordini.
@@ -52,24 +61,33 @@ final class ProdottiTab
     }
 
     // Riga prodotto per edit, null se assente o senza chiave.
-    public static function caricaModifica($db, array $get): ?array
+    // Senza colonna barcode: SELECT senza e chiave default '' (#47, da e6559f4).
+    public static function caricaModifica($db, array $get, bool $haBarcode = true): ?array
     {
         if (!isset($get['edit'])) {
             return null;
         }
         $idProdotto = (int)$get['edit'];
-        $stmt = $db->prepare("SELECT id_prodotto, descrizione_prod, prezzo, iva, testo_biglietto, olpp, barcode FROM `prodotti` WHERE id_prodotto = ?");
+        if ($haBarcode) {
+            $stmt = $db->prepare("SELECT id_prodotto, descrizione_prod, prezzo, iva, testo_biglietto, olpp, barcode FROM `prodotti` WHERE id_prodotto = ?");
+        } else {
+            $stmt = $db->prepare("SELECT id_prodotto, descrizione_prod, prezzo, iva, testo_biglietto, olpp FROM `prodotti` WHERE id_prodotto = ?");
+        }
         $stmt->bind_param('i', $idProdotto);
         $stmt->execute();
         $riga = $stmt->get_result()->fetch_assoc();
+        if ($riga && !isset($riga['barcode'])) {
+            $riga['barcode'] = '';
+        }
         return $riga ? $riga : null;
     }
 
-    // Salva prodotto: descrizione obbligatoria, prezzo double-only, iva fissa 0.22,
-    // barcode obbligatorio solo a fiera attiva, default '-' a fiera spenta.
+    // Salva prodotto: solo descrizione obbligatoria, barcode sempre facoltativo
+    // (puo mancare il valore o l'intera colonna nei DB storici). Iva fissa 0.22,
+    // default '-' a fiera spenta solo se la colonna esiste (#47, da e6559f4).
     // Ritorna array('redirect' => tab) o array('msg' => ...) senza 'riga'
     // (il router conserva la riga in modifica come l'originale).
-    public static function salva($db, array $post): array
+    public static function salva($db, array $post, bool $haBarcode = true): array
     {
         $idProdotto = (int)$post['id'];
         $descrizione = substr(trim($post['descrizione_prod']), 0, 100);
@@ -78,26 +96,38 @@ final class ProdottiTab
         $testoBiglietto = substr(trim($post['testo_biglietto']), 0, 100);
         $olpp = $post['olpp'] == 'T' ? 'T' : 'F';
         $fiera = VisualizzaStore::fieraAttiva();
-        if (!$fiera && $idProdotto === 0) {
+        if (!$haBarcode) {
+            $barcode = '';
+        } elseif (!$fiera && $idProdotto === 0 && trim($post['barcode'] ?? '') === '') {
             $barcode = '-';
         } else {
             $barcode = substr(trim($post['barcode'] ?? ''), 0, 20);
         }
-        if ($descrizione === '' || $barcode === '') {
-            return array('msg' => 'DESCRIZIONE E BARCODE OBBLIGATORI');
+        if ($descrizione === '') {
+            return array('msg' => 'DESCRIZIONE OBBLIGATORIA');
         }
         if (!is_numeric($prezzoRaw) || (float)$prezzoRaw < 0) {
             return array('msg' => 'PREZZO NON VALIDO');
         }
         $prezzo = (float)$prezzoRaw;
         if ($idProdotto > 0) {
-            $stmt = $db->prepare("UPDATE `prodotti` SET descrizione_prod = ?, prezzo = ?, iva = ?, testo_biglietto = ?, olpp = ?, barcode = ? WHERE id_prodotto = ?");
-            $stmt->bind_param('sddsssi', $descrizione, $prezzo, $iva, $testoBiglietto, $olpp, $barcode, $idProdotto);
+            if ($haBarcode) {
+                $stmt = $db->prepare("UPDATE `prodotti` SET descrizione_prod = ?, prezzo = ?, iva = ?, testo_biglietto = ?, olpp = ?, barcode = ? WHERE id_prodotto = ?");
+                $stmt->bind_param('sddsssi', $descrizione, $prezzo, $iva, $testoBiglietto, $olpp, $barcode, $idProdotto);
+            } else {
+                $stmt = $db->prepare("UPDATE `prodotti` SET descrizione_prod = ?, prezzo = ?, iva = ?, testo_biglietto = ?, olpp = ? WHERE id_prodotto = ?");
+                $stmt->bind_param('sddssi', $descrizione, $prezzo, $iva, $testoBiglietto, $olpp, $idProdotto);
+            }
             $stmt->execute();
         } else {
             // id AUTO_INCREMENT, niente MAX+1 (race su MyISAM senza lock).
-            $stmt = $db->prepare("INSERT INTO `prodotti` (descrizione_prod, prezzo, iva, testo_biglietto, olpp, barcode) VALUES (?, ?, ?, ?, ?, ?)");
-            $stmt->bind_param('sddsss', $descrizione, $prezzo, $iva, $testoBiglietto, $olpp, $barcode);
+            if ($haBarcode) {
+                $stmt = $db->prepare("INSERT INTO `prodotti` (descrizione_prod, prezzo, iva, testo_biglietto, olpp, barcode) VALUES (?, ?, ?, ?, ?, ?)");
+                $stmt->bind_param('sddsss', $descrizione, $prezzo, $iva, $testoBiglietto, $olpp, $barcode);
+            } else {
+                $stmt = $db->prepare("INSERT INTO `prodotti` (descrizione_prod, prezzo, iva, testo_biglietto, olpp) VALUES (?, ?, ?, ?, ?)");
+                $stmt->bind_param('sddss', $descrizione, $prezzo, $iva, $testoBiglietto, $olpp);
+            }
             $stmt->execute();
         }
         return array('redirect' => 'prodotti');
