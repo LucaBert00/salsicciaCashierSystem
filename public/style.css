@@ -56,11 +56,11 @@ nav {
 nav button {
     background-color: #ffffff;
     border: 1px solid #dcdfe6;
-    border-radius: 4px;
-    padding: clamp(12px, calc(12px + var(--up)), 16.2px) clamp(24px, calc(24px + var(--up)), 32.4px);
+    border-radius: 15px;
+    padding: clamp(28px, calc(28px + var(--up)), 37.8px) clamp(32px, calc(32px + var(--up)), 43.2px);
     color: #2c3e4f;
     cursor: pointer;
-    font-size: clamp(16px, calc(16px + var(--up)), 21.6px);
+    font-size: clamp(18px, calc(18px + var(--up)), 24.3px);
     font-weight: 800;
     text-transform: uppercase;
 }
