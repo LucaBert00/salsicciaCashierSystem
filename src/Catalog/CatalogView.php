@@ -83,4 +83,27 @@ final class CatalogView
         }
         echo '</tr></tbody></table>';
     }
+
+    // Barra barcode kiosk (#46, da a49af04): form POST+CSRF (T14 come la
+    // griglia prodotti, mai GET) + banner ignoto + listener wedge globale.
+    // Pura echo: $cat e $barcodeErrore per parametro, zero query, zero
+    // superglobali (T19/T30); errore gia escaped qui.
+    public static function barraBarcode(int $cat, string $barcodeErrore = ''): void
+    {
+        $cat = (int)$cat;
+        echo '<form method="post" action="?cat=' . $cat . '&action=b" id="form-barcode" style="display:flex;gap:8px;padding:8px 12px;" autocomplete="off">';
+        \csrf_field();
+        echo '<input type="text" name="bc" id="barcode-input" class="codice-text-field" maxlength="20" placeholder="SCANSIONA BARCODE..." value="" style="margin-bottom:0;text-align:left;padding-left:12px;" autofocus>';
+        echo '<button type="submit" class="opzione-btn barcode-btn" style="white-space:nowrap;">OK</button>';
+        echo '</form>';
+        if ($barcodeErrore !== '') {
+            echo '<p style="background:#d9534f;color:#fff;font-weight:800;text-align:center;padding:6px;border-radius:6px;margin:0 12px 8px;">BARCODE NON TROVATO: ' . htmlspecialchars($barcodeErrore, ENT_QUOTES, 'UTF-8') . '</p>';
+        }
+        echo '<script>(function(){var i=document.getElementById("barcode-input");if(i&&!i.value)i.focus({preventScroll:true});'
+            . 'var buf="",last=0;document.addEventListener("keydown",function(e){'
+            . 'var t=document.activeElement;if(t&&(t.tagName==="INPUT"||t.tagName==="TEXTAREA"||t.tagName==="SELECT"))return;'
+            . 'if(e.key==="Enter"){if(buf.length>=3){e.preventDefault();var f=document.getElementById("form-barcode");var inp=document.getElementById("barcode-input");if(f&&inp){inp.value=buf;f.submit();}buf="";}return;}'
+            . 'if(e.key&&e.key.length===1){var n=Date.now();if(n-last>80)buf=e.key;else buf+=e.key;last=n;if(buf.length>20)buf=buf.slice(-20);}'
+            . '});})();</script>';
+    }
 }

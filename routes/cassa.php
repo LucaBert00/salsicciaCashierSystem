@@ -20,6 +20,7 @@ return array(
     'fiera' => 'cassa_azione_fiera',
     'r' => 'cassa_azione_annulla',
     'a' => 'cassa_azione_aggiungi',
+    'b' => 'cassa_azione_barcode',
     'mq' => 'cassa_azione_quantita',
     'mr' => 'cassa_azione_rimuovi',
     'st' => 'cassa_azione_tipo',

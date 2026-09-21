@@ -223,6 +223,35 @@ function cassa_azione_aggiungi($mysqli, $id_cassa)
     }
 }
 
+// Kiosk barcode (#46, da a49af04): scanner keyboard-wedge -> POST action=b bc=.
+// T14 (a): mutazione solo via POST+CSRF come la griglia prodotti, GET ignorato.
+// Fiera spenta: ignorato verbatim (nessun ordine, nessun messaggio).
+// T18: risolve barcode->id poi delega a OrderService::aggiungiProdotto(), mai INSERT qui.
+// T30: firma ($mysqli, $id_cassa), niente $GLOBALS, Repo/View senza superglobali.
+function cassa_azione_barcode($mysqli, $id_cassa)
+{
+    if (!isFieraAttiva())
+    {
+        return;
+    }
+    $post_ok = (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') && csrf_ok();
+    if (!$post_ok || !isset($_POST['bc']))
+    {
+        return;
+    }
+    $raw = substr(trim((string)$_POST['bc']), 0, 20);
+    if ($raw === '' || $raw === '-')
+    {
+        return;
+    }
+    $id = (new \Salsiccia\Catalog\CatalogRepo($mysqli))->trovaIdPerBarcode($raw);
+    if ($id !== null && $id > 0)
+    {
+        (new \Salsiccia\Cassa\OrderService($mysqli, (int)$id_cassa))->aggiungiProdotto($id);
+    }
+    // Ignoto: nessun ordine, banner in mostraBarraBarcode() dallo stesso POST.
+}
+
 function cassa_azione_quantita($mysqli, $id_cassa)
 {
     $post_ok = (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') && csrf_ok();
@@ -341,6 +370,31 @@ function mostraTabellaProdotti($mysqli, $cat, $but_x_row, $but_x_col)
     $prodotti = $repo->prodottiByCategoria($cat);
     $vuota = count($prodotti) === 0 ? $repo->categoria($cat) : null;
     \Salsiccia\Catalog\CatalogView::tabellaProdotti($prodotti, $vuota, $cat, (int)$but_x_row, (int)$but_x_col);
+}
+
+// Barra barcode kiosk (#46, da a49af04): solo a fiera attiva, su schermata cassa.
+// T19 thin caller: lookup in CatalogRepo, HTML in CatalogView, zero query in View.
+// T30: errore ignoto come parametro, mai $GLOBALS.
+function mostraBarraBarcode($mysqli, $cat)
+{
+    if (!isFieraAttiva())
+    {
+        return;
+    }
+    $errore = '';
+    if ((($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') && csrf_ok() && isset($_POST['bc']))
+    {
+        $raw = substr(trim((string)$_POST['bc']), 0, 20);
+        if ($raw !== '' && $raw !== '-')
+        {
+            $id = (new \Salsiccia\Catalog\CatalogRepo($mysqli))->trovaIdPerBarcode($raw);
+            if ($id === null)
+            {
+                $errore = $raw;
+            }
+        }
+    }
+    \Salsiccia\Catalog\CatalogView::barraBarcode((int)$cat, $errore);
 }
 
 //Modifica ordine

@@ -88,6 +88,7 @@ if (!$isAdmin && in_array($action, array('repair', 'print_reset', 'contatori'), 
         <?php else: ?>
             <nav><?php mostraNavCategorie($mysqli, $cat); ?><?php mostraIndicatoreTipo($mysqli); ?></nav>
             <header><h1><?php mostraTitolo($mysqli, $cat); ?></h1></header>
+            <?php mostraBarraBarcode($mysqli, $cat); ?>
             <section id="main"><?php mostraTabellaProdotti($mysqli, $cat, $but_x_row, $but_x_col); ?></section>
             <div class="footer"><?php mostraFooterBottoni($cat); ?></div>
         <?php endif; ?>

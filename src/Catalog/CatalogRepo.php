@@ -87,4 +87,22 @@ final class CatalogRepo
         }
         return null;
     }
+
+    // Kiosk barcode (#46, da a49af04): id per barcode o null.
+    // Prepared via db_select, mai interpolazione (T09); trim + cap 20 come il
+    // chiamante handler; ''/'-' = nessun ordine, nessuna query.
+    // Fetch OO ($ris->fetch_array) invece del procedurale del resto del file:
+    // i doppi di test non possono imitare mysqli_result procedurale.
+    public function trovaIdPerBarcode(string $barcode): ?int
+    {
+        $barcode = substr(trim($barcode), 0, 20);
+        if ($barcode === '' || $barcode === '-') {
+            return null;
+        }
+        $ris = db_select($this->db, "SELECT id_prodotto FROM prodotti WHERE barcode = ? LIMIT 1", 's', array($barcode));
+        if ($ris && ($riga = $ris->fetch_array()) && (int)$riga['id_prodotto'] > 0) {
+            return (int)$riga['id_prodotto'];
+        }
+        return null;
+    }
 }

@@ -593,6 +593,15 @@ span.item-cost {
     margin-bottom: clamp(12px, 1.953125vmin, 24px);
 }
 
+/* Pulsante OK della barra barcode: stessa altezza del campo input (.codice-text-field),
+   segue la legge di scala via --up come l'input. */
+.barcode-btn {
+    height: clamp(48px, calc(48px + var(--up)), 64.8px);
+    padding-top: 0;
+    padding-bottom: 0;
+    flex: none;
+}
+
 .tastierino-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
