@@ -10,8 +10,7 @@ error_reporting(E_ALL);
 // Token anti-CSRF in sessione: mutazioni solo via POST con hidden tok.
 function csrf_token()
 {
-    if (session_status() === PHP_SESSION_NONE)
-        session_start();
+    salsiccia_session_start();
     if (empty($_SESSION['tok']))
         $_SESSION['tok'] = bin2hex(random_bytes(32));
     return $_SESSION['tok'];
@@ -19,8 +18,7 @@ function csrf_token()
 
 function csrf_ok()
 {
-    if (session_status() === PHP_SESSION_NONE)
-        session_start();
+    salsiccia_session_start();
     return isset($_POST['tok'], $_SESSION['tok']) && hash_equals((string)$_SESSION['tok'], (string)$_POST['tok']);
 }
 

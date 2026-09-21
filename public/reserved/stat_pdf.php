@@ -117,7 +117,8 @@ function stat_pdf_render($dati)
 // Solo l'entry web gira qui: auth + requires + fetch + download per-richiesta.
 if (PHP_SAPI !== 'cli')
 {
-    session_start();
+    require_once __DIR__ . '/../../env.inc';
+    salsiccia_session_start();
     if (empty($_SESSION['reserved_auth']))
     {
         header('Location: login.php?msg=2');

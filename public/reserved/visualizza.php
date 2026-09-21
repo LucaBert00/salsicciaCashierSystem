@@ -6,7 +6,8 @@ declare(strict_types=1);
 // (whitelist ORDER BY + LIKE bound + LIMIT int) in VisualizzaStore, invariata.
 
 // Avvia la sessione e blocca l'accesso diretto senza login riservato
-session_start();
+require_once __DIR__ . '/../../env.inc';
+salsiccia_session_start();
 if (empty($_SESSION['reserved_auth']))
 {
     header('Location: login.php?msg=2');

@@ -12,8 +12,7 @@ require_once __DIR__ . '/src/Catalog/CatalogRepo.php';
 require_once __DIR__ . '/src/Catalog/CatalogView.php';
 
 // Auth admin cassa (issue): sessione come reserved/login.php, mai code in URL.
-if (session_status() === PHP_SESSION_NONE)
-    session_start();
+salsiccia_session_start();
 
 function isAdmin()
 {
@@ -126,7 +125,9 @@ function cassa_azione_login()
     // Login admin via POST (issue): code mai in URL/log; OK -> flag sessione + redirect pulito.
     if (($_SERVER['REQUEST_METHOD'] ?? '') == 'POST' && ($_GET['action'] ?? '') == 'c' && isset($_POST['code']))
     {
-        if (!empty($_SESSION['admin_block_until']) && time() < $_SESSION['admin_block_until'])
+        // T28: throttle server-side scope 'admin' (file, sopravvive al reset
+        // sessione) + ramo sessione storico; kiosk invariato.
+        if ((!empty($_SESSION['admin_block_until']) && time() < $_SESSION['admin_block_until']) || salsiccia_login_throttled('admin'))
         {
             header("Location: index.php?action=c&ok=1&err=1");
             exit;
@@ -136,6 +137,7 @@ function cassa_azione_login()
             session_regenerate_id(true);
             $_SESSION['admin'] = true;
             unset($_SESSION['admin_fail'], $_SESSION['admin_block_until']);
+            salsiccia_login_ok('admin');
             header("Location: index.php?action=c&ok=1");
         }
         else
@@ -146,6 +148,7 @@ function cassa_azione_login()
                 $_SESSION['admin_block_until'] = time() + 60;
                 unset($_SESSION['admin_fail']);
             }
+            salsiccia_login_fail('admin');
             header("Location: index.php?action=c&ok=1&err=1");
         }
         exit;

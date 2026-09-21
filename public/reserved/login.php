@@ -2,15 +2,17 @@
 declare(strict_types=1);
 // reserved/login.php — ingresso area riservata
 // Stesso login di login.php ma funzionante: POST su se stesso, prepared statements, flag $_SESSION['reserved_auth'] per reserved/visualizza.php.
-session_start();
+require_once __DIR__ . '/../../env.inc';
+salsiccia_session_start();
 
 require_once __DIR__ . '/../../dbConnect.php';
 require_once __DIR__ . '/../../reserved/auth_password.inc';
 
 if (isset($_POST['bot']))
 {
-    // rate-limit in sessione (5 fail -> 60s), upgrade a IP/file se serve anti-distribuito.
-    if (!empty($_SESSION['reserved_block_until']) && time() < $_SESSION['reserved_block_until'])
+    // T28: throttle server-side (file, sopravvive al reset sessione) + ramo
+    // sessione storico; basta uno dei due per bloccare.
+    if ((!empty($_SESSION['reserved_block_until']) && time() < $_SESSION['reserved_block_until']) || salsiccia_login_throttled('reserved'))
     {
         header('Location: login.php?msg=er');
         exit;
@@ -43,6 +45,7 @@ if (isset($_POST['bot']))
         session_regenerate_id(true);
         $_SESSION['reserved_auth'] = true;
         unset($_SESSION['reserved_fail'], $_SESSION['reserved_block_until']);
+        salsiccia_login_ok('reserved');
         header('Location: visualizza.php');
     }
     else
@@ -53,6 +56,7 @@ if (isset($_POST['bot']))
             $_SESSION['reserved_block_until'] = time() + 60;
             unset($_SESSION['reserved_fail']);
         }
+        salsiccia_login_fail('reserved');
         header('Location: login.php?msg=er');
     }
     exit;

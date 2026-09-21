@@ -7,7 +7,8 @@ declare(strict_types=1);
 // nessuna mutazione quindi nessun token (come ricerca/ordinamento in visualizza.php).
 // Filtri + query in stat_dati.inc (#95, condiviso con l'export PDF per-richiesta).
 
-session_start();
+require_once __DIR__ . '/../../env.inc';
+salsiccia_session_start();
 if (empty($_SESSION['reserved_auth']))
 {
     header('Location: login.php?msg=2');

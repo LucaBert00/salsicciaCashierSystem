@@ -44,6 +44,93 @@ function salsiccia_storage_path(string $name): string
     return salsiccia_storage_dir() . '/' . basename($name);
 }
 
+// T28: session hardening (unico punto di avvio sessione).
+// Cookie: HttpOnly sempre, SameSite=Lax, Secure solo su HTTPS (la cassa gira
+// in HTTP in fiera: Secure=1 la romperebbe). Chiamare prima di session_start
+// ovunque al posto di session_start() nudo; kiosk invariato.
+function salsiccia_is_https(): bool
+{
+    if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        return true;
+    if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower((string)$_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https')
+        return true;
+    if (isset($_SERVER['REQUEST_SCHEME']) && strtolower((string)$_SERVER['REQUEST_SCHEME']) === 'https')
+        return true;
+    return (int)($_SERVER['SERVER_PORT'] ?? 80) === 443;
+}
+
+function salsiccia_session_start(): bool
+{
+    if (session_status() === PHP_SESSION_ACTIVE)
+        return true;
+    $secure = salsiccia_is_https();
+    session_set_cookie_params(array('lifetime' => 0, 'path' => '/', 'httponly' => true, 'secure' => $secure, 'samesite' => 'Lax'));
+    ini_set('session.cookie_httponly', '1');
+    ini_set('session.cookie_samesite', 'Lax');
+    ini_set('session.use_only_cookies', '1');
+    ini_set('session.use_strict_mode', '1');
+    ini_set('session.cookie_secure', $secure ? '1' : '0');
+    return session_start();
+}
+
+// T28: throttle login server-side (file in storage/, fuori docroot) cosi'
+// sopravvive al reset della sessione (il contatore in $_SESSION da solo si
+// azzera cancellando il cookie). Scope separati: 'reserved' (backoffice) e
+// 'admin' (cassa); stessa regola ovunque: 5 fail -> blocco 60s.
+function salsiccia_throttle_file(string $scope, string $ip = ''): string
+{
+    if ($ip === '')
+        $ip = (string)($_SERVER['REMOTE_ADDR'] ?? 'cli');
+    if (!preg_match('/^[A-Za-z0-9_-]{1,32}$/', $scope))
+        $scope = 'login';
+    return salsiccia_storage_path('login_throttle_' . $scope . '_' . sha1($ip) . '.json');
+}
+
+function salsiccia_throttle_leggi(string $file): array
+{
+    if (!is_readable($file))
+        return array('fail' => 0, 'block_until' => 0);
+    $j = json_decode((string)file_get_contents($file), true);
+    if (!is_array($j))
+        return array('fail' => 0, 'block_until' => 0);
+    return array('fail' => max(0, (int)($j['fail'] ?? 0)), 'block_until' => max(0, (int)($j['block_until'] ?? 0)));
+}
+
+function salsiccia_login_throttled(string $scope, string $ip = '', string $file = ''): bool
+{
+    $f = $file !== '' ? $file : salsiccia_throttle_file($scope, $ip);
+    $st = salsiccia_throttle_leggi($f);
+    if ($st['block_until'] > 0 && $st['block_until'] <= time())
+    {
+        @unlink($f); // blocco scaduto: si riparte puliti come il ramo sessione
+        return false;
+    }
+    return $st['block_until'] > time();
+}
+
+function salsiccia_login_fail(string $scope, string $ip = '', string $file = ''): void
+{
+    $f = $file !== '' ? $file : salsiccia_throttle_file($scope, $ip);
+    $st = salsiccia_throttle_leggi($f);
+    if ($st['block_until'] > time())
+        return; // sotto blocco: niente estensioni, come il ramo sessione
+    $st['fail']++;
+    if ($st['fail'] >= 5)
+    {
+        $st['fail'] = 0;
+        $st['block_until'] = time() + 60;
+    }
+    $json = json_encode($st);
+    if (is_string($json))
+        @file_put_contents($f, $json, LOCK_EX);
+}
+
+function salsiccia_login_ok(string $scope, string $ip = '', string $file = ''): void
+{
+    $f = $file !== '' ? $file : salsiccia_throttle_file($scope, $ip);
+    @unlink($f);
+}
+
 // Gate stampa etichette (issue #54): unico punto di definizione della
 // tabella di verita' stampante/connessione/linguaggio. Usato sia dal gate
 // stampa_permessa in genera_file_stampa() (funzioni.inc) sia dal calcolo
