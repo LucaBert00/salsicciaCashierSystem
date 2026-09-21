@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+// T31: file canonico (non shim) — successore pianificato src/Fiscale/Fiscale.php (§7); rimozione solo dopo la migrazione, rivalutare entro 2026-12-31.
 if (!function_exists('cassa_log'))
     require_once __DIR__ . '/env.inc';
 require_once __DIR__ . '/src/Cassa/PayMethod.php';

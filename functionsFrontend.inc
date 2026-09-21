@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+// T31: file canonico (non shim) — successori parziali esistenti src/Cassa/OrderService.php + src/Catalog/* (§7); rimozione solo a migrazione completa, rivalutare entro 2026-12-31.
 
 require_once __DIR__ . '/set.inc';
 require_once __DIR__ . '/dbConnect.php';

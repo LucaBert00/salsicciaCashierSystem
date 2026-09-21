@@ -12,7 +12,6 @@
     <exclude-pattern>storage/*</exclude-pattern>
     <exclude-pattern>.idea/*</exclude-pattern>
     <exclude-pattern>.phpunit.cache/*</exclude-pattern>
-    <exclude-pattern>reserved/fpdf/*</exclude-pattern>
     <!-- T29 grandfather list: solo legacy, violazioni ERROR preesistenti (no big-bang reformat). -->
     <!-- Toccati da T05-T28 ma stile legacy congelato; normalizzare solo i file nuovi (src/config/routes/tests/auth_password). -->
     <exclude-pattern>backup.inc</exclude-pattern>

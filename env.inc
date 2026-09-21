@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+// T31: file canonico (non shim) — successore pianificato src/Support/Config.php (§7); rimozione solo dopo la migrazione, rivalutare entro 2026-12-31.
 // T24: unica facade log (livello sopra error_log, PSR-3 dopo). Solo codici, mai payload.
 if (!function_exists('cassa_log'))
 {

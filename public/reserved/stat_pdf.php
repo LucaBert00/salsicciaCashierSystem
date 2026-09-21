@@ -128,7 +128,7 @@ if (PHP_SAPI !== 'cli')
     require_once __DIR__ . '/../../dbConnect.php';
     require_once __DIR__ . '/../../set.inc';
     require_once __DIR__ . '/../../reserved/stat_dati.inc';
-    require_once __DIR__ . '/../../reserved/fpdf/fpdf.php';
+    require_once __DIR__ . '/../../vendor/autoload.php'; // T31: FPDF via Composer (setasign/fpdf), vendored reserved/fpdf rimosso.
 
     $giorno = isset($_GET['giorno']) ? $_GET['giorno'] : date('Y-m-d');
     if (!stat_giorno_valido($giorno))

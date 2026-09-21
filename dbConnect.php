@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+// T31: file canonico (non shim) — successore pianificato src/Support/Db.php (§7); rimozione solo dopo la migrazione, rivalutare entro 2026-12-31.
 require_once __DIR__ . '/env.inc';
 // T10 fail-closed: nessun fallback credenziali. Recovery: copia .env.example in .env.
 $dbName = trim((string)getenv('SALSICCIA_DB_NAME'));

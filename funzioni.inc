@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+// T31: file canonico (non shim) — migrazione per-funzione verso src/ (nessun singolo successore, v. §7); rimozione solo dopo lo split, rivalutare entro 2026-12-31.
 if (!function_exists('cassa_log'))
     require_once __DIR__ . '/env.inc';
 //define("DEBUG", 1);
