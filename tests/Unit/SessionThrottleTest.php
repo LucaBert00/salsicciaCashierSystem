@@ -21,15 +21,15 @@ final class SessionThrottleTest extends TestCase
 
     protected function tearDown(): void
     {
-        if (is_file($this->file))
+        if (is_file($this->file)) {
             @unlink($this->file);
+        }
         parent::tearDown();
     }
 
     public function testCinqueFailBloccanoSessantaSecondi(): void
     {
-        for ($i = 0; $i < 4; $i++)
-        {
+        for ($i = 0; $i < 4; $i++) {
             salsiccia_login_fail('t', 'ip', $this->file);
             $this->assertFalse(salsiccia_login_throttled('t', 'ip', $this->file));
         }
@@ -39,8 +39,9 @@ final class SessionThrottleTest extends TestCase
 
     public function testBloccoSopravviveAlResetSessioneESiSbloccaConOk(): void
     {
-        for ($i = 0; $i < 5; $i++)
+        for ($i = 0; $i < 5; $i++) {
             salsiccia_login_fail('t', 'ip', $this->file);
+        }
         $_SESSION = array(); // attaccante butta il cookie: il file blocca comunque
         $this->assertTrue(salsiccia_login_throttled('t', 'ip', $this->file));
         salsiccia_login_ok('t', 'ip', $this->file);
@@ -49,8 +50,9 @@ final class SessionThrottleTest extends TestCase
 
     public function testCookieParamsInduriti(): void
     {
-        if (session_status() === PHP_SESSION_ACTIVE)
+        if (session_status() === PHP_SESSION_ACTIVE) {
             session_write_close();
+        }
         unset($_SERVER['HTTPS'], $_SERVER['HTTP_X_FORWARDED_PROTO'], $_SERVER['REQUEST_SCHEME']);
         $_SERVER['SERVER_PORT'] = 80;
         $this->assertTrue(salsiccia_session_start());

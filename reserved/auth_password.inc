@@ -1,5 +1,7 @@
 <?php
+
 declare(strict_types=1);
+
 // reserved/auth_password.inc — verifica password backoffice (T12).
 //
 // Nuovi hash: password_hash(..., PASSWORD_ARGON2ID) (~97 char).
@@ -30,12 +32,10 @@ function salsiccia_password_verify_legacy($pwd, $stored)
 
 function salsiccia_password_verify($pwd, $stored)
 {
-    if ($stored === '' || $stored === null)
-    {
+    if ($stored === '' || $stored === null) {
         return false;
     }
-    if (salsiccia_password_is_legacy($stored))
-    {
+    if (salsiccia_password_is_legacy($stored)) {
         return salsiccia_password_verify_legacy($pwd, $stored);
     }
     return password_verify($pwd, $stored);
@@ -44,8 +44,7 @@ function salsiccia_password_verify($pwd, $stored)
 // Vero per righe legacy (da ri-hashare) o Argon2id con parametri cambiati.
 function salsiccia_password_needs_rehash($stored)
 {
-    if (salsiccia_password_is_legacy($stored))
-    {
+    if (salsiccia_password_is_legacy($stored)) {
         return true;
     }
     return password_needs_rehash($stored, PASSWORD_ARGON2ID);

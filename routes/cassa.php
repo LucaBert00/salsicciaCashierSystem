@@ -1,5 +1,7 @@
 <?php
+
 declare(strict_types=1);
+
 // routes/cassa.php — tabella action→handler cassa (T23).
 // Rif. PHP_STRUCTURE_REVIEW.md §5 centralized-error row, §7 routes/cassa.php row
 // (tabella al posto dell'if-chain gestisciAzioni), §6 IDEAL routes/ + Http/ rows.

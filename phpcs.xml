@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<!-- T29 PSR-12 adoption via phpcs on touched files (rif. PHP_STRUCTURE_REVIEW.md §5 PSR-12 row, Map #10). -->
+<!-- Warnings (es. riga >120, side-effect) mostrati ma non falliscono; falliscono solo gli ERROR. -->
+<ruleset name="SalsicciaStagisti-T29">
+    <description>PSR-12 su file toccati da T05-T28; legacy con lista grandfather, mai ignore silenti.</description>
+    <rule ref="PSR12"/>
+    <config name="ignore_warnings_on_exit" value="1"/>
+    <arg name="extensions" value="php,inc"/>
+    <file>.</file>
+    <!-- Tooling e terze parti, mai in scope. -->
+    <exclude-pattern>vendor/*</exclude-pattern>
+    <exclude-pattern>storage/*</exclude-pattern>
+    <exclude-pattern>.idea/*</exclude-pattern>
+    <exclude-pattern>.phpunit.cache/*</exclude-pattern>
+    <exclude-pattern>reserved/fpdf/*</exclude-pattern>
+    <!-- T29 grandfather list: solo legacy, violazioni ERROR preesistenti (no big-bang reformat). -->
+    <!-- Toccati da T05-T28 ma stile legacy congelato; normalizzare solo i file nuovi (src/config/routes/tests/auth_password). -->
+    <exclude-pattern>backup.inc</exclude-pattern>
+    <exclude-pattern>dbConnect.php</exclude-pattern>
+    <exclude-pattern>env.inc</exclude-pattern>
+    <exclude-pattern>fiscale.inc</exclude-pattern>
+    <exclude-pattern>funzioni.inc</exclude-pattern>
+    <exclude-pattern>functionsFrontend.inc</exclude-pattern>
+    <exclude-pattern>set.inc</exclude-pattern>
+    <exclude-pattern>public/index.php</exclude-pattern>
+    <exclude-pattern>public/reserved/backup.php</exclude-pattern>
+    <exclude-pattern>public/reserved/login.php</exclude-pattern>
+    <exclude-pattern>public/reserved/stat_pdf.php</exclude-pattern>
+    <exclude-pattern>public/reserved/statistiche.php</exclude-pattern>
+    <exclude-pattern>public/reserved/visualizza.php</exclude-pattern>
+    <exclude-pattern>public/reserved/visualizza_view.php</exclude-pattern>
+    <exclude-pattern>reserved/stat_dati.inc</exclude-pattern>
+</ruleset>
