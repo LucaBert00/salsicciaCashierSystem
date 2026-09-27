@@ -687,6 +687,7 @@ function mostraPannelloAdmin()
     echo '<h3 class="admin-group-title">AMMINISTRAZIONE</h3>';
     echo '<div class="admin-btn-row">';
     echo '<a href="?action=print_reset" class="opzione-btn">PRINT RESET</a>';
+    echo '<a href="?action=switch_printer" class="opzione-btn">CAMBIA STAMPANTE</a>';
     echo '<a href="?action=restart" class="opzione-btn danger">RIAVVIA</a>';
     echo '<a href="?action=shutdown" class="opzione-btn danger">SPEGNI</a>';
     echo '</div>';
@@ -868,6 +869,178 @@ function mostraPrintReset()
         echo '<button type="submit" name="print_reset" value="1" class="opzione-btn">RESET STAMPANTE</button>';
         echo '</div>';
         echo '</form>';
+    }
+    echo '</section>';
+}
+
+// Selezione stampante (F4.5 #55, stato finale stagisti HEAD): valida contro
+// gate printer_gate_allowed() (F4.1), salva in storage/stampante_selezione.json
+// via printer_selection_file() (letta a boot in set.inc F4.4). Solo
+// "DIRETTA"/"RETE", "ZPL"/"EPL", LOCK_EX. IP opzionale, solo RETE.
+function impostaStampanteSelezionata($name, $conn, $lang, $ip = '')
+{
+    $name = (string)$name;
+    $conn = (string)$conn;
+    $lang = (string)$lang;
+    $ip = trim((string)$ip);
+    if (!preg_match('/^[A-Za-z0-9_-]+$/', $name))
+        return false;
+    if (!printer_gate_allowed($name, $conn, $lang))
+        return false;
+    if ($ip !== '' && ($conn !== 'RETE' || filter_var($ip, FILTER_VALIDATE_IP) === false))
+        return false;
+    $d = array('name' => $name, 'connection' => $conn, 'language' => $lang, 'ip' => $ip);
+    if (file_put_contents(printer_selection_file(), json_encode($d), LOCK_EX) === false)
+    {
+        cassa_log('error', "stampante_selezione: scrittura fallita");
+        return false;
+    }
+    return true;
+}
+
+// Raggiungibilita' veritiera per la pagina switch (F4.5 #55): DIRETTA da stato
+// CUPS reale printer_lpstat_stato() + presenza USB lpinfo (F4.2) via
+// printer_stato_locale_ok(); RETE ping-only via printer_is_reachable().
+// Senza CUPS: rosso "non verificabile", mai fatal.
+function stampante_switch_ok($nome, $conn, $ip = '')
+{
+    if ($conn === 'RETE')
+        return printer_is_reachable($nome, $conn, $ip);
+    $st = printer_lpstat_stato($nome);
+    $dev = isset($st['device']) ? (string)$st['device'] : '';
+    $usb = stripos($dev, 'usb://') === 0 ? printer_usb_locale_presente($dev) : true;
+    return printer_stato_locale_ok($st, $usb);
+}
+
+// CAMBIA STAMPANTE (F4.5 #55, stato finale stagisti HEAD 0632388): una card
+// per stampante con pallino verde/rosso (stampante_switch_ok sopra), grid 2x2
+// ($rpp=4), raggiungibili prime, senza riga STATO (272aee3). Solo la GX420t
+// e' dual: scelta ZPL/EPL via pill, SELEZIONA disabilitato finche' non scegli;
+// le altre mostrano badge fisso ZPL/EPL + SELEZIONA diretto. Selezione
+// irraggiungibile bloccata (tranne RETE ping-only).
+// Pattern mostraPrintReset: isAdmin + POST + CSRF + confirm + impostaStampanteSelezionata().
+function mostraSwitchPrinter()
+{
+    // difesa in profondita, index.php filtra gia via isAdmin+redirect; mai GET anonimo.
+    if (!isAdmin())
+    {
+        header("Location: index.php?action=c");
+        exit;
+    }
+    echo '<section class="admin-panel switch-printer-panel">';
+    echo '<h3 class="admin-group-title admin-msg-big">CAMBIA STAMPANTE - ATTUALE: ' . htmlspecialchars(PRINTER_NAME . ' - ' . PRINTER_CONNECTION . ' - ' . PRINTER_LANGUAGE, ENT_QUOTES, 'UTF-8') . '</h3>';
+    if (isset($_POST['cambia_stampante']))
+    {
+        if (!csrf_ok())
+        {
+            echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;padding:12px;border-radius:6px;">TOKEN NON VALIDO.</p>';
+        }
+        else
+        {
+            $nome = (string)($_POST['nome'] ?? '');
+            $conn = (string)($_POST['conn'] ?? '');
+            $lingua = (string)($_POST['lingua'] ?? '');
+            $ip = $conn === 'RETE' ? trim((string)($_POST['ip'] ?? '')) : '';
+            // ponytail: riuso reachability F4.2; ip POST o fallback PRINTER_IP come in lista
+            $ipCheck = $conn === 'RETE' ? ($ip !== '' ? $ip : (defined('PRINTER_IP') ? PRINTER_IP : '')) : '';
+            if (!stampante_switch_ok($nome, $conn, $ipCheck))
+            {
+                echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;padding:12px;border-radius:6px;">STAMPANTE NON RAGGIUNGIBILE (pallino rosso), selezione non cambiata.</p>';
+            }
+            elseif (impostaStampanteSelezionata($nome, $conn, $lingua, $ip))
+            {
+                echo '<p class="admin-msg-big" style="background:#5cb85c;color:#fff;padding:12px;border-radius:6px;">Stampante commutata a ' . htmlspecialchars($nome . ' - ' . $conn . ' - ' . $lingua, ENT_QUOTES, 'UTF-8') . ': la prossima stampa usa la nuova selezione.</p>';
+            }
+            else
+            {
+                echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;padding:12px;border-radius:6px;">SELEZIONE NON VALIDA (gate), stampante invariata.</p>';
+            }
+        }
+        echo '<br><div class="admin-btn-row"><a href="index.php" class="opzione-btn" style="text-decoration:none;">TORNA</a></div>';
+    }
+    else
+    {
+        echo '<script>function selModo(r){var f=r.form,b=f.cambia_stampante;if(b){if(b.getAttribute("data-unreach")==="1")return;b.disabled=false;b.style.opacity="";b.style.cursor="";}var L=f.querySelectorAll("label.opzione-btn");for(var i=0;i<L.length;i++){L[i].removeAttribute("style");}var l=r.parentNode;l.style.border="2px solid #2b3d4e";l.style.background="#2b3d4e";l.style.color="#fff";}</script>';
+        $raggiungibili = array();
+        $altre = array();
+        foreach (printer_known_printers() as $p)
+        {
+            $p['ok'] = stampante_switch_ok((string)$p['name'], (string)$p['connection'], defined('PRINTER_IP') ? PRINTER_IP : '');
+            if ($p['ok'])
+                $raggiungibili[] = $p;
+            else
+                $altre[] = $p;
+        }
+        $ordinate = array_merge($raggiungibili, $altre);
+        $rpp = 4;
+        $pagina = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+        if ($pagina < 1)
+            $pagina = 1;
+        $totPagine = max(1, (int)ceil(count($ordinate) / $rpp));
+        if ($pagina > $totPagine)
+            $pagina = $totPagine;
+        $visibili = array_slice($ordinate, ($pagina - 1) * $rpp, $rpp);
+        echo '<div class="switch-printer-grid">';
+        foreach ($visibili as $p)
+        {
+            $nome = (string)$p['name'];
+            $conn = (string)$p['connection'];
+            $ok = !empty($p['ok']);
+            $attuale = ($nome === PRINTER_NAME && $conn === PRINTER_CONNECTION);
+            echo '<div class="switch-printer-card">';
+            echo '<p class="admin-msg-big" style="color:#2b3d4e;margin:0 0 4px;"><span title="' . ($ok ? 'Raggiungibile' : 'Non raggiungibile') . '" style="color:' . ($ok ? '#5cb85c' : '#d9534f') . ';">&#9679;</span> ' . htmlspecialchars($nome, ENT_QUOTES, 'UTF-8') . ($attuale ? ' <span style="display:inline-flex;align-items:center;background:#5cb85c;color:#fff;font-weight:800;border-radius:12px;padding:2px 12px;font-size:14px;">ATTUALE</span>' : '') . '</p>';
+            echo '<p class="admin-msg-big" style="color:#8c9ba5;margin:0 0 8px;">CONNESSIONE: ' . htmlspecialchars($conn, ENT_QUOTES, 'UTF-8') . '</p>';
+            echo '<div class="admin-btn-row" style="align-items:center;">';
+            if ($nome === 'GX420t')
+            {
+                echo '<span class="admin-msg-big" style="color:#8c9ba5;">MODALITA STAMPA:</span>';
+                echo '<form method="post" action="?action=switch_printer" onsubmit="return confirm(\'Cambiare stampante?\');" style="display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;">';
+                csrf_field();
+                echo '<input type="hidden" name="nome" value="GX420t">';
+                echo '<input type="hidden" name="conn" value="DIRETTA">';
+                foreach (array('ZPL', 'EPL') as $lingua)
+                {
+                    $sel = ($attuale && PRINTER_LANGUAGE === $lingua);
+                    echo '<label class="opzione-btn"' . ($sel ? ' style="border:2px solid #2b3d4e;background:#2b3d4e;color:#fff;"' : '') . '><input type="radio" name="lingua" value="' . $lingua . '"' . ($sel ? ' checked' : '') . ($ok ? '' : ' disabled') . ' onchange="selModo(this)" style="display:none;"> ' . $lingua . '</label>';
+                }
+                echo '<button type="submit" name="cambia_stampante" value="1" class="opzione-btn"' . ((!$ok || !$attuale) ? ' disabled style="opacity:.45;cursor:not-allowed;"' : '') . (!$ok ? ' data-unreach="1"' : '') . '>SELEZIONA</button>';
+                echo '</form>';
+            }
+            else
+            {
+                $lingua = (string)$p['language'];
+                echo '<span class="admin-msg-big" style="color:#8c9ba5;">MODALITA STAMPA:</span>';
+                echo '<span class="opzione-btn" style="border:2px solid #2b3d4e;cursor:default;">' . htmlspecialchars($lingua, ENT_QUOTES, 'UTF-8') . '</span>';
+                echo '<form method="post" action="?action=switch_printer" onsubmit="return confirm(\'Cambiare stampante?\');" style="display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;">';
+                csrf_field();
+                echo '<input type="hidden" name="nome" value="' . htmlspecialchars($nome, ENT_QUOTES, 'UTF-8') . '">';
+                echo '<input type="hidden" name="conn" value="' . htmlspecialchars($conn, ENT_QUOTES, 'UTF-8') . '">';
+                echo '<input type="hidden" name="lingua" value="' . htmlspecialchars($lingua, ENT_QUOTES, 'UTF-8') . '">';
+                if ($conn === 'RETE')
+                    echo '<input type="hidden" name="ip" value="' . htmlspecialchars(defined('PRINTER_IP') ? PRINTER_IP : '', ENT_QUOTES, 'UTF-8') . '">';
+                echo '<button type="submit" name="cambia_stampante" value="1" class="opzione-btn"' . ($ok ? '' : ' disabled style="opacity:.45;cursor:not-allowed;"') . '>SELEZIONA</button>';
+                echo '</form>';
+            }
+            echo '</div>';
+            echo '</div>';
+        }
+        echo '</div>';
+        echo '<div class="admin-btn-row">';
+        if ($pagina > 1)
+            echo '<a href="?action=switch_printer&page=' . ($pagina - 1) . '" class="opzione-btn" style="padding:12px 20px;">&lt;</a>';
+        foreach (array_unique(array(1, $pagina - 1, $pagina, $pagina + 1, $totPagine)) as $numPagina)
+        {
+            if ($numPagina < 1 || $numPagina > $totPagine)
+                continue;
+            if ($numPagina == $pagina)
+                echo '<span class="opzione-btn" style="padding:12px 20px;border:2px solid #2b3d4e;">' . $numPagina . '</span>';
+            else
+                echo '<a href="?action=switch_printer&page=' . $numPagina . '" class="opzione-btn" style="padding:12px 20px;">' . $numPagina . '</a>';
+        }
+        if ($pagina < $totPagine)
+            echo '<a href="?action=switch_printer&page=' . ($pagina + 1) . '" class="opzione-btn" style="padding:12px 20px;">&gt;</a>';
+        echo '</div>';
+        echo '<div class="admin-btn-row"><a href="index.php" class="opzione-btn" style="text-decoration:none;">TORNA</a></div>';
     }
     echo '</section>';
 }

@@ -724,6 +724,40 @@ span.item-cost {
     color: #e54b3c;
 }
 
+.switch-printer-panel {
+    gap: clamp(8px, 1.171875vmin, 12px);
+}
+
+.switch-printer-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(8px, 1.171875vmin, 12px);
+    width: 100%;
+}
+
+.switch-printer-card {
+    min-width: 0;
+    padding: clamp(8px, 1.171875vmin, 12px);
+    background: #fff;
+    border: 1px solid #dcdfe6;
+    border-radius: 8px;
+}
+
+.switch-printer-card .admin-msg-big {
+    font-size: clamp(14px, calc(14px + var(--up)), 18.9px);
+    line-height: 1.2;
+}
+
+.switch-printer-card .admin-btn-row {
+    gap: clamp(4px, 0.5859375vmin, 6px);
+}
+
+.switch-printer-card .opzione-btn {
+    min-height: clamp(44px, calc(44px + var(--up)), 59.4px);
+    padding: clamp(8px, calc(8px + var(--up)), 10.8px) clamp(10px, calc(10px + var(--up)), 13.5px);
+    font-size: clamp(13px, calc(13px + var(--up)), 17.6px);
+}
+
 /* ── Stampa: stili specifici ── */
 
 .stampa-header {

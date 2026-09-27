@@ -18,8 +18,9 @@ $showStandby = $action == 'standby';
 $showRepair = $action == 'repair' && $isAdmin;
 $showContatori = $action == 'contatori' && $isAdmin;
 $showPrintReset = $action == 'print_reset' && $isAdmin;
+$showSwitchPrinter = $action == 'switch_printer' && $isAdmin;
 // Sfondo tinta categoria solo sulla schermata principale cassa, mai su admin/stampa/modifica/standby.
-$isCassaMain = !$azioneNonValida && !$showAdmin && !$showStampa && !$showModifica && !$showOpzioni && !$showStandby && !$showRepair && !$showContatori && !$showPrintReset && !($showConfig && isset($_GET['ok']) && !$showAdmin);
+$isCassaMain = !$azioneNonValida && !$showAdmin && !$showStampa && !$showModifica && !$showOpzioni && !$showStandby && !$showRepair && !$showContatori && !$showPrintReset && !$showSwitchPrinter && !($showConfig && isset($_GET['ok']) && !$showAdmin);
 $hexCassa = '#e7e9eb';
 if ($isCassaMain)
 {
@@ -29,7 +30,7 @@ if ($isCassaMain)
     if ($rcCassa && isset($rcCassa['colore'])) $hexCassa = coloreCategoriaHex($rcCassa['colore']);
 }
 // Schermate sensibili senza flag admin -> login, mai cassa muta ne accesso anonimo.
-if (!$isAdmin && in_array($action, array('repair', 'print_reset', 'contatori'), true))
+if (!$isAdmin && in_array($action, array('repair', 'print_reset', 'contatori', 'switch_printer'), true))
 {
     header("Location: index.php?action=c");
     exit;
@@ -79,6 +80,10 @@ if (!$isAdmin && in_array($action, array('repair', 'print_reset', 'contatori'), 
             <nav><?php mostraNavCategorie($mysqli, $cat); ?><?php mostraIndicatoreTipo($mysqli); ?></nav>
             <header><h1>PRINT RESET</h1></header>
             <?php mostraPrintReset(); ?>
+        <?php elseif ($showSwitchPrinter): ?>
+            <nav><?php mostraNavCategorie($mysqli, $cat); ?><?php mostraIndicatoreTipo($mysqli); ?></nav>
+            <header><h1>CAMBIA STAMPANTE</h1></header>
+            <?php mostraSwitchPrinter(); ?>
         <?php elseif ($showConfig && isset($_GET['ok']) && !$showAdmin): ?>
             <section style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex-grow:1;">
                 <p style="font-size:24px;font-weight:800;color:#e54b3c;margin-bottom:30px;">ERRORE CODICE DI AUTORIZZAZIONE ERRATO</p>
