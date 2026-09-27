@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Salsiccia\Backup;
 
+use mysqli;
+
 // Backup fine-giornata: dump intero DB fuori docroot (mappa #87, Decide #91, Task #96).
 // T32 follow-up #43: corpo verbatim da backup.inc. Manuale, dal responsabile a
 // cassa chiusa: niente cron, niente dump a ogni scontrino. Metodi statici: il
@@ -64,7 +66,7 @@ final class BackupRun
     // Nome data-evento non indovinabile (#91): data + 8 hex random, solo basename.
     public static function filename(): string
     {
-        return 'salsiccia-' . date('Ymd-His') . '-' . bin2hex(random_bytes(4)) . '.sql';
+        return 'salsicciaCashierSystemDB-' . date('Ymd-His') . '-' . bin2hex(random_bytes(4)) . '.sql';
     }
 
     // Binario mysqldump: env, poi XAMPP fiera, poi PATH.
@@ -170,7 +172,7 @@ final class BackupRun
             return array('ok' => false, 'msg' => 'cartella dump non scrivibile');
         }
         $file = $dest['path'] . '/' . self::filename();
-        $db_name = ($cfg['db_name'] !== '') ? $cfg['db_name'] : 'salsiccia';
+        $db_name = ($cfg['db_name'] !== '') ? $cfg['db_name'] : 'salsicciaCashierSystemDB';
         if (!self::viaMysqldump($cfg, $file) && !self::viaPhp($db, $db_name, $file)) {
             return array('ok' => false, 'msg' => 'dump fallito (mysqldump + PHP)');
         }
