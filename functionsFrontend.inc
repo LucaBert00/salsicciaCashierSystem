@@ -714,7 +714,7 @@ function mostraPannelloAdmin()
     echo '<div>';
     echo '<h3 class="admin-group-title">AMMINISTRAZIONE</h3>';
     echo '<div class="admin-btn-row">';
-    echo '<a href="?action=print_reset" class="opzione-btn">PRINT RESET</a>';
+    echo '<a href="?action=print_reset" class="opzione-btn">CAMBIA CARTA STAMPA: ' . ((defined('CONTINUOUS_LABEL') && CONTINUOUS_LABEL) ? 'CONTINUA' : 'SINGOLI') . '</a>';
     echo '<a href="?action=switch_printer" class="opzione-btn">CAMBIA STAMPANTE</a>';
     echo '<a href="?action=restart" class="opzione-btn danger">RIAVVIA</a>';
     echo '<a href="?action=shutdown" class="opzione-btn danger">SPEGNI</a>';
@@ -842,8 +842,10 @@ function mostraRipristinaDb($mysqli)
     echo '</section>';
 }
 
-// Print reset: sblocca le Zebra quando si impiantano (cancella buffer + reset),
-// riusa PrintService::inviaFileStampa() cosi DIRETTA/RETE restano quelle di set.inc
+// CAMBIA CARTA STAMPA (F3.4 #64, toggle continua <-> singoli): riusa F3.1
+// (cartaStampaLeggiSetup) + F3.2 (PrintService::inviaSetupCarta) + F3.3
+// (impostaCartaStampa). Setup/invio falliti => errore, modalita invariata.
+// Pattern mostraRipristinaDb: isAdmin + POST + CSRF + confirm.
 function mostraPrintReset()
 {
     // difesa in profondita, index.php filtra gia via isAdmin+redirect; mai GET anonimo.
@@ -852,49 +854,50 @@ function mostraPrintReset()
         header("Location: index.php?action=c");
         exit;
     }
+    $modo = (defined('CONTINUOUS_LABEL') && CONTINUOUS_LABEL) ? 'CONTINUA' : 'SINGOLI';
+    $nuovo = (defined('CONTINUOUS_LABEL') && CONTINUOUS_LABEL) ? '0' : '1';
+    $modoNuovo = $nuovo === '1' ? 'CONTINUA' : 'SINGOLI';
     echo '<section class="admin-panel">';
-    echo '<h3 class="admin-group-title">PRINT RESET</h3>';
-    if (isset($_POST['print_reset']))
+    echo '<h3 class="admin-group-title admin-msg-big">CAMBIA CARTA STAMPA - CARTA ATTUALE: ' . $modo . '</h3>';
+    if (isset($_POST['cambia_carta']))
     {
         if (!csrf_ok())
         {
-            echo '<p style="background:#d9534f;color:#fff;font-weight:800;text-align:center;padding:12px;border-radius:6px;">TOKEN NON VALIDO.</p>';
+            echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;font-weight:800;text-align:center;padding:12px;border-radius:6px;">TOKEN NON VALIDO.</p>';
             echo '<br><div class="admin-btn-row"><a href="index.php" class="opzione-btn" style="text-decoration:none;">TORNA</a></div>';
         }
         else
         {
-        // ZPL ~JA cancella tutto + ~JR reset; EPL N pulisce il buffer (zebra.docs)
-        if (PRINTER_LANGUAGE == 'ZPL')
+        $continuaNuova = ($nuovo === '1');
+        $erroreSetup = '';
+        $setup = cartaStampaLeggiSetup(PRINTER_NAME, PRINTER_CONNECTION, PRINTER_LANGUAGE, $continuaNuova, $erroreSetup, salsiccia_storage_path('printerCommand'));
+        if ($setup === false)
         {
-            $cmd = "~JA\n~JR\n";
-        } else
-        {
-            $cmd = "N\n";
+            echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;font-weight:800;text-align:center;padding:12px;border-radius:6px;">' . htmlspecialchars($erroreSetup, ENT_QUOTES, 'UTF-8') . '</p>';
         }
-
-        //salva il comando di reset nel file di stampa.
-        if (file_put_contents(LABELS_FILE, $cmd) === false)
-            cassa_log('error', "print_reset: scrittura " . LABELS_FILE . " fallita");
-
-        if (\Salsiccia\Cassa\PrintService::inviaFileStampa())
+        elseif (!\Salsiccia\Cassa\PrintService::inviaSetupCarta($setup))
         {
-            echo '<p style="background:#5cb85c;color:#fff;font-weight:800;text-align:center;padding:12px;border-radius:6px;">Reset inviato a ' . PRINTER_NAME . '.</p>';
+            echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;font-weight:800;text-align:center;padding:12px;border-radius:6px;">INVIO SETUP CARTA ALLA STAMPANTE FALLITO, modalita invariata.</p>';
+        }
+        elseif (impostaCartaStampa($nuovo))
+        {
+            echo '<p class="admin-msg-big" style="background:#5cb85c;color:#fff;font-weight:800;text-align:center;padding:12px;border-radius:6px;">Carta commutata a ' . $modoNuovo . ': setup stampante applicato, la prossima stampa usa la nuova modalita.</p>';
         }
         else
         {
-            echo '<p style="background:#d9534f;color:#fff;font-weight:800;text-align:center;padding:12px;border-radius:6px;">STAMPANTE NON RAGGIUNGIBILE, reset non inviato.</p>';
+            echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;font-weight:800;text-align:center;padding:12px;border-radius:6px;">SETUP STAMPANTE APPLICATO MA SCRITTURA STATO CARTA FALLITA: riallineare al prossimo toggle.</p>';
         }
         echo '<br><div class="admin-btn-row"><a href="index.php" class="opzione-btn" style="text-decoration:none;">TORNA</a></div>';
         }
     }
     else
     {
-        echo '<p style="color:#e54b3c;font-weight:800;">ATTENZIONE: verr&agrave; inviato il reset alla stampante ' . PRINTER_NAME . '.</p>';
-        echo '<form method="post" action="?action=print_reset" onsubmit="return confirm(\'Confermi il reset della stampante?\');">';
+        echo '<p class="admin-msg-big" style="color:#e54b3c;">ATTENZIONE: dopo aver cambiato fisicamente la carta, la modalita di stampa passera da ' . $modo . ' a ' . $modoNuovo . '.</p>';
+        echo '<form method="post" action="?action=print_reset" onsubmit="return confirm(\'Cambiare carta di stampa in ' . $modoNuovo . '?\');">';
         csrf_field();
         echo '<div class="admin-btn-row">';
         echo '<a href="index.php" class="opzione-btn" style="text-decoration:none;">ANNULLA</a>';
-        echo '<button type="submit" name="print_reset" value="1" class="opzione-btn">RESET STAMPANTE</button>';
+        echo '<button type="submit" name="cambia_carta" value="1" class="opzione-btn">CAMBIA IN ' . $modoNuovo . '</button>';
         echo '</div>';
         echo '</form>';
     }

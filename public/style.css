@@ -722,6 +722,14 @@ span.item-cost {
     margin: 0 0 clamp(6px, 0.9765625vmin, 12px) 0;
 }
 
+.admin-msg-big {
+    font-size: clamp(20px, calc(20px + var(--up)), 27px);
+    font-weight: 800;
+    text-align: center;
+    line-height: 1.4;
+    margin: 0;
+}
+
 .admin-btn-row {
     display: flex;
     flex-wrap: wrap;

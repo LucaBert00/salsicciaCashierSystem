@@ -78,7 +78,7 @@ if (!$isAdmin && in_array($action, array('repair', 'print_reset', 'contatori', '
             <?php mostraContatori($mysqli); ?>
         <?php elseif ($showPrintReset): ?>
             <nav><?php mostraNavCategorie($mysqli, $cat); ?><?php mostraIndicatoreTipo($mysqli); ?></nav>
-            <header><h1>PRINT RESET</h1></header>
+            <header><h1>CAMBIA CARTA STAMPA</h1></header>
             <?php mostraPrintReset(); ?>
         <?php elseif ($showSwitchPrinter): ?>
             <nav><?php mostraNavCategorie($mysqli, $cat); ?><?php mostraIndicatoreTipo($mysqli); ?></nav>
