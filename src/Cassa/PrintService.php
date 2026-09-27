@@ -32,11 +32,11 @@ final class PrintService
 
         if ($stampa_permessa == false) {
             $specifiche = "";
-            if (PRINTER_NAME == "Zebra_Multi") {
+            if (PRINTER_NAME == "GX420t") {
                 $specifiche = "supporta ZPL e EPL, ma lavora solo in modalità DIRETTA.";
-            } elseif (PRINTER_NAME == "Zebra_Net") {
+            } elseif (PRINTER_NAME == "ZD230") {
                 $specifiche = "lavora in DIRETTA e RETE, ma supporta solo il linguaggio ZPL.";
-            } elseif (PRINTER_NAME == "Zebra_EPL_1" || PRINTER_NAME == "Zebra_EPL_2") {
+            } elseif (PRINTER_NAME == "TLP2844" || PRINTER_NAME == "LP2844") {
                 $specifiche = "supporta solo il linguaggio EPL e solo in modalità DIRETTA.";
             }
 
@@ -160,10 +160,11 @@ final class PrintService
             return false;
         }
         if (PRINTER_CONNECTION == "DIRETTA") {
-            $cmd = "lpr -P " . escapeshellarg(PRINTER_NAME) . " " . escapeshellarg(LABELS_FILE);
+            $coda = printer_cups_queue(PRINTER_NAME);
+            $cmd = "lpr -P " . escapeshellarg($coda) . " " . escapeshellarg(LABELS_FILE);
             system($cmd, $rc);
             if ($rc !== 0) {
-                cassa_log('error', "lpr fallito rc=$rc printer=" . PRINTER_NAME . " file=" . LABELS_FILE);
+                cassa_log('error', "lpr fallito rc=$rc printer=" . $coda . " file=" . LABELS_FILE);
             }
             return $rc === 0;
         }
