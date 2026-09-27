@@ -179,6 +179,56 @@ final class PrintService
         return self::ftpPut();
     }
 
+    // F3.2 #62: invio setup carta (contenuto normalizzato da F3.1), stessa
+    // logica di cartaStampaInviaContenuto() upstream (a79ed89): valida -> tmp
+    // -> DIRETTA/RETE -> unlink -> return. Mai LABELS_FILE come remoto
+    // (nel target e' un path storage, set.inc:43): solo basename.
+    public static function inviaSetupCarta(string $contenuto): bool
+    {
+        if ($contenuto === '' || strlen($contenuto) > 8192 || strpos($contenuto, "\0") !== false) {
+            return false;
+        }
+        $tmp = tempnam(sys_get_temp_dir(), 'carta');
+        if ($tmp === false) {
+            cassa_log('error', 'carta_stampa: tmp non creato');
+            return false;
+        }
+        if (file_put_contents($tmp, $contenuto, LOCK_EX) === false) {
+            cassa_log('error', 'carta_stampa: scrittura tmp fallita');
+            @unlink($tmp);
+            return false;
+        }
+        if (PRINTER_CONNECTION == 'DIRETTA') {
+            $coda = printer_cups_queue(PRINTER_NAME);
+            $cmd = 'lpr -P ' . escapeshellarg($coda) . ' ' . escapeshellarg($tmp);
+            system($cmd, $rc);
+            @unlink($tmp);
+            if ($rc !== 0) {
+                cassa_log('error', 'carta_stampa: lpr fallito rc=' . $rc . ' printer=' . $coda);
+            }
+            return $rc === 0;
+        }
+        $ftp = ftp_connect(PRINTER_IP, 21, 5);
+        if ($ftp === false) {
+            cassa_log('error', 'carta_stampa: ftp_connect fallito verso ' . PRINTER_IP);
+            @unlink($tmp);
+            return false;
+        }
+        if (!ftp_login($ftp, '', '')) {
+            cassa_log('error', 'carta_stampa: ftp_login anonimo fallito verso ' . PRINTER_IP);
+            ftp_close($ftp);
+            @unlink($tmp);
+            return false;
+        }
+        $ok = ftp_put($ftp, basename(LABELS_FILE), $tmp, FTP_BINARY);
+        if (!$ok) {
+            cassa_log('error', 'carta_stampa: ftp_put fallito verso ' . PRINTER_IP);
+        }
+        ftp_close($ftp);
+        @unlink($tmp);
+        return $ok;
+    }
+
     public static function ftpPut()
     {
         $file = LABELS_FILE;
