@@ -157,6 +157,127 @@ function printer_is_continuous($name, $conn, $lang)
     return printer_gate_allowed($name, $conn, $lang) && ($name === 'ZD230' || $name === 'GX420t');
 }
 
+// F3.1 #61: setup carta continua/singoli, al toggle CAMBIA CARTA la
+// stampante riceve il file della propria combo (nome/connessione/linguaggio,
+// gate printer_gate_allowed()). Nomi: cmd_[STAMPANTE]_[SINGOLI|CONTINUA]_[EPL|ZPL].
+// Contratti: mappa->file->lettura->normalizza; file mancante/illettibile o
+// contenuto non valido => false + $errore esplicito (mostrato via
+// htmlspecialchars in F3.4), modalita invariata. Mai raw non validato alla stampante.
+function cartaStampaFilePerStampante($name, $conn, $lang, $continua)
+{
+    $name = (string)$name;
+    $conn = (string)$conn;
+    $lang = (string)$lang;
+    if (!preg_match('/^[A-Za-z0-9_-]+$/', $name))
+        return false;
+    if (!printer_gate_allowed($name, $conn, $lang))
+        return false;
+    if ($lang === 'EPL')
+    {
+        if ($continua)
+        {
+            if ($name === 'GX420t')
+                return 'cmd_GX420t_CONTINUA_EPL';
+            if ($name === 'TLP2844')
+                return 'cmd_TLP2844_CONTINUA_EPL';
+            if ($name === 'LP2844')
+                return 'cmd_LP2844_CONTINUA_EPL';
+            return false;
+        }
+        if ($name === 'GX420t')
+            return 'cmd_GX420t_SINGOLI_EPL';
+        if ($name === 'TLP2844')
+            return 'cmd_TLP2844_SINGOLI_EPL';
+        if ($name === 'LP2844')
+            return 'cmd_LP2844_SINGOLI_EPL';
+        return false;
+    }
+    if ($lang === 'ZPL')
+    {
+        if ($name === 'ZD230')
+            return $continua ? 'cmd_ZD230_CONTINUA_ZPL' : 'cmd_ZD230_SINGOLI_ZPL';
+        if ($name === 'GX420t')
+            return $continua ? 'cmd_GX420t_CONTINUA_ZPL' : 'cmd_GX420t_SINGOLI_ZPL';
+        return false;
+    }
+    return false;
+}
+
+// Normalizza e valida il setup letto da file, mai raw non validato
+// alla stampante: EPL richiede riga q (forzata a q464/q832) + riga Q,
+// ZPL richiede ^XA..^XZ con ^PW forzato a ^PW464/^PW832. Rifiuta
+// stringhe vuote, oltre 8KB o con byte NUL. Ritorna il contenuto
+// da inviare, false se non valido.
+function cartaStampaNormalizzaContenuto($raw, $lang, $continua)
+{
+    $raw = (string)$raw;
+    if ($raw === '' || strlen($raw) > 8192 || strpos($raw, "\0") !== false)
+        return false;
+    if ($lang === 'EPL')
+    {
+        $larghezza = $continua ? 'q832' : 'q464';
+        $norm = preg_replace('/^q\d+\s*$/m', $larghezza, $raw, 1);
+        if ($norm === null)
+            return false;
+        if (preg_match('/^' . $larghezza . '\s*$/m', $norm) !== 1)
+            return false;
+        if (preg_match('/^Q\d+.*$/m', $norm) !== 1)
+            return false;
+        return $norm;
+    }
+    if ($lang === 'ZPL')
+    {
+        $larghezza = $continua ? '^PW832' : '^PW464';
+        if (strpos($raw, '^XA') === false || strpos($raw, '^XZ') === false)
+            return false;
+        $norm = preg_replace('/\^PW\d+/', $larghezza, $raw, 1);
+        if ($norm === null)
+            return false;
+        if (strpos($norm, $larghezza) === false)
+            return false;
+        return $norm;
+    }
+    return false;
+}
+
+// Legge il setup per la combo ($baseDir solo per i test, default
+// storage/printerCommand/). Ritorna il contenuto normalizzato da inviare,
+// false + $errore esplicito se mappa/file/contenuto non validi.
+function cartaStampaLeggiSetup($name, $conn, $lang, $continua, &$errore, $baseDir = '')
+{
+    $errore = '';
+    $file = cartaStampaFilePerStampante($name, $conn, $lang, $continua);
+    if ($file === false)
+    {
+        $errore = 'SETUP CARTA NON PREVISTO per ' . $name . ' - ' . $conn . ' - ' . $lang . ', modalita invariata.';
+        return false;
+    }
+    if ($baseDir === '' || $baseDir === null)
+        $baseDir = salsiccia_storage_path('printerCommand');
+    $percorso = (string)$baseDir . '/' . $file;
+    if (!is_readable($percorso))
+    {
+        $errore = 'FILE SETUP CARTA MANCANTE (' . $file . '), modalita invariata.';
+        cassa_log('error', 'carta_stampa: setup illeggibile ' . $percorso);
+        return false;
+    }
+    $raw = @file_get_contents($percorso);
+    if ($raw === false || $raw === '')
+    {
+        $errore = 'FILE SETUP CARTA ILLEGGIBILE (' . $file . '), modalita invariata.';
+        cassa_log('error', 'carta_stampa: setup illeggibile ' . $percorso);
+        return false;
+    }
+    $norm = cartaStampaNormalizzaContenuto($raw, (string)$lang, (bool)$continua);
+    if ($norm === false)
+    {
+        $errore = 'FILE SETUP CARTA NON VALIDO (' . $file . '), modalita invariata.';
+        cassa_log('error', 'carta_stampa: setup non valido ' . $percorso);
+        return false;
+    }
+    return $norm;
+}
+
 // F4.1 #51: taglierino, solo la GX420t lo monta. Definita qui ma NON usata
 // (l'append di taglio e' F1, fuori scope).
 if (!function_exists('printer_has_cutter'))
