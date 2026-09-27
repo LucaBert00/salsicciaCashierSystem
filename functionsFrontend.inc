@@ -82,6 +82,19 @@ function impostaModalitaFiera($valore)
     cassa_imposta_fiera($valore === "1" ? "1" : "0");
 }
 
+// F3.3 #63: persistenza toggle carta in storage/carta_stampa.mode (monoriga "1"/"0"),
+// letta in set.inc con precedenza env > file > gate.
+function impostaCartaStampa($valore)
+{
+    $v = $valore === "1" ? "1" : "0";
+    if (file_put_contents(salsiccia_storage_path('carta_stampa.mode'), $v . "\n", LOCK_EX) === false)
+    {
+        cassa_log('error', "carta_stampa.mode: scrittura fallita");
+        return false;
+    }
+    return true;
+}
+
 // Hex definitivi categorie cassa (decisi da Chiara in issue: 14 pastelli, niente nero,
 // testo #2b3d4e sempre leggibile). Unico punto di verita' per i colori cassa;
 // DB invariato (categorie.colore resta '01'..'14', v. mappaColori in reserved/visualizza.php).

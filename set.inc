@@ -88,11 +88,20 @@ define("PRINTER_IP", $__printer_ip);
 #Zebra_EPL_1/2 fanno biglietti singoli. Combo non permessa => stampa bloccata a monte.
 #Override senza toccare il codice: se SALSICCIA_CONTINUOUS_LABEL e' impostata a "1"/"0"
 #in .env (ignorato da git) o env di sistema, vince sul gate. "1"=unico, "0"=singoli.
+#F3.3 #63: env > carta_stampa.mode > gate, con env il toggle resta ininfluente.
 $__continuous_env = getenv('SALSICCIA_CONTINUOUS_LABEL');
 if ($__continuous_env !== false && trim((string)$__continuous_env) !== '')
     define("CONTINUOUS_LABEL", ((int)$__continuous_env) ? 1 : 0);
 else
-    define("CONTINUOUS_LABEL", (int)printer_is_continuous(PRINTER_NAME, PRINTER_CONNECTION, PRINTER_LANGUAGE));
+{
+    $__carta_file = salsiccia_storage_path('carta_stampa.mode');
+    $__carta_raw = is_readable($__carta_file) ? @file_get_contents($__carta_file) : false;
+    $__carta_mode = $__carta_raw !== false ? trim((string)$__carta_raw) : '';
+    if ($__carta_mode === '1' || $__carta_mode === '0')
+        define("CONTINUOUS_LABEL", (int)$__carta_mode);
+    else
+        define("CONTINUOUS_LABEL", (int)printer_is_continuous(PRINTER_NAME, PRINTER_CONNECTION, PRINTER_LANGUAGE));
+}
 #Risoluzione testina: 8 dots/mm (203dpi), serve per calcolare ^LL in dots
 define("ZPL_DOTS_PER_MM", 8);
 

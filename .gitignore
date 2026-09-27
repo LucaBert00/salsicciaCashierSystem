@@ -25,6 +25,8 @@ storage/fiscale_mock.xml
 storage/cassa_flags.json
 # F4.4: selezione stampante persistita dalla UI, mai in git (default ZD230 in set.inc).
 storage/stampante_selezione.json
+# F3.3: modo carta persistito dalla UI, mai in git (default dal gate in set.inc).
+storage/carta_stampa.mode
 # T28: throttle login server-side, stato runtime per IP, mai in git.
 storage/login_throttle_*.json
 # T27: cache locale PHPUnit, mai in git.
