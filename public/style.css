@@ -186,21 +186,35 @@ button {
     transition: opacity 0.15s ease;
 }
 
+#taglia-btn {
+    background-color: #ffd400;
+    border-radius: 6px;
+    padding: clamp(14px, calc(14px + var(--up)), 18.9px) clamp(28px, calc(28px + var(--up)), 37.8px);
+    font-weight: bold;
+    transition: opacity 0.15s ease;
+}
+
 #annulla-btn:hover,
 #continua-btn:hover,
-#stampa-btn:hover {
+#stampa-btn:hover,
+#taglia-btn:hover {
     opacity: 0.9;
 }
 
 #annullaOrdine-sign,
 #continua-sign,
-#stampa-sign {
+#stampa-sign,
+#taglia-sign {
     color: #ffffff;
     font-size: clamp(12px, 1.3671875vmin, 16px);
     font-weight: bold;
     display: flex;
     align-items: center;
     gap: clamp(6px, 0.78125vmin, 10px);
+}
+
+#taglia-sign {
+    color: #2b3d4e;
 }
 
 aside header {

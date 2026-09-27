@@ -463,13 +463,26 @@ function mostraModificaOrdine($mysqli)
     echo '</section>';
 }
 
+// TAGLIA visibile solo con GX420t + carta continua (ZPL o EPL): in
+// biglietti singoli il pulsante non appare mai e il taglio non scatta mai.
+function tagliaVisibile()
+{
+    return defined('PRINTER_NAME') && defined('PRINTER_CONNECTION')
+        && defined('PRINTER_LANGUAGE') && defined('CONTINUOUS_LABEL')
+        && function_exists('printer_taglia_permesso')
+        && printer_taglia_permesso(PRINTER_NAME, PRINTER_CONNECTION, PRINTER_LANGUAGE)
+        && CONTINUOUS_LABEL && (PRINTER_LANGUAGE === 'ZPL' || PRINTER_LANGUAGE === 'EPL');
+}
+
 // Footer modifica
 function mostraFooterModifica($cat)
 {
     echo '<form method="post" action="?cat=' . (int)$cat . '&action=r" style="display:contents;">';
     csrf_field();
-    echo '<button type="submit" id="annulla-btn"><span id="annullaOrdine-sign">🗑️️ ANNULLA ORDINE</span></button></form>
-          <a href="index.php" id="continua-btn" style="text-decoration:none"><span id="continua-sign">🛒 CONTINUA ORDINE</span></a>
+    echo '<button type="submit" id="annulla-btn"><span id="annullaOrdine-sign">🗑️️ ANNULLA ORDINE</span></button></form>';
+    if (tagliaVisibile())
+        echo '<a href="?cat=' . (int)$cat . '&action=s&taglia=1" id="taglia-btn" style="text-decoration:none"><span id="taglia-sign">✂️ TAGLIA</span></a>';
+    echo '<a href="index.php" id="continua-btn" style="text-decoration:none"><span id="continua-sign">🛒 CONTINUA ORDINE</span></a>
           <a href="?action=s" id="stampa-btn" style="text-decoration:none"><span id="stampa-sign">🖨️ STAMPA</span></a>';
 }
 
@@ -545,8 +558,10 @@ function mostraFooterBottoni($cat)
 {
     echo '<form method="post" action="?cat=' . (int)$cat . '&action=r" style="display:contents;">';
     csrf_field();
-    echo '<button type="submit" id="annulla-btn"><span id="annullaOrdine-sign">🗑️️ ANNULLA ORDINE</span></button></form>
-           <button id="stampa-btn" onclick="location.href=\'?action=s\'"><span id="stampa-sign">🖨️ STAMPA</span></button>';
+    echo '<button type="submit" id="annulla-btn"><span id="annullaOrdine-sign">🗑️️ ANNULLA ORDINE</span></button></form>';
+    if (tagliaVisibile())
+        echo '<button id="taglia-btn" onclick="location.href=\'?cat=' . (int)$cat . '&action=s&taglia=1\'"><span id="taglia-sign">✂️ TAGLIA</span></button>';
+    echo '<button id="stampa-btn" onclick="location.href=\'?action=s\'"><span id="stampa-sign">🖨️ STAMPA</span></button>';
 }
 
 //R iepilogo ordine
