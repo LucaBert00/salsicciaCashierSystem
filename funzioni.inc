@@ -740,7 +740,9 @@ function etichetta_continua($righe, $numero_righe, $evento, $credits, $cassa, $n
         $label .= "A800,$top1,2,2,2,2,N,\"     Arrivederci e grazie!!\"\n";
         $top1 = $top1-60;
         $label .= "A832,$top1,2,2,2,2,R,\"         $credits_epl             \"\n";
-        $label .= "P1\nC\n";
+        // Niente C qui: il taglio EPL (fuori form) scatta solo a richiesta
+        // in PrintService::generaFileStampa() (?taglia=1), come ^MMC in ZPL.
+        $label .= "P1\n";
     }
 
     $ret_c['label'] = $label;

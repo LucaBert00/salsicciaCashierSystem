@@ -139,6 +139,14 @@ final class PrintService
         }
 
         #Scrittura finale del file unico generato
+        // Taglio GX420t a richiesta: EPL = C (fuori form), ZPL = ^MMC (dentro ^XA).
+        $vuole_taglio = isset($_GET['taglia']) && $_GET['taglia'] === '1' && CONTINUOUS_LABEL && printer_taglia_permesso(PRINTER_NAME, PRINTER_CONNECTION, PRINTER_LANGUAGE);
+        if ($vuole_taglio && PRINTER_LANGUAGE === 'ZPL')
+            $label = preg_replace('/\^XA\s*/', "^XA\n^MMC\n", $label, 1);
+        elseif ($vuole_taglio && PRINTER_LANGUAGE === 'EPL')
+            $label .= "C\n";
+        else
+            $label .= " \n";
         fwrite($pf, $label, strlen($label));
         fclose($pf);
 
