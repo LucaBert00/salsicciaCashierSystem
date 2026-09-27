@@ -43,17 +43,41 @@ define("PRINT_ORDER_ID", "0");
 define("LABELS_FILE", salsiccia_storage_path("label"));
 define("COMMAND_FILE", salsiccia_storage_dir() . "/cmd/cmd");
 
-#Stampante etichette: Zebra_Net = RETE+ZPL (unica combo RETE supportata),
+#Stampante etichette: default ZD230 = RETE+ZPL (unica combo RETE supportata),
 #vedi gate stampa_permessa in PrintService::generaFileStampa()
-define("PRINTER_NAME", "Zebra_Net");
-define("PRINTER_CONNECTION", "RETE");
-define("PRINTER_LANGUAGE", "ZPL");
+#F4.4 #54: boot da storage/stampante_selezione.json via salsiccia_storage_path()
+#(printer_leggi_selezione() in env.inc, valida contro printer_gate_allowed() F4.1).
+#Precedenza env > json > default, come CONTINUOUS_LABEL (env > gate):
+#SALSICCIA_PRINTER_IP vince sullo state-file, lo state-file vince sul default ZD230.
+$__sel = function_exists('printer_leggi_selezione') ? printer_leggi_selezione() : null;
+$__env_ip = trim((string)getenv('SALSICCIA_PRINTER_IP'));
+$__sel_ip = (is_array($__sel) && isset($__sel['ip'])) ? trim((string)$__sel['ip']) : '';
+$__printer_ip = $__env_ip !== '' ? $__env_ip : $__sel_ip;
 # T10 fail-closed: nessun fallback. Recovery: copia .env.example in .env.
-$__printer_ip = trim((string)getenv('SALSICCIA_PRINTER_IP'));
 if ($__printer_ip === '')
 {
     http_response_code(500);
     die('Configurazione mancante: SALSICCIA_PRINTER_IP non impostata. Copia .env.example in .env e compila i valori.');
+}
+#Decisione stagisti 5fe9f0d: IP malformata -> fallback selezione invece di die (vuota resta 500 sopra).
+if (filter_var($__printer_ip, FILTER_VALIDATE_IP) === false)
+{
+    if ($__sel_ip !== '' && filter_var($__sel_ip, FILTER_VALIDATE_IP) !== false)
+        $__printer_ip = $__sel_ip;
+    else
+        $__sel = null;
+}
+if (is_array($__sel))
+{
+    define("PRINTER_NAME", $__sel['name']);
+    define("PRINTER_CONNECTION", $__sel['connection']);
+    define("PRINTER_LANGUAGE", $__sel['language']);
+}
+else
+{
+    define("PRINTER_NAME", "ZD230");
+    define("PRINTER_CONNECTION", "RETE");
+    define("PRINTER_LANGUAGE", "ZPL");
 }
 define("PRINTER_IP", $__printer_ip);
 

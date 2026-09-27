@@ -23,6 +23,8 @@ storage/fiscale_*.log
 storage/fiscale_mock.xml
 # T17: flag fiera mutabile, mai in git (default in config/cassa.php).
 storage/cassa_flags.json
+# F4.4: selezione stampante persistita dalla UI, mai in git (default ZD230 in set.inc).
+storage/stampante_selezione.json
 # T28: throttle login server-side, stato runtime per IP, mai in git.
 storage/login_throttle_*.json
 # T27: cache locale PHPUnit, mai in git.
