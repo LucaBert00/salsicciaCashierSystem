@@ -1,0 +1,14 @@
+;Settaggio set caratteri
+I8,0,001
+;Laghezza eichetta in dots
+q832
+;Altezza etichetta, lunghezza gap in dots
+Q45,0
+;Set reference point Horiz. left, Vert. top
+R0,0
+;Setto direzione stampa T top B bottom
+ZT
+;Imposta la stampante per la stampa termica diretta
+OD
+;Sostituzionedel carattere EURO
+oRE,149

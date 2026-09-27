@@ -1,0 +1,12 @@
+;Laghezza eichetta in dots
+q464
+;Altezza etichetta, lunghezza gap in dots
+Q257,26
+;Double buffer anable
+rY
+;Set reference point Horiz. left, Vert. top
+R184,0
+;Option D direct transfer, Ff premendo il tasto avenza la prossima etichetta
+OD,Ff
+;Sostituzionedel carattere EURO
+oRE,128

@@ -1,0 +1,8 @@
+;Laghezza eichetta in dots
+q832
+;Altezza etichetta, lunghezza gap in dots
+Q100,0
+;Set reference point Horiz. left, Vert. top
+;R184,0
+;Sostituzionedel carattere EURO
+;oRE,128
