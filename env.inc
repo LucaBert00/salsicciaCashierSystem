@@ -132,27 +132,125 @@ function salsiccia_login_ok(string $scope, string $ip = '', string $file = ''): 
     @unlink($f);
 }
 
-// Gate stampa etichette (issue #54): unico punto di definizione della
+// Gate stampa etichette (F4.1 #51): unico punto di definizione della
 // tabella di verita' stampante/connessione/linguaggio. Usato sia dal gate
 // stampa_permessa in PrintService::generaFileStampa() (src/Cassa/PrintService.php) sia dal calcolo
 // di CONTINUOUS_LABEL (set.inc): stessa tabella, nessun duplicato.
 function printer_gate_allowed($name, $conn, $lang)
 {
-    if ($name === 'Zebra_Multi')
-        return $conn === 'DIRETTA' && ($lang === 'ZPL' || $lang === 'EPL');
-    if ($name === 'Zebra_Net')
+    if ($name === 'ZD230')
         return ($conn === 'DIRETTA' || $conn === 'RETE') && $lang === 'ZPL';
-    if ($name === 'Zebra_EPL_1' || $name === 'Zebra_EPL_2')
+    // GX420t: solo DIRETTA, unica dual ZPL+EPL.
+    if ($name === 'GX420t')
+        return $conn === 'DIRETTA' && ($lang === 'ZPL' || $lang === 'EPL');
+    if ($name === 'TLP2844' || $name === 'LP2844')
         return $conn === 'DIRETTA' && $lang === 'EPL';
     return false;
 }
 
-// Carta continua (scontrino unico) vs biglietti singoli: Zebra_Multi in
-// DIRETTA e Zebra_Net (RETE/DIRETTA ZPL) fanno scontrino unico su richiesta
-// deploy; Zebra_EPL_1/2 fanno singoli. Deploy attuale: Zebra_Net continua.
+// Carta continua (scontrino unico) vs biglietti singoli: GX420t
+// (DIRETTA dual) e ZD230 (RETE/DIRETTA ZPL) fanno
+// scontrino unico su richiesta deploy; TLP2844/LP2844 fanno singoli.
+// Deploy attuale: ZD230 continua.
 function printer_is_continuous($name, $conn, $lang)
 {
-    return printer_gate_allowed($name, $conn, $lang) && ($name === 'Zebra_Multi' || $name === 'Zebra_Net');
+    return printer_gate_allowed($name, $conn, $lang) && ($name === 'ZD230' || $name === 'GX420t');
+}
+
+// F4.1 #51: taglierino, solo la GX420t lo monta. Definita qui ma NON usata
+// (l'append di taglio e' F1, fuori scope).
+if (!function_exists('printer_has_cutter'))
+{
+    function printer_has_cutter($name)
+    {
+        return $name === 'GX420t';
+    }
+}
+
+if (!function_exists('printer_taglia_permesso'))
+{
+    function printer_taglia_permesso($name, $conn, $lang)
+    {
+        return printer_has_cutter($name) && printer_is_continuous($name, $conn, $lang);
+    }
+}
+
+// F4.1 #51: registry stampanti note, nomi memorizzati anche se mai collegati.
+// Solo la GX420t e' dual EPL+ZPL; le altre solo la loro modalita' (stesso gate sopra).
+if (!function_exists('printer_known_printers'))
+{
+    function printer_known_printers()
+    {
+        return array(
+            array('name' => 'ZD230', 'connection' => 'RETE', 'language' => 'ZPL'),
+            array('name' => 'GX420t', 'connection' => 'DIRETTA', 'language' => 'ZPL'),
+            array('name' => 'TLP2844', 'connection' => 'DIRETTA', 'language' => 'EPL'),
+            array('name' => 'LP2844', 'connection' => 'DIRETTA', 'language' => 'EPL'),
+        );
+    }
+}
+
+// F4.1 #51: selezione persistita in storage/, mai rewrite di PHP source.
+// File JSON scritto dalla UI (F4.5), letto a boot. Combo non a gate => null.
+if (!function_exists('printer_selection_file'))
+{
+    function printer_selection_file()
+    {
+        return salsiccia_storage_path('stampante_selezione.json');
+    }
+}
+
+if (!function_exists('printer_leggi_selezione'))
+{
+    function printer_leggi_selezione()
+    {
+        $f = printer_selection_file();
+        $raw = is_readable($f) ? @file_get_contents($f) : false;
+        if ($raw === false)
+            return null;
+        $d = json_decode($raw, true);
+        if (!is_array($d) || empty($d['name']) || empty($d['connection']) || empty($d['language']))
+            return null;
+        $name = (string)$d['name'];
+        $conn = (string)$d['connection'];
+        $lang = (string)$d['language'];
+        if (!preg_match('/^[A-Za-z0-9_-]+$/', $name))
+            return null;
+        if (!printer_gate_allowed($name, $conn, $lang))
+            return null;
+        $ip = isset($d['ip']) ? trim((string)$d['ip']) : '';
+        if ($ip !== '' && filter_var($ip, FILTER_VALIDATE_IP) === false)
+            $ip = '';
+        return array('name' => $name, 'connection' => $conn, 'language' => $lang, 'ip' => $ip);
+    }
+}
+
+// F4.1 #51: raggiungibilita' minima per il gate di selezione (F4.5).
+// DIRETTA = coda locale, sempre raggiungibile qui (stato CUPS veritiero e' F4.2);
+// RETE = socket TCP corto verso l'IP, ping fallito gestito senza fatal (anche su Windows senza CUPS).
+if (!function_exists('printer_ping'))
+{
+    function printer_ping($ip, $port = 21, $timeout = 2)
+    {
+        $ip = trim((string)$ip);
+        if (filter_var($ip, FILTER_VALIDATE_IP) === false)
+            return false;
+        $fp = @fsockopen($ip, (int)$port, $errno, $errstr, (int)$timeout);
+        if ($fp === false)
+            return false;
+        fclose($fp);
+        return true;
+    }
+}
+
+if (!function_exists('printer_is_reachable'))
+{
+    function printer_is_reachable($name, $conn, $ip = '')
+    {
+        if ($conn !== 'RETE')
+            return true;
+        return printer_ping($ip);
+    }
 }
 
 // T17: flag fiera persistente in storage/ JSON, mai rewrite di PHP source.
