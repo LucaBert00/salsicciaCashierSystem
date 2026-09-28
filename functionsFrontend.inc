@@ -1075,6 +1075,80 @@ function mostraRipristinaDb($mysqli)
     echo '</section>';
 }
 
+// Modifica info festa: legge/riscrive EVENT_NAME e DURATA_FESTA in set.inc
+// (port di 1.0/configurazione.php dal branch modificaStampa)
+function mostraModificaInfo()
+{
+    if (!isAdmin())
+    {
+        header("Location: index.php?action=c");
+        exit;
+    }
+    $file = __DIR__ . '/set.inc';
+    $righe = file($file);
+
+    $eventName = '';
+    $durataFesta = '';
+    foreach ($righe as $riga)
+    {
+        $trim = ltrim($riga);
+        if (strpos($trim, '//') === 0 || strpos($trim, '#') === 0)
+            continue;
+        if (strpos($riga, 'define("EVENT_NAME"') !== false)
+        {
+            $parti = explode('"', $riga);
+            $eventName = $parti[3];
+        }
+        if (strpos($riga, 'define("DURATA_FESTA"') !== false)
+        {
+            $parti = explode('"', $riga);
+            $durataFesta = $parti[3];
+        }
+    }
+
+    $messaggio = '';
+    if ($_SERVER['REQUEST_METHOD'] == 'POST')
+    {
+        if (!csrf_ok())
+        {
+            $messaggio = 'TOKEN NON VALIDO.';
+        }
+        else
+        {
+        $eventName = substr(str_replace(array('"', '\\', "\r", "\n"), '', trim(isset($_POST['EVENT_NAME']) ? $_POST['EVENT_NAME'] : '')), 0, 32);
+        $durataFesta = (string)max(1, (int)$_POST['DURATA_FESTA']);
+        foreach ($righe as &$riga)
+        {
+            $trim = ltrim($riga);
+            if (strpos($trim, '//') === 0 || strpos($trim, '#') === 0)
+                continue;
+            if (strpos($riga, 'define("EVENT_NAME"') !== false)
+                $riga = 'define("EVENT_NAME",  "' . $eventName . '");' . PHP_EOL;
+            if (strpos($riga, 'define("DURATA_FESTA"') !== false)
+                $riga = 'define("DURATA_FESTA", "' . $durataFesta . '");' . PHP_EOL;
+        }
+        unset($riga);
+        file_put_contents($file, implode('', $righe));
+        $messaggio = 'Configurazione salvata con successo.';
+        }
+    }
+
+    echo '<section class="admin-panel" style="align-items:center;text-align:center;">';
+    echo '<h3 class="admin-group-title">CONFIGURAZIONE FESTA</h3>';
+    if ($messaggio != '')
+        echo '<p style="background:#5cb85c;color:#fff;font-weight:800;text-align:center;padding:12px;border-radius:6px;">' . $messaggio . '</p>';
+    echo '<form method="post" action="?action=info" style="display:flex;flex-direction:column;gap:16px;max-width:560px;width:100%;margin:0 auto;align-items:center;text-align:center;">';
+    csrf_field();
+    echo '<label style="font-weight:800;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;width:100%;"><span style="font-size:18px;letter-spacing:1px;color:#2b3d4e;text-transform:uppercase;">NOME FESTA (max 32)</span><input type="text" name="EVENT_NAME" value="' . htmlspecialchars($eventName) . '" maxlength="32" class="codice-text-field"></label>';
+    echo '<label style="font-weight:800;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;width:100%;"><span style="font-size:18px;letter-spacing:1px;color:#2b3d4e;text-transform:uppercase;">DURATA (GIORNI)</span><input type="number" name="DURATA_FESTA" value="' . htmlspecialchars($durataFesta) . '" min="1" class="codice-text-field"></label>';
+    echo '<div class="admin-btn-row">';
+    echo '<a href="index.php" class="opzione-btn" style="text-decoration:none;">ANNULLA</a>';
+    echo '<button type="submit" class="opzione-btn">SALVA MODIFICHE</button>';
+    echo '</div>';
+    echo '</form>';
+    echo '</section>';
+}
+
 // CAMBIA CARTA STAMPA (F3.4 #64, toggle continua <-> singoli): riusa F3.1
 // (cartaStampaLeggiSetup) + F3.2 (PrintService::inviaSetupCarta) + F3.3
 // (impostaCartaStampa). Setup/invio falliti => errore, modalita invariata.
