@@ -733,6 +733,97 @@ function mostraPannelloAdmin()
     echo '</section>';
 }
 
+// F2.1 #68: preflight e funzioni pure power (da salsicciaStagisti 6b796de+d57a201).
+// Alimentazione: system() sul fork ritorna 0 anche se fallisce dopo, mai verde falso.
+// Candidati legacy-first (systemctl poi shutdown), preflight con "sudo -n -l" sul comando esatto.
+// Il primo permesso viene schedulato, altrimenti COMANDO NON AVVIATO. Marker in storage/
+// (mai path di directory del file: docroot target = public/), riscontro marker/uptime sotto.
+function candidatiAlimentazione($mode)
+{
+    $aSys = ($mode === 'poweroff') ? 'poweroff' : 'reboot';
+    $aShut = ($mode === 'poweroff') ? '-h now' : '-r now';
+    $c = array();
+    foreach (array('/bin/systemctl', '/usr/bin/systemctl') as $s)
+        if (is_executable($s))
+            $c[] = $s . ' ' . $aSys;
+    foreach (array('/sbin/shutdown', '/usr/sbin/shutdown') as $s)
+        if (is_executable($s))
+            $c[] = $s . ' ' . $aShut;
+    if (empty($c))
+    {
+        $out = array();
+        @exec('command -v systemctl shutdown 2>/dev/null', $out);
+        foreach ($out as $r)
+        {
+            $r = trim((string)$r);
+            if ($r === '' || !is_executable($r))
+                continue;
+            $c[] = $r . (substr($r, -10) === 'systemctl' ? ' ' . $aSys : ' ' . $aShut);
+        }
+    }
+    return $c;
+}
+
+function escapaComando($cmdline)
+{
+    $e = array();
+    foreach (explode(' ', $cmdline) as $p)
+        if ($p !== '')
+            $e[] = escapeshellarg($p);
+    return implode(' ', $e);
+}
+
+// Ritorna il primo candidato permesso via "sudo -n -l", o ''.
+function scegliComandoAlimentazione($mode)
+{
+    foreach (candidatiAlimentazione($mode) as $cand)
+    {
+        $out = array();
+        $rc = 1;
+        @exec('sudo -n -l -- ' . escapaComando($cand) . ' >/dev/null 2>&1', $out, $rc);
+        if ($rc !== 0)
+            @exec('sudo -n ' . escapaComando(strtok($cand, " ")) . ' --help >/dev/null 2>&1', $out, $rc);
+        if ($rc === 0)
+            return $cand;
+    }
+    return '';
+}
+
+// Riscontro spegnimento: marker con timestamp, al reload eta marker vs uptime (/proc/uptime).
+// Uptime < eta = RIUSCITO; oltre 180s = FALLITO; entro = IN ATTESA. Marker una tantum.
+function markerPowerFile()
+{
+    return salsiccia_storage_path('power_attempt.json');
+}
+
+function uptimeMacchina()
+{
+    $u = @file_get_contents('/proc/uptime');
+    if ($u === false)
+        return null;
+    $p = (float)strtok(trim((string)$u), " ");
+    return $p > 0 ? $p : null;
+}
+
+// Pura e testabile: ritorna 'riuscito', 'fallito' o 'attesa'.
+function esitoTentativoPower($markerTime, $now, $uptime)
+{
+    $soglia = 180;
+    $eta = $now - $markerTime;
+    if ($eta < 0)
+        return 'attesa';
+    if ($uptime !== null && $uptime < $eta)
+        return 'riuscito';
+    if ($eta > $soglia)
+        return 'fallito';
+    return 'attesa';
+}
+
+function scriviMarkerPower($mode)
+{
+    @file_put_contents(markerPowerFile(), json_encode(array('t' => time(), 'mode' => $mode)));
+}
+
 // Schermata unica CONTATORI: tutti i venduti monitorati con nome + quantita
 // (un solo GROUP BY via contatori_totali, paginato in PHP come le viste stat).
 function mostraContatori($mysqli)
