@@ -720,7 +720,7 @@ function mostraPannelloAdmin()
     echo '<a href="index.php" class="opzione-btn">CONTINUA ORDINE</a>';
     echo '<a href="?action=logout" class="opzione-btn">ESCI</a>';
     echo '</div>';
-    echo '<div class="admin-btn-row">';
+    echo '<div class="admin-btn-row" style="margin-top:clamp(6px, 0.9765625vmin, 12px);">';
     echo '<a href="?action=print_reset" class="opzione-btn">CAMBIA CARTA STAMPA: ' . ((defined('CONTINUOUS_LABEL') && CONTINUOUS_LABEL) ? 'CONTINUA' : 'SINGOLI') . '</a>';
     echo '<a href="?action=switch_printer" class="opzione-btn">CAMBIA STAMPANTE</a>';
     echo '<a href="?action=restart" class="opzione-btn danger">RIAVVIA</a>';
