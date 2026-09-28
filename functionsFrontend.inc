@@ -717,19 +717,14 @@ function mostraPannelloAdmin()
     echo '<div>';
     echo '<h3 class="admin-group-title">AMMINISTRAZIONE</h3>';
     echo '<div class="admin-btn-row">';
+    echo '<a href="index.php" class="opzione-btn">CONTINUA ORDINE</a>';
+    echo '<a href="?action=logout" class="opzione-btn">ESCI</a>';
+    echo '</div>';
+    echo '<div class="admin-btn-row">';
     echo '<a href="?action=print_reset" class="opzione-btn">CAMBIA CARTA STAMPA: ' . ((defined('CONTINUOUS_LABEL') && CONTINUOUS_LABEL) ? 'CONTINUA' : 'SINGOLI') . '</a>';
     echo '<a href="?action=switch_printer" class="opzione-btn">CAMBIA STAMPANTE</a>';
     echo '<a href="?action=restart" class="opzione-btn danger">RIAVVIA</a>';
     echo '<a href="?action=shutdown" class="opzione-btn danger">SPEGNI</a>';
-    echo '</div>';
-    echo '</div>';
-
-    echo '<div>';
-    echo '<h3 class="admin-group-title">STAMPANTE SELEZIONATA: ' . PRINTER_NAME . ' - ' . PRINTER_CONNECTION . ' - ' . PRINTER_LANGUAGE . '</h3>';
-    echo '<div class="admin-btn-row">';
-    echo '<a href="stampante_continua.php" class="opzione-btn">STAMPANTE CONTINUA</a>';
-    echo '<a href="index.php" class="opzione-btn">CONTINUA ORDINE</a>';
-    echo '<a href="?action=logout" class="opzione-btn">ESCI</a>';
     echo '</div>';
     echo '</div>';
 
