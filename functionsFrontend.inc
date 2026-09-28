@@ -864,6 +864,106 @@ function schedulaAzioneAlimentazione($mode)
     return true;
 }
 
+// F2.3 #70: schermate RIAVVIA/SPEGNI + riscontro + diagnostica (da salsicciaStagisti d57a201/57d8298).
+// Riscontro: marker una tantum, solo echo. Diagnostica: firma CON $mode (fix bug upstream
+// $mode indefinito che mostrava sempre i candidati reboot). Prerequisiti kiosk restano
+// testo schermata come nel source: NOPASSWD sui comandi esatti + systemd presente.
+function mostraRiscontroPower($mode)
+{
+    $f = markerPowerFile();
+    $raw = is_readable($f) ? @file_get_contents($f) : false;
+    if ($raw === false || trim((string)$raw) === '')
+        return;
+    $d = json_decode((string)$raw, true);
+    if (!is_array($d) || empty($d['t']) || !isset($d['mode']) || $d['mode'] !== $mode)
+    {
+        if (is_array($d))
+            return;
+        @unlink($f);
+        return;
+    }
+    $esito = esitoTentativoPower((int)$d['t'], time(), uptimeMacchina());
+    $quando = date('d/m H:i:s', (int)$d['t']);
+    if ($esito === 'riuscito')
+    {
+        echo '<p class="admin-msg-big" style="background:#5cb85c;color:#fff;padding:12px;border-radius:6px;">COMANDO RIUSCITO: cassa riavviata/riaccesa dopo invio delle ' . $quando . '.</p>';
+        @unlink($f);
+    }
+    elseif ($esito === 'fallito')
+    {
+        echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;padding:12px;border-radius:6px;">COMANDO FALLITO: invio delle ' . $quando . ' senza effetto, cassa mai spenta. Verifica sudoers/systemd (vedi DIAGNOSTICA sotto).</p>';
+        @unlink($f);
+    }
+    else
+    {
+        echo '<p class="admin-msg-big" style="color:#2b3d4e;font-weight:600;">COMANDO IN ATTESA: invio delle ' . $quando . ', la cassa dovrebbe spegnersi a momenti. Ricarica tra un minuto per il riscontro.</p>';
+    }
+}
+
+// Diagnostica kiosk: valori reali letti al momento, comandi fissi.
+function mostraDiagnosticaPower($mode)
+{
+    $who = array();
+    @exec('whoami 2>/dev/null', $who);
+    $utente = !empty($who[0]) ? trim((string)$who[0]) : '?';
+    $cmd = scegliComandoAlimentazione($mode);
+    $up = uptimeMacchina();
+    echo '<p class="admin-msg-big" style="color:#2b3d4e;font-weight:600;">DIAGNOSTICA: utente=' . htmlspecialchars($utente, ENT_QUOTES, 'UTF-8') . ' os=' . PHP_OS_FAMILY . ' cmd=' . ($cmd !== '' ? htmlspecialchars($cmd, ENT_QUOTES, 'UTF-8') : 'NESSUNO (permessi?)') . ' systemd=' . (is_dir('/run/systemd/system') ? 'si' : 'no') . ' uptime=' . ($up !== null ? (int)$up . 's' : 'n/d') . '</p>';
+}
+
+function mostraPower($mode, $action, $field, $titolo, $msgConferma, $labelBtn, $msgOk)
+{
+    if (!isAdmin())
+    {
+        header("Location: index.php?action=c");
+        exit;
+    }
+    echo '<section class="admin-panel">';
+    echo '<h3 class="admin-group-title admin-msg-big">' . $titolo . '</h3>';
+    mostraRiscontroPower($mode);
+    if (isset($_POST[$field]))
+    {
+        if (!csrf_ok())
+        {
+            echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;padding:12px;border-radius:6px;">TOKEN NON VALIDO.</p>';
+        }
+        else
+        {
+            $ok = schedulaAzioneAlimentazione($mode);
+            if ($ok)
+                echo '<p class="admin-msg-big" style="background:#5cb85c;color:#fff;padding:12px;border-radius:6px;">' . $msgOk . '</p>';
+            else
+                echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;padding:12px;border-radius:6px;">COMANDO NON AVVIATO: verifica sudoers/systemd sul kiosk.</p>';
+            echo '<p class="admin-msg-big" style="color:#2b3d4e;font-weight:600;">Coda stampa: DIRETTA cancellata (best-effort), RETE nessun job pendente (FTP sincrono verso ' . htmlspecialchars(PRINTER_IP, ENT_QUOTES, 'UTF-8') . '). Se nulla accade: utente web senza NOPASSWD su /sbin/shutdown o host senza systemd.</p>';
+        }
+        echo '<br><div class="admin-btn-row"><a href="index.php" class="opzione-btn" style="text-decoration:none;">TORNA</a></div>';
+    }
+    else
+    {
+        echo '<p class="admin-msg-big" style="color:#e54b3c;">ATTENZIONE: ' . $msgConferma . '</p>';
+        echo '<p class="admin-msg-big" style="color:#2b3d4e;font-weight:600;">Coda stampa: DIRETTA verra svuotata, RETE nessun job pendente (invio FTP sincrono).</p>';
+        echo '<form method="post" action="?action=' . $action . '" onsubmit="return confirm(\'Confermi?\');">';
+        csrf_field();
+        echo '<div class="admin-btn-row">';
+        echo '<a href="index.php?action=c&ok=1" class="opzione-btn" style="text-decoration:none;">ANNULLA</a>';
+        echo '<button type="submit" name="' . $field . '" value="1" class="opzione-btn danger">' . $labelBtn . '</button>';
+        echo '</div>';
+        echo '</form>';
+    }
+    mostraDiagnosticaPower($mode);
+    echo '</section>';
+}
+
+function mostraRestart()
+{
+    mostraPower('reboot', 'restart', 'restart', 'RIAVVIA TERMINALE', 'il terminale cassa verra riavviato.', 'RIAVVIA ORA', 'RIAVVIO SCHEDULATO: il terminale si riavvia tra pochi secondi.');
+}
+
+function mostraShutdown()
+{
+    mostraPower('poweroff', 'shutdown', 'shutdown', 'SPEGNI TERMINALE', 'il terminale cassa verra spento.', 'SPEGNI ORA', 'SPEGNIMENTO SCHEDULATO: il terminale si spegne tra pochi secondi.');
+}
+
 // Schermata unica CONTATORI: tutti i venduti monitorati con nome + quantita
 // (un solo GROUP BY via contatori_totali, paginato in PHP come le viste stat).
 function mostraContatori($mysqli)

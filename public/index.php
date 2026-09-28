@@ -19,8 +19,10 @@ $showRepair = $action == 'repair' && $isAdmin;
 $showContatori = $action == 'contatori' && $isAdmin;
 $showPrintReset = $action == 'print_reset' && $isAdmin;
 $showSwitchPrinter = $action == 'switch_printer' && $isAdmin;
+$showRestart = $action == 'restart' && $isAdmin;
+$showShutdown = $action == 'shutdown' && $isAdmin;
 // Sfondo tinta categoria solo sulla schermata principale cassa, mai su admin/stampa/modifica/standby.
-$isCassaMain = !$azioneNonValida && !$showAdmin && !$showStampa && !$showModifica && !$showOpzioni && !$showStandby && !$showRepair && !$showContatori && !$showPrintReset && !$showSwitchPrinter && !($showConfig && isset($_GET['ok']) && !$showAdmin);
+$isCassaMain = !$azioneNonValida && !$showAdmin && !$showStampa && !$showModifica && !$showOpzioni && !$showStandby && !$showRepair && !$showContatori && !$showPrintReset && !$showSwitchPrinter && !$showRestart && !$showShutdown && !($showConfig && isset($_GET['ok']) && !$showAdmin);
 $hexCassa = '#e7e9eb';
 if ($isCassaMain)
 {
@@ -30,7 +32,7 @@ if ($isCassaMain)
     if ($rcCassa && isset($rcCassa['colore'])) $hexCassa = coloreCategoriaHex($rcCassa['colore']);
 }
 // Schermate sensibili senza flag admin -> login, mai cassa muta ne accesso anonimo.
-if (!$isAdmin && in_array($action, array('repair', 'print_reset', 'contatori', 'switch_printer'), true))
+if (!$isAdmin && in_array($action, array('repair', 'print_reset', 'contatori', 'switch_printer', 'restart', 'shutdown'), true))
 {
     header("Location: index.php?action=c");
     exit;
@@ -80,6 +82,14 @@ if (!$isAdmin && in_array($action, array('repair', 'print_reset', 'contatori', '
             <nav><?php mostraNavCategorie($mysqli, $cat); ?><?php mostraIndicatoreTipo($mysqli); ?></nav>
             <header><h1>CAMBIA CARTA STAMPA</h1></header>
             <?php mostraPrintReset(); ?>
+        <?php elseif ($showRestart): ?>
+            <nav><?php mostraNavCategorie($mysqli, $cat); ?><?php mostraIndicatoreTipo($mysqli); ?></nav>
+            <header><h1>RIAVVIA</h1></header>
+            <?php mostraRestart(); ?>
+        <?php elseif ($showShutdown): ?>
+            <nav><?php mostraNavCategorie($mysqli, $cat); ?><?php mostraIndicatoreTipo($mysqli); ?></nav>
+            <header><h1>SPEGNI</h1></header>
+            <?php mostraShutdown(); ?>
         <?php elseif ($showSwitchPrinter): ?>
             <nav><?php mostraNavCategorie($mysqli, $cat); ?><?php mostraIndicatoreTipo($mysqli); ?></nav>
             <header><h1>CAMBIA STAMPANTE</h1></header>

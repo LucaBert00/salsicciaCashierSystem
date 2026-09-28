@@ -34,5 +34,7 @@ return array(
     'repair' => null,
     'contatori' => null,
     'print_reset' => null,
+    'restart' => null,
+    'shutdown' => null,
     'switch_printer' => null,
 );
