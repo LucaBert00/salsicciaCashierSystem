@@ -824,6 +824,46 @@ function scriviMarkerPower($mode)
     @file_put_contents(markerPowerFile(), json_encode(array('t' => time(), 'mode' => $mode)));
 }
 
+// F2.2 #69: braccio operativo power (da salsicciaStagisti 57d8298/master).
+// RIAVVIA/SPEGNI: coda stampa mai lasciata a meta.
+// DIRETTA: cancel best-effort pre-shutdown mai bloccante. RETE: invio sincrono, nessun job.
+function svuotaCodaStampaPreSpegnimento()
+{
+    if (PRINTER_CONNECTION !== 'DIRETTA')
+        return;
+    if (!preg_match('/^[A-Za-z0-9_-]+$/', PRINTER_NAME))
+    {
+        cassa_log('error', 'power: cancel bloccato, PRINTER_NAME non whitelistato');
+        return;
+    }
+    $cmd = 'cancel -a ' . escapeshellarg(printer_cups_queue(PRINTER_NAME)) . ' >/dev/null 2>&1';
+    system($cmd, $rc);
+    if ($rc !== 0)
+        cassa_log('error', 'power: cancel coda fallito rc=' . $rc . ' printer=' . PRINTER_NAME);
+}
+
+// Schedula reboot/poweroff in background (sleep 2 cosi la risposta HTTP
+// viene flushed prima che systemd killi PHP).
+function schedulaAzioneAlimentazione($mode)
+{
+    $cmdline = scegliComandoAlimentazione($mode);
+    if ($cmdline === '')
+    {
+        cassa_log('error', 'power: schedulazione ' . $mode . ' impossibile, nessun comando permesso');
+        return false;
+    }
+    svuotaCodaStampaPreSpegnimento();
+    $cmd = '(sleep 2; sudo ' . escapaComando($cmdline) . ') >/dev/null 2>&1 &';
+    system($cmd, $rc);
+    if ($rc !== 0)
+    {
+        cassa_log('error', 'power: schedulazione ' . $mode . ' fallita rc=' . $rc);
+        return false;
+    }
+    scriviMarkerPower($mode);
+    return true;
+}
+
 // Schermata unica CONTATORI: tutti i venduti monitorati con nome + quantita
 // (un solo GROUP BY via contatori_totali, paginato in PHP come le viste stat).
 function mostraContatori($mysqli)
@@ -1063,7 +1103,7 @@ function mostraSwitchPrinter()
             $conn = (string)($_POST['conn'] ?? '');
             $lingua = (string)($_POST['lingua'] ?? '');
             $ip = $conn === 'RETE' ? trim((string)($_POST['ip'] ?? '')) : '';
-            // ponytail: riuso reachability F4.2; ip POST o fallback PRINTER_IP come in lista
+            // riuso reachability F4.2; ip POST o fallback PRINTER_IP come in lista
             $ipCheck = $conn === 'RETE' ? ($ip !== '' ? $ip : (defined('PRINTER_IP') ? PRINTER_IP : '')) : '';
             if (!stampante_switch_ok($nome, $conn, $ipCheck))
             {
