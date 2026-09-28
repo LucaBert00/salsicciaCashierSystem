@@ -140,6 +140,8 @@ function cassa_azione_login($mysqli = null, $id_cassa = null)
     // Login admin via POST (issue): code mai in URL/log; OK -> flag sessione + redirect pulito.
     if (($_SERVER['REQUEST_METHOD'] ?? '') == 'POST' && ($_GET['action'] ?? '') == 'c' && isset($_POST['code']))
     {
+        // Tentativo login: invalida la sessione admin precedente, err=1 non deve mai coesistere col pannello.
+        unset($_SESSION['admin']);
         // T28: throttle server-side scope 'admin' (file, sopravvive al reset
         // sessione) + ramo sessione storico; kiosk invariato.
         if ((!empty($_SESSION['admin_block_until']) && time() < $_SESSION['admin_block_until']) || salsiccia_login_throttled('admin'))
