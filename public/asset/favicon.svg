@@ -7,6 +7,4 @@
 <path d="M44 60 Q100 106 156 60" stroke="#F0B0BA" stroke-width="8" stroke-linecap="butt" stroke-dasharray="20 10"/>
 <path d="M44 84 Q100 130 156 84" stroke="#7A1828" stroke-width="6" stroke-linecap="butt" stroke-dasharray="16 13"/>
 </g>
-<circle cx="172" cy="172" r="30" fill="#F4ECE1" stroke="#26262B" stroke-width="5"/>
-<text x="172" y="182" text-anchor="middle" font-family="sans-serif" font-size="30" fill="#B22A3F">€</text>
 </svg>
