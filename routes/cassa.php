@@ -37,4 +37,5 @@ return array(
     'restart' => null,
     'shutdown' => null,
     'switch_printer' => null,
+    'info' => null,
 );

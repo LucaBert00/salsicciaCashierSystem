@@ -689,6 +689,7 @@ function mostraPannelloAdmin()
     // ingresso diretto reserved/, contratto sessione
     echo '<a href="reserved/login.php" class="opzione-btn">GESTIONE PRODOTTI</a>';
     echo '<a href="?action=repair" class="opzione-btn">RIPRISTINA DB</a>';
+    echo '<a href="?action=info" class="opzione-btn">MODIFICA FESTA</a>';
     echo '<form method="post" action="?action=fiera" onsubmit="return confirm(\'Cambiare MODALITA FIERA?\');" style="display:inline;">';
     csrf_field();
     echo '<input type="hidden" name="val" value="' . (isFieraAttiva() ? '0' : '1') . '">';

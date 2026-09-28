@@ -19,10 +19,11 @@ $showRepair = $action == 'repair' && $isAdmin;
 $showContatori = $action == 'contatori' && $isAdmin;
 $showPrintReset = $action == 'print_reset' && $isAdmin;
 $showSwitchPrinter = $action == 'switch_printer' && $isAdmin;
+$showInfo = $action == 'info' && $isAdmin;
 $showRestart = $action == 'restart' && $isAdmin;
 $showShutdown = $action == 'shutdown' && $isAdmin;
 // Sfondo tinta categoria solo sulla schermata principale cassa, mai su admin/stampa/modifica/standby.
-$isCassaMain = !$azioneNonValida && !$showAdmin && !$showStampa && !$showModifica && !$showOpzioni && !$showStandby && !$showRepair && !$showContatori && !$showPrintReset && !$showSwitchPrinter && !$showRestart && !$showShutdown && !($showConfig && isset($_GET['ok']) && !$showAdmin);
+$isCassaMain = !$azioneNonValida && !$showAdmin && !$showStampa && !$showModifica && !$showOpzioni && !$showStandby && !$showRepair && !$showContatori && !$showPrintReset && !$showSwitchPrinter && !$showInfo && !$showRestart && !$showShutdown && !($showConfig && isset($_GET['ok']) && !$showAdmin);
 $hexCassa = '#e7e9eb';
 if ($isCassaMain)
 {
@@ -32,7 +33,7 @@ if ($isCassaMain)
     if ($rcCassa && isset($rcCassa['colore'])) $hexCassa = coloreCategoriaHex($rcCassa['colore']);
 }
 // Schermate sensibili senza flag admin -> login, mai cassa muta ne accesso anonimo.
-if (!$isAdmin && in_array($action, array('repair', 'print_reset', 'contatori', 'switch_printer', 'restart', 'shutdown'), true))
+if (!$isAdmin && in_array($action, array('repair', 'print_reset', 'contatori', 'switch_printer', 'info', 'restart', 'shutdown'), true))
 {
     header("Location: index.php?action=c");
     exit;
@@ -94,6 +95,10 @@ if (!$isAdmin && in_array($action, array('repair', 'print_reset', 'contatori', '
             <nav><?php mostraNavCategorie($mysqli, $cat); ?><?php mostraIndicatoreTipo($mysqli); ?></nav>
             <header><h1>CAMBIA STAMPANTE</h1></header>
             <?php mostraSwitchPrinter(); ?>
+        <?php elseif ($showInfo): ?>
+            <nav><?php mostraNavCategorie($mysqli, $cat); ?><?php mostraIndicatoreTipo($mysqli); ?></nav>
+            <header><h1>MODIFICA FESTA</h1></header>
+            <?php mostraModificaInfo(); ?>
         <?php elseif ($showConfig && isset($_GET['ok']) && !$showAdmin): ?>
             <section style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex-grow:1;">
                 <p style="font-size:24px;font-weight:800;color:#e54b3c;margin-bottom:30px;">ERRORE CODICE DI AUTORIZZAZIONE ERRATO</p>
