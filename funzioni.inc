@@ -81,12 +81,6 @@ function db_exec($mysqli, $sql, $tipi = '', $params = array())
     return $ok;
 }
 
-function printA($str)
-{
-    // Contesto JS: json_encode neutralizza quote/backslash/</script> (default escapa "/).
-    print "\n<script type=\"text/javascript\">alert(" . json_encode($str) . ");</script>\n";
-}
-
 function calcolaTotali(int $id_prodotto, int $id_ordine, mysqli $mysqli, bool $in_txn = false): bool
 {
     // cast difensivo, i chiamanti cassa passano gia (int); la firma typed (T22)
@@ -407,97 +401,6 @@ function stampaMenu($testo,$quantita,$tipo_stampa,$parametri, $id=0)
     $vect["num_pezzi"] = $num_pezzi;
     $vect["label"] = $label;
     return $vect;
-}
-
-function printOre()
-{
-    print "<table border=\"0\" width=\"100%\">\n
-          <tr>\n
-          <td class=\"td_bottone\"><button class=\"bottone\" style=\"width: 80px; height: 60px;\" onclick=\"setOra('00:00');\" type=\"button\">00:00</button></td>
-          <td class=\"td_bottone\"><button class=\"bottone\" style=\"width: 80px; height: 60px;\" onclick=\"setOra('01:00');\" type=\"button\">01:00</button></td>
-          <td class=\"td_bottone\"><button class=\"bottone\" style=\"width: 80px; height: 60px;\" onclick=\"setOra('02:00');\" type=\"button\">02:00</button></td>
-          <td class=\"td_bottone\"><button class=\"bottone\" style=\"width: 80px; height: 60px;\" onclick=\"setOra('03:00');\" type=\"button\">03:00</button></td>
-          <td class=\"td_bottone\"><button class=\"bottone\" style=\"width: 80px; height: 60px;\" onclick=\"setOra('04:00');\" type=\"button\">04:00</button></td></tr>
-          <tr>
-          <td class=\"td_bottone\"><button class=\"bottone\" style=\"width: 80px; height: 60px;\" onclick=\"setOra('05:00');\" type=\"button\">05:00</button></td>
-          <td class=\"td_bottone\"><button class=\"bottone\" style=\"width: 80px; height: 60px;\" onclick=\"setOra('06:00');\" type=\"button\">06:00</button></td>
-          <td class=\"td_bottone\"><button class=\"bottone\" style=\"width: 80px; height: 60px;\" onclick=\"setOra('07:00');\" type=\"button\">07:00</button></td>
-          <td class=\"td_bottone\"><button class=\"bottone\" style=\"width: 80px; height: 60px;\" onclick=\"setOra('08:00');\" type=\"button\">08:00</button></td>
-          <td class=\"td_bottone\"><button class=\"bottone\" style=\"width: 80px; height: 60px;\" onclick=\"setOra('09:00');\" type=\"button\">09:00</button></td></tr>
-          <tr>
-          <td class=\"td_bottone\"><button class=\"bottone\" style=\"width: 80px; height: 60px;\" onclick=\"setOra('10:00');\" type=\"button\">10:00</button></td>
-          <td class=\"td_bottone\"><button class=\"bottone\" style=\"width: 80px; height: 60px;\" onclick=\"setOra('11:00');\" type=\"button\">11:00</button></td>
-          <td class=\"td_bottone\"><button class=\"bottone\" style=\"width: 80px; height: 60px;\" onclick=\"setOra('12:00');\" type=\"button\">12:00</button></td>
-          <td class=\"td_bottone\"><button class=\"bottone\" style=\"width: 80px; height: 60px;\" onclick=\"setOra('13:00');\" type=\"button\">13:00</button></td>
-          <td class=\"td_bottone\"><button class=\"bottone\" style=\"width: 80px; height: 60px;\" onclick=\"setOra('14:00');\" type=\"button\">14:00</button></td></tr>
-          <tr>
-          <td class=\"td_bottone\"><button class=\"bottone\" style=\"width: 80px; height: 60px;\" onclick=\"setOra('15:00');\" type=\"button\">15:00</button></td>
-          <td class=\"td_bottone\"><button class=\"bottone\" style=\"width: 80px; height: 60px;\" onclick=\"setOra('16:00');\" type=\"button\">16:00</button></td>
-          <td class=\"td_bottone\"><button class=\"bottone\" style=\"width: 80px; height: 60px;\" onclick=\"setOra('17:00');\" type=\"button\">17:00</button></td>
-          <td class=\"td_bottone\"><button class=\"bottone\" style=\"width: 80px; height: 60px;\" onclick=\"setOra('18:00');\" type=\"button\">18:00</button></td>
-          <td class=\"td_bottone\"><button class=\"bottone\" style=\"width: 80px; height: 60px;\" onclick=\"setOra('19:00');\" type=\"button\">19:00</button></td></tr>
-          <tr>
-          <td class=\"td_bottone\"><button class=\"bottone\" style=\"width: 80px; height: 60px;\" onclick=\"setOra('20:00');\" type=\"button\">20:00</button></td>
-          <td class=\"td_bottone\"><button class=\"bottone\" style=\"width: 80px; height: 60px;\" onclick=\"setOra('21:00');\" type=\"button\">21:00</button></td>
-          <td class=\"td_bottone\"><button class=\"bottone\" style=\"width: 80px; height: 60px;\" onclick=\"setOra('22:00');\" type=\"button\">22:00</button></td>
-          <td class=\"td_bottone\"><button class=\"bottone\" style=\"width: 80px; height: 60px;\" onclick=\"setOra('23:00');\" type=\"button\">23:00</button></td>
-          <td class=\"td_bottone\">&nbsp;</td>
-         </tr></table>";
-}
-
-function stampa_contatori($pwd, $mysqli)
-{
-    $query = "SELECT * FROM contatori WHERE attivo = 'T'";
-    $ris = mysql_query_safe($mysqli, $query);
-
-    while($riga = mysqli_fetch_array($ris))
-    {
-        print "<button class=\"bottone_conf\" onclick=\"location.href='index.php?action=contatori'\">" . htmlspecialchars($riga['nome'], ENT_QUOTES, 'UTF-8') . "</button>";
-    }
-}
-
-function conta_prodotto($id_contatore, $mysqli)
-{
-    // C4: firma (int); solo conteggio venduti per display, mai enforcement di limiti (non bloccante).
-    $id_contatore = (int)$id_contatore;
-    $ris_nome = db_select($mysqli, "SELECT nome FROM contatori WHERE id_contatore = ?", 'i', array($id_contatore));
-    $riga_nome = $ris_nome ? mysqli_fetch_array($ris_nome) : false;
-    $nome = $riga_nome ? $riga_nome['nome'] : '';
-    $ris = db_select($mysqli, "SELECT * FROM contatori, prodotti_contatori WHERE contatori.id_contatore = prodotti_contatori.id_contatore AND contatori.id_contatore = ?", 'i', array($id_contatore));
-    $totale = 0;
-    while($ris && ($riga = mysqli_fetch_array($ris)))
-    {
-        $controllo_periodo = $riga['controllo_periodo'];
-        $data_da = $riga['data_da'];
-        $data_a = $riga['data_a'];
-        $qta = (float)$riga['quantita'];
-        $id_prodotto = (int)$riga['id_prodotto'];
-        $sql_conta = "SELECT SUM(quantita) AS somma FROM righe_ordini, ordini WHERE ordini.id_ordine = righe_ordini.id_ordine AND righe_ordini.id_prodotto = ?";
-        $tipi_conta = 'i';
-        $par_conta = array($id_prodotto);
-
-        if($controllo_periodo == "T")
-        {
-            // date da DB riusate in SQL, formato stretto o filtro saltato (mai input grezzo).
-            $ok_da = is_string($data_da) && preg_match('/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2}:\d{2})?$/', $data_da);
-            $ok_a = is_string($data_a) && preg_match('/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2}:\d{2})?$/', $data_a);
-            if($ok_da && $ok_a)
-            {
-                $sql_conta .= " AND data_ora BETWEEN ? AND ?";
-                $tipi_conta = 'iss';
-                $par_conta = array($id_prodotto, $data_da, $data_a);
-            }
-        }
-
-        $ris_conta = db_select($mysqli, $sql_conta, $tipi_conta, $par_conta);
-        $riga_conta = $ris_conta ? mysqli_fetch_array($ris_conta) : false;
-        $tot_par = ($riga_conta && $riga_conta['somma'] !== null) ? ((float)$riga_conta['somma']) * $qta : 0;
-
-        $totale += $tot_par;
-    }
-    $ret['totale'] = $totale;
-    $ret['nome'] = $nome;
-    return $ret;
 }
 
 // Tutti i contatori attivi con un UNICO statement GROUP BY (T25): niente
