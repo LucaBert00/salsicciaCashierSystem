@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-// T31: file canonico (non shim) — migrazione per-funzione verso src/ (nessun singolo successore, v. §7); genera/invia/ftp stampa estratti in src/Cassa/PrintService.php (#43); rimozione solo dopo lo split, rivalutare entro 2026-12-31.
+// T31: file canonico (non shim) — migrazione per-funzione verso src/ (v. docs/ARCHITETTURA_REVISTA.md §6 e §9, fase 4): genera/invia/ftp stampa estratti in src/Cassa/PrintService.php (#43); rimozione solo dopo lo split, rivalutare entro 2026-12-31.
 if (!function_exists('cassa_log'))
     require_once __DIR__ . '/env.inc';
 //define("DEBUG", 1);

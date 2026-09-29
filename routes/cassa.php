@@ -3,9 +3,9 @@
 declare(strict_types=1);
 
 // routes/cassa.php — tabella action→handler cassa (T23).
-// Rif. PHP_STRUCTURE_REVIEW.md §5 centralized-error row, §7 routes/cassa.php row
-// (tabella al posto dell'if-chain gestisciAzioni), §6 IDEAL routes/ + Http/ rows.
-// Mappa #10: mai modificare PHP_STRUCTURE_REVIEW.md (sola lettura).
+// Rif. docs/ARCHITETTURA_REVISTA.md §2 (P2 routing triplicato), §4 (estensione
+// proposta a handler|view|auth: una riga per schermata, una sola fonte di verità).
+// Mappa #10: mai modificare docs/ARCHITETTURA_REVISTA.md (sola lettura).
 //
 // Nessuna logica: solo dati. Dispatch mutazioni in gestisciAzioni()
 // (functionsFrontend.inc); validita schermate in public/index.php (action non

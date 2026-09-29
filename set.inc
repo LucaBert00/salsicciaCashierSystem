@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
-// T31: file canonico (non shim) — successore esistente config/cassa.php + flag in storage/ (§7, T17); rimozione solo a migrazione completa, rivalutare entro 2026-12-31.
+// T31: file canonico (non shim) — successore esistente config/cassa.php + flag in storage/; resto in
+// src/Config/{CassaConfig,FestaConfig}.php (v. docs/ARCHITETTURA_REVISTA.md §6 e §9, fase 6);
+// rimozione solo a migrazione completa, rivalutare entro 2026-12-31.
 require_once __DIR__ . '/env.inc';
 
 define("MENU_ENABLE", 0);

@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-// T31: file canonico (non shim) — successori parziali esistenti src/Cassa/OrderService.php + src/Catalog/* + src/Cassa/PrintService.php + src/Fiscale/Fiscale.php (§7); rimozione solo a migrazione completa, rivalutare entro 2026-12-31.
+// T31: file canonico (non shim) — successori parziali esistenti src/Cassa/OrderService.php + src/Catalog/* + src/Cassa/PrintService.php + src/Fiscale/Fiscale.php; resto pianificato in src/{Cassa,Printer,System,Config}/ (v. docs/ARCHITETTURA_REVISTA.md §6 e §9, fasi 1-3); rimozione solo a migrazione completa, rivalutare entro 2026-12-31.
 
 require_once __DIR__ . '/set.inc';
 require_once __DIR__ . '/dbConnect.php';

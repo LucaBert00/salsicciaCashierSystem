@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<!-- T29 PSR-12 adoption via phpcs on touched files (rif. PHP_STRUCTURE_REVIEW.md §5 PSR-12 row, Map #10). -->
+<!-- T29 PSR-12 adoption via phpcs on touched files (rif. docs/ARCHITETTURA_REVISTA.md §7 "Cosa NON fare": normalizza i file nuovi, mai reformat di massa sui legacy. Map #10). -->
 <!-- Warnings (es. riga >120, side-effect) mostrati ma non falliscono; falliscono solo gli ERROR. -->
 <ruleset name="SalsicciaStagisti-T29">
     <description>PSR-12 su file toccati da T05-T28; legacy con lista grandfather, mai ignore silenti.</description>

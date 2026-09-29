@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Salsiccia\Support;
 
 // Gestori errore centralizzati cassa (T23).
-// Rif. PHP_STRUCTURE_REVIEW.md §5 centralized-error row (set_exception_handler +
-// shutdown handler nel bootstrap, schermata errore kiosk), §6 IDEAL Support/ row.
-// Mappa #10: mai modificare PHP_STRUCTURE_REVIEW.md (sola lettura).
+// Rif. docs/ARCHITETTURA_REVISTA.md §4 (bootstrap.php: registrazione come primo
+// passo esplicito del front controller) e §2 P1.
+// Mappa #10: mai modificare docs/ARCHITETTURA_REVISTA.md (sola lettura).
 // Interfaccia piccola: registra() nel bootstrap (public/index.php, prima di ogni
 // require), mostraErrore() per la schermata. Nessuna dipendenza (DB/sessione
 // possono essere la causa del guasto): solo echo + error_log con contesto, mai

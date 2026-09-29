@@ -1,6 +1,6 @@
 {
     "name": "salsiccia/cashier-system",
-    "description": "SalsicciaStagisti touch kiosk cashier (structural map: PHP_STRUCTURE_REVIEW.md, read-only)",
+    "description": "SalsicciaStagisti touch kiosk cashier (structural map: docs/ARCHITETTURA_REVISTA.md, read-only)",
     "license": "proprietary",
     "type": "project",
     "require": {
