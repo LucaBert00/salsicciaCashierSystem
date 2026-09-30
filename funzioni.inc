@@ -4,9 +4,6 @@ declare(strict_types=1);
 if (!function_exists('cassa_log'))
     require_once __DIR__ . '/env.inc';
 //define("DEBUG", 1);
-ini_set('display_errors', '0');
-ini_set('display_startup_errors', '0');
-error_reporting(E_ALL);
 
 // Token anti-CSRF in sessione: mutazioni solo via POST con hidden tok.
 function csrf_token()

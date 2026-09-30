@@ -21,6 +21,9 @@ final class ErrorHandler
             return;
         }
         $registrato = true;
+        ini_set('display_errors', '0');
+        ini_set('display_startup_errors', '0');
+        error_reporting(E_ALL);
         set_exception_handler(function (\Throwable $e): void {
             $action = $_GET['action'] ?? '';
             error_log('cassa: eccezione non gestita [' . get_class($e) . '] ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine() . ' action=' . (is_string($action) ? $action : ''));
