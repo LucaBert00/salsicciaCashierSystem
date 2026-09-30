@@ -2,40 +2,38 @@
 
 declare(strict_types=1);
 
-// routes/cassa.php — tabella action→handler cassa (T23).
-// Rif. docs/ARCHITETTURA_REVISTA.md §2 (P2 routing triplicato), §4 (estensione
-// proposta a handler|view|auth: una riga per schermata, una sola fonte di verità).
-// Mappa #10: mai modificare docs/ARCHITETTURA_REVISTA.md (sola lettura).
+// routes/cassa.php — tabella action=>handler|view|auth cassa (F1.1, ex T23).
+// Rif. docs/ARCHITETTURA_REVISTA.md §4 (tabella target) + §10 punto 4 + §3.2a-b.
+// Mappa F1 #82: docs in sola lettura, mai modificare.
 //
-// Nessuna logica: solo dati. Dispatch mutazioni in gestisciAzioni()
-// (functionsFrontend.inc); validita schermate in public/index.php (action non
-// listata = schermata errore kiosk, mai fatal). Futura casa di Http/
-// middleware (Auth, Csrf) quando il front controller crescera.
+// Nessuna logica: solo dati. Unica fonte di verita per validita
+// (public/index.php:9-10 via array_key_exists), viste (ex 12 boolean
+// index.php:12-24) e autorizzazione (ex lista 7 action index.php:36).
 return array(
-    // Mutazioni: action => handler in functionsFrontend.inc (guard POST+CSRF
-    // invariati, T14; flussi ordine in OrderService, T18).
-    'c' => 'cassa_azione_login',
-    'logout' => 'cassa_azione_logout',
-    'cassa' => 'cassa_azione_cassa',
-    'fiera' => 'cassa_azione_fiera',
-    'r' => 'cassa_azione_annulla',
-    'a' => 'cassa_azione_aggiungi',
-    'b' => 'cassa_azione_barcode',
-    'mq' => 'cassa_azione_quantita',
-    'mr' => 'cassa_azione_rimuovi',
-    'st' => 'cassa_azione_tipo',
-    'sb' => 'cassa_azione_standby',
-    'ra' => 'cassa_azione_riattiva',
-    // Schermate sola lettura (viste in public/index.php): listate, nessun handler.
-    'm' => null,
-    'o' => null,
-    's' => null,
-    'standby' => null,
-    'repair' => null,
-    'contatori' => null,
-    'print_reset' => null,
-    'restart' => null,
-    'shutdown' => null,
-    'switch_printer' => null,
-    'info' => null,
+    // Mutazioni: handler in functionsFrontend.inc (guard POST+CSRF invariati,
+    // T14; flussi ordine in OrderService, T18); view = destinazione odierna.
+    'c' => array('handler' => 'cassa_azione_login', 'view' => 'config', 'auth' => null),
+    'logout' => array('handler' => 'cassa_azione_logout', 'view' => 'cassa', 'auth' => null),
+    'cassa' => array('handler' => 'cassa_azione_cassa', 'view' => 'config', 'auth' => null),
+    'fiera' => array('handler' => 'cassa_azione_fiera', 'view' => 'cassa', 'auth' => null),
+    'r' => array('handler' => 'cassa_azione_annulla', 'view' => 'cassa', 'auth' => null),
+    'a' => array('handler' => 'cassa_azione_aggiungi', 'view' => 'cassa', 'auth' => null),
+    'b' => array('handler' => 'cassa_azione_barcode', 'view' => 'cassa', 'auth' => null),
+    'mq' => array('handler' => 'cassa_azione_quantita', 'view' => 'modifica', 'auth' => null),
+    'mr' => array('handler' => 'cassa_azione_rimuovi', 'view' => 'modifica', 'auth' => null),
+    'st' => array('handler' => 'cassa_azione_tipo', 'view' => 'opzioni', 'auth' => null),
+    'sb' => array('handler' => 'cassa_azione_standby', 'view' => 'cassa', 'auth' => null),
+    'ra' => array('handler' => 'cassa_azione_riattiva', 'view' => 'cassa', 'auth' => null),
+    // Schermate (viste ex public/index.php:12-24; auth ex lista 7 index.php:36).
+    'm' => array('handler' => null, 'view' => 'modifica', 'auth' => null),
+    'o' => array('handler' => null, 'view' => 'opzioni', 'auth' => null),
+    's' => array('handler' => null, 'view' => 'resto', 'auth' => null),
+    'standby' => array('handler' => null, 'view' => 'standby', 'auth' => null),
+    'repair' => array('handler' => null, 'view' => 'repair', 'auth' => 'admin'),
+    'contatori' => array('handler' => null, 'view' => 'contatori', 'auth' => 'admin'),
+    'print_reset' => array('handler' => null, 'view' => 'printReset', 'auth' => 'admin'),
+    'restart' => array('handler' => null, 'view' => 'restart', 'auth' => 'admin'),
+    'shutdown' => array('handler' => null, 'view' => 'shutdown', 'auth' => 'admin'),
+    'switch_printer' => array('handler' => 'salvaStampante', 'view' => 'switchPrinter', 'auth' => 'admin'),
+    'info' => array('handler' => 'salvaFesta', 'view' => 'info', 'auth' => 'admin'),
 );
