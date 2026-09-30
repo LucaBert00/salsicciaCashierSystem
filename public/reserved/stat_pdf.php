@@ -31,7 +31,9 @@ class StatPDF extends FPDF
     function Header()
     {
         $this->SetFont('Arial', 'B', 14);
-        $this->Cell(0, 9, stat_pdf_testo(strtoupper((string)EVENT_NAME)), 0, 1, 'C');
+        $festa = function_exists('festa_leggi') ? festa_leggi() : array();
+        $nomeFesta = isset($festa['event_name']) ? (string)$festa['event_name'] : (defined('EVENT_NAME') ? (string)EVENT_NAME : '');
+        $this->Cell(0, 9, stat_pdf_testo(strtoupper($nomeFesta)), 0, 1, 'C');
         $this->SetFont('Arial', '', 10);
         $this->Cell(0, 6, stat_pdf_testo('STATISTICHE — GIORNATA FISCALE ' . $this->giornata), 0, 1, 'C');
         $this->Ln(2);

@@ -1071,8 +1071,9 @@ function mostraRipristinaDb($mysqli)
     echo '</section>';
 }
 
-// Modifica info festa: legge/riscrive EVENT_NAME e DURATA_FESTA in set.inc
-// (port di 1.0/configurazione.php dal branch modificaStampa)
+// Modifica info festa: legge/scrive EVENT_NAME e DURATA_FESTA in storage/festa.json
+// via festa_leggi()/festa_imposta() (F0.3, pattern T17); set.inc resta congelato
+// read-only, mai rewrite. (port di 1.0/configurazione.php dal branch modificaStampa)
 function mostraModificaInfo()
 {
     if (!isAdmin())
@@ -1080,27 +1081,9 @@ function mostraModificaInfo()
         header("Location: index.php?action=c");
         exit;
     }
-    $file = __DIR__ . '/set.inc';
-    $righe = file($file);
-
-    $eventName = '';
-    $durataFesta = '';
-    foreach ($righe as $riga)
-    {
-        $trim = ltrim($riga);
-        if (strpos($trim, '//') === 0 || strpos($trim, '#') === 0)
-            continue;
-        if (strpos($riga, 'define("EVENT_NAME"') !== false)
-        {
-            $parti = explode('"', $riga);
-            $eventName = $parti[3];
-        }
-        if (strpos($riga, 'define("DURATA_FESTA"') !== false)
-        {
-            $parti = explode('"', $riga);
-            $durataFesta = $parti[3];
-        }
-    }
+    $letto = festa_leggi();
+    $eventName = isset($letto['event_name']) ? (string)$letto['event_name'] : '';
+    $durataFesta = isset($letto['durata_festa']) ? (string)$letto['durata_festa'] : '1';
 
     $messaggio = '';
     if ($_SERVER['REQUEST_METHOD'] == 'POST')
@@ -1111,20 +1094,10 @@ function mostraModificaInfo()
         }
         else
         {
-        $eventName = substr(str_replace(array('"', '\\', "\r", "\n"), '', trim(isset($_POST['EVENT_NAME']) ? $_POST['EVENT_NAME'] : '')), 0, 32);
-        $durataFesta = (string)max(1, (int)$_POST['DURATA_FESTA']);
-        foreach ($righe as &$riga)
-        {
-            $trim = ltrim($riga);
-            if (strpos($trim, '//') === 0 || strpos($trim, '#') === 0)
-                continue;
-            if (strpos($riga, 'define("EVENT_NAME"') !== false)
-                $riga = 'define("EVENT_NAME",  "' . $eventName . '");' . PHP_EOL;
-            if (strpos($riga, 'define("DURATA_FESTA"') !== false)
-                $riga = 'define("DURATA_FESTA", "' . $durataFesta . '");' . PHP_EOL;
-        }
-        unset($riga);
-        file_put_contents($file, implode('', $righe));
+        festa_imposta(isset($_POST['EVENT_NAME']) ? $_POST['EVENT_NAME'] : '', isset($_POST['DURATA_FESTA']) ? $_POST['DURATA_FESTA'] : '');
+        $letto = festa_leggi();
+        $eventName = isset($letto['event_name']) ? (string)$letto['event_name'] : '';
+        $durataFesta = isset($letto['durata_festa']) ? (string)$letto['durata_festa'] : '1';
         $messaggio = 'Configurazione salvata con successo.';
         }
     }

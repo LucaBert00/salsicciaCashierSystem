@@ -19,7 +19,8 @@ final class PrintService
     public static function generaFileStampa($ris, $numero_righe)
     {
         $print_order_id = PRINT_ORDER_ID;
-        $evento = EVENT_NAME;
+        $festa = function_exists('festa_leggi') ? festa_leggi() : array();
+        $evento = isset($festa['event_name']) ? (string)$festa['event_name'] : (defined('EVENT_NAME') ? (string)EVENT_NAME : '');
         $credits = CREDITS;
         $cassa = function_exists('cassaCorrente') ? cassaCorrente() : ID_CASSA;
 

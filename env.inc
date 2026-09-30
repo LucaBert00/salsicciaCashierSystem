@@ -744,7 +744,7 @@ function cassa_leggi_fiera(): bool
     return defined('MODALITA_FIERA') && MODALITA_FIERA === '1';
 }
 
-// ponytail: tmp+rename atomico, per-process tmp per concorrenza
+// tmp+rename atomico, per-process tmp per concorrenza
 function cassa_imposta_fiera($valore): void
 {
     $v = $valore === '1' || $valore === 1 || $valore === true ? '1' : '0';
@@ -760,5 +760,50 @@ function cassa_imposta_fiera($valore): void
     }
     if (!rename($tmp, $f))
         cassa_log('error', 'cassa_flags rename fallita');
+}
+
+// F0.3: info festa persistenti in storage/festa.json, mai rewrite di PHP source.
+// Unico punto di verita' per EVENT_NAME/DURATA_FESTA: letto da mostraModificaInfo()
+// (functionsFrontend.inc), PrintService, StatsData, stat_pdf; scritto da
+// festa_imposta(). Scrittura atomica tmp+rename con LOCK_EX:
+// concorrente = last-writer-wins, mai file troncato ne' sorgente toccato.
+// Fallback a set.inc congelato (solo default) a festa.json assente.
+function festa_file(): string
+{
+    return salsiccia_storage_path('festa.json');
+}
+
+function festa_leggi(): array
+{
+    $raw = is_readable(festa_file()) ? file_get_contents(festa_file()) : false;
+    if (is_string($raw) && $raw !== '')
+    {
+        $j = json_decode($raw, true);
+        if (is_array($j) && isset($j['event_name']) && isset($j['durata_festa']))
+            return array('event_name' => (string)$j['event_name'], 'durata_festa' => (string)$j['durata_festa']);
+    }
+    return array(
+        'event_name' => defined('EVENT_NAME') ? (string)EVENT_NAME : '',
+        'durata_festa' => defined('DURATA_FESTA') ? (string)DURATA_FESTA : '1',
+    );
+}
+
+// tmp+rename atomico, per-process tmp per concorrenza
+function festa_imposta($eventName, $durataFesta): void
+{
+    $e = substr(str_replace(array('"', '\\', "\r", "\n"), '', trim((string)$eventName)), 0, 32);
+    $d = (string)max(1, (int)$durataFesta);
+    $f = festa_file();
+    $tmp = $f . '.' . getmypid() . '.tmp';
+    $json = json_encode(array('event_name' => $e, 'durata_festa' => $d));
+    if (!is_string($json))
+        return;
+    if (file_put_contents($tmp, $json, LOCK_EX) === false)
+    {
+        cassa_log('error', 'festa scrittura fallita');
+        return;
+    }
+    if (!rename($tmp, $f))
+        cassa_log('error', 'festa rename fallita');
 }
 ?>
