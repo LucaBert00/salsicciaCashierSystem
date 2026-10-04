@@ -2,19 +2,9 @@
 declare(strict_types=1);
 // T31: file canonico (non shim) — successori parziali esistenti src/Cassa/OrderService.php + src/Catalog/* + src/Cassa/PrintService.php + src/Fiscale/Fiscale.php; resto pianificato in src/{Cassa,Printer,System,Config}/ (v. docs/ARCHITETTURA_REVISTA.md §6 e §9, fasi 1-3); rimozione solo a migrazione completa, rivalutare entro 2026-12-31.
 
-require_once __DIR__ . '/set.inc';
-require_once __DIR__ . '/dbConnect.php';
-require_once __DIR__ . '/funzioni.inc';
-require_once __DIR__ . '/src/Fiscale/Fiscale.php';
-require_once __DIR__ . '/src/Cassa/PrintService.php';
-require_once __DIR__ . '/src/Cassa/OrderService.php';
-require_once __DIR__ . '/src/Cassa/OrderType.php';
-require_once __DIR__ . '/src/Cassa/PayMethod.php';
-require_once __DIR__ . '/src/Catalog/CatalogRepo.php';
-require_once __DIR__ . '/src/Catalog/CatalogView.php';
-
-// Auth admin cassa (issue): sessione come reserved/login.php, mai code in URL.
-salsiccia_session_start();
+// F3.2 #95: nessun side-effect a top-level, richiedibile senza DB/sessione.
+// Init (require set/db/funzioni, sessione, $cat/$id_cassa/geometria, dispatch)
+// vive in bootstrap.php + flusso F1 (CassaController/CassaView con parametri espliciti).
 
 function isAdmin()
 {
@@ -54,20 +44,6 @@ function defaultCat($mysqli)
         return $min;
     return DEFAULT_CAT;
 }
-
-$cat = isset($_GET['cat']) ? (int)$_GET['cat'] : 0;
-if ($cat <= 0)
-    $cat = defaultCat($mysqli);
-
-$id_cassa = cassaCorrente();
-
-$but_x_row = BOT_X_ROW;
-$but_x_col = BOT_X_COL;
-$bot_width = BOT_WIDTH;
-$bot_height = BOT_HEIGHT;
-
-// Azioni del riepilogo (T30: DB/cassa iniettati, mai globali).
-gestisciAzioni($mysqli, $id_cassa);
 
 // Modalita' fiera (issue, consumata in): "1" = barcode visibile/obbligatorio, "0" = nascosto con default '-'.
 function isFieraAttiva()
