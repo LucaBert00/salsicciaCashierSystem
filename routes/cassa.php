@@ -27,7 +27,7 @@ return array(
     // Schermate (viste ex public/index.php:12-24; auth ex lista 7 index.php:36).
     'm' => array('handler' => null, 'view' => 'modifica', 'auth' => null),
     'o' => array('handler' => null, 'view' => 'opzioni', 'auth' => null),
-    's' => array('handler' => null, 'view' => 'resto', 'auth' => null),
+    's' => array('handler' => 'stampa', 'view' => 'resto', 'auth' => null),
     'standby' => array('handler' => null, 'view' => 'standby', 'auth' => null),
     'repair' => array('handler' => null, 'view' => 'repair', 'auth' => 'admin'),
     'contatori' => array('handler' => null, 'view' => 'contatori', 'auth' => 'admin'),

@@ -112,7 +112,9 @@ final class CassaView
     private static function corpoStampa($db, int $cat): void
     {
         self::barraNavigazione($db, $cat);
-        mostraSchermataStampa($db);
+        // F2.1 #88: use-case in StampaController (stampa+chiusura+fiscale),
+        // layout resto in StampaView via il controller (mai mostra* diretta).
+        StampaController::stampa($db);
     }
 
     private static function corpoModifica($db, int $cat): void
