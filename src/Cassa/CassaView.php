@@ -106,7 +106,8 @@ final class CassaView
     {
         self::barraNavigazione($db, $cat);
         echo '<header><h1>PANNELLO ADMIN</h1></header>';
-        mostraPannelloAdmin();
+        // F2.4 #91: unica implementazione vera in AdminView::pannello().
+        AdminView::pannello();
     }
 
     private static function corpoStampa($db, int $cat): void
@@ -148,14 +149,16 @@ final class CassaView
     {
         self::barraNavigazione($db, $cat);
         echo '<header><h1>RIPRISTINA DB</h1></header>';
-        mostraRipristinaDb($db);
+        // F2.4 #91: form + esito via AdminView (logica in DbRepair::run()).
+        AdminView::repair($db);
     }
 
     private static function corpoContatori($db, int $cat): void
     {
         self::barraNavigazione($db, $cat);
         echo '<header><h1>CONTATORI</h1></header>';
-        mostraContatori($db);
+        // F2.4 #91: dati via contatori_totali() as-is (lo sposta F4).
+        AdminView::contatori($db);
     }
 
     private static function corpoPrintReset($db, int $cat): void
@@ -190,7 +193,8 @@ final class CassaView
     {
         self::barraNavigazione($db, $cat);
         echo '<header><h1>MODIFICA FESTA</h1></header>';
-        mostraModificaInfo();
+        // F2.4 #91: vista via AdminView (storage/festa.json, mai set.inc).
+        AdminView::info();
     }
 
     private static function corpoErroreCodice(): void
@@ -211,7 +215,8 @@ final class CassaView
         echo '</div></header>';
         if (($view === 'config' || $view === 'config-errore') && !$amministratore) {
             echo '<section style="flex-grow:1;">';
-            mostraPannelloConfig();
+            // F2.4 #91: tastierino via AdminView (stessi byte, stesso JS).
+            AdminView::tastierino();
             echo '</section>';
         } else {
             echo '<section><h3>RIEPILOGO PRODOTTI</h3><ul class="cart-list">';

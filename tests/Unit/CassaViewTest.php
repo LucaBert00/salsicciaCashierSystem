@@ -92,6 +92,21 @@ final class CassaViewTest extends TestCase
             }
             eval($m[0] . "\n");
         }
+        // F2.4 #91: AdminView riusa as-is isAdmin()/cassaCorrente()/
+        // isFieraAttiva()/ID_CASSA (functionsFrontend.inc/set.inc, mai caricati
+        // qui); doppi minimi globali come le mostra* sopra, mai logica vera.
+        if (!function_exists('isAdmin')) {
+            eval('function isAdmin(): bool { return !empty($_SESSION["admin"]); }');
+        }
+        if (!function_exists('cassaCorrente')) {
+            eval('function cassaCorrente(): int { $c = (int)($_SESSION["id_cassa"] ?? 1); return ($c >= 1 && $c <= 999) ? $c : 1; }');
+        }
+        if (!function_exists('isFieraAttiva')) {
+            eval('function isFieraAttiva(): bool { return false; }');
+        }
+        if (!defined('ID_CASSA')) {
+            define('ID_CASSA', 1);
+        }
     }
 
     protected function tearDown(): void
@@ -127,16 +142,20 @@ final class CassaViewTest extends TestCase
 
     public function testRepairSenzaTintaNeQuery(): void
     {
+        // F2.4 #91: corpoRepair via AdminView::repair() (stessi byte form,
+        // difesa isAdmin dentro); serve sessione admin come in produzione.
+        $_SESSION['admin'] = true;
         $db = new CassaViewFakeMysqli();
 
         $out = $this->html('repair', $db);
 
         $this->assertStringContainsString('RIPRISTINA DB', $out);
-        $this->assertStringContainsString('<!--stub:mostraRipristinaDb-->', $out);
+        $this->assertStringContainsString('ATTENZIONE', $out);
+        $this->assertStringContainsString('REPAIR DATABASE', $out);
         // Mai tinta su admin: niente style, niente query categoria.
         $this->assertStringNotContainsString('--hex-cat', $out);
         $this->assertSame('', $db->sql);
-        $this->assertStringNotContainsString('<!--stub:mostraPannelloConfig-->', $out);
+        $this->assertStringNotContainsString('INSERISCI IL CODICE', $out);
     }
 
     public function testAzioneNonValida(): void
@@ -154,6 +173,9 @@ final class CassaViewTest extends TestCase
 
         $this->assertSame($pulito, $sporcato);
 
+        // F2.4 #91: repair via AdminView legge $_GET['page'] come oggi;
+        // action/cat/ok/id restano ignorati, page no (paginazione invariata).
+        $_SESSION['admin'] = true;
         $pulitoRepair = $this->html('repair', new CassaViewFakeMysqli());
         $_GET = array('action' => 'cassa', 'cat' => 1);
         $this->assertSame($pulitoRepair, $this->html('repair', new CassaViewFakeMysqli()));
@@ -167,11 +189,13 @@ final class CassaViewTest extends TestCase
         $this->assertStringContainsString('<!--stub:mostraModificaOrdine-->', $out);
 
         // Login non admin: corpo cassa con tinta + tastierino in aside.
+        // F2.4 #91: tastierino via AdminView::tastierino() (stessi byte, stesso JS).
         $db = new CassaViewFakeMysqli();
         $login = $this->html('config', $db);
 
         $this->assertStringContainsString('--hex-cat:', $login);
-        $this->assertStringContainsString('<!--stub:mostraPannelloConfig-->', $login);
+        $this->assertStringContainsString('INSERISCI IL CODICE:', $login);
+        $this->assertStringContainsString('form-admin-code', $login);
         $this->assertStringContainsString('categorie', $db->sql);
     }
 

@@ -630,81 +630,21 @@ function mostraAzioniExtra()
 
 // Pannello configurazione con tastierino: code solo via POST in sessione (issue),
 // tasti via JS come tastiera touch di reserved/login.php cosi nulla finisce in URL/log.
+// F2.4 #91: unica implementazione vera in Salsiccia\Cassa\AdminView::tastierino()
+// (src/Cassa/AdminView.php); qui resta solo lo shim con stessa firma.
+// Delete legacy mai in F2 (§9).
 function mostraPannelloConfig()
 {
-    echo '<h3 style="font-size:13px;color:#5a6b7c;margin-bottom:12px;font-weight:800;">INSERISCI IL CODICE:</h3>';
-    echo '<form method="post" action="?action=c&ok=1" id="form-admin-code">';
-    echo '<input type="password" name="code" id="admin-code" class="codice-text-field" value="" readonly required>';
-
-    echo '<div class="tastierino-grid">';
-    for ($i = 1; $i <= 9; $i++)
-        echo '<button type="button" class="tastierino-btn" data-kb-ch="' . $i . '">' . $i . '</button>';
-    echo '<button type="button" class="tastierino-btn" data-kb-ch="*">*</button>';
-    echo '<button type="button" class="tastierino-btn" data-kb-ch="0">0</button>';
-    echo '<button type="button" class="tastierino-btn" data-kb-ch="@">@</button>';
-    echo '</div>';
-
-    echo '<div class="tastierino-actions">';
-    echo '<button type="submit" class="tastierino-action-btn action-ok" style="display:flex;align-items:center;justify-content:center">OK</button>';
-    echo '<button type="button" class="tastierino-action-btn action-canc" data-kb-canc style="display:flex;align-items:center;justify-content:center">CANC</button>';
-    echo '</div>';
-
-    echo '<a href="index.php" class="tastierino-close-btn" style="text-decoration:none;display:flex;align-items:center;justify-content:center">CHIUDI</a>';
-    echo '</form>';
-    echo '<script>(function(){var i=document.getElementById("admin-code");if(!i)return;var f=document.getElementById("form-admin-code");Array.prototype.forEach.call(f.querySelectorAll("[data-kb-ch]"),function(b){b.addEventListener("click",function(){i.value+=b.getAttribute("data-kb-ch");});});Array.prototype.forEach.call(f.querySelectorAll("[data-kb-canc]"),function(b){b.addEventListener("click",function(){i.value="";});});})();</script>';
+    \Salsiccia\Cassa\AdminView::tastierino();
 }
 
 //Pannello admin
+// F2.4 #91: unica implementazione vera in Salsiccia\Cassa\AdminView::pannello()
+// (src/Cassa/AdminView.php); qui resta solo lo shim con stessa firma.
+// Delete legacy mai in F2 (§9).
 function mostraPannelloAdmin()
 {
-    echo '<section class="admin-panel">';
-
-    echo '<div>';
-    echo '<h3 class="admin-group-title">GESTIONE</h3>';
-    echo '<div class="admin-btn-row">';
-    // ingresso diretto reserved/, contratto sessione
-    echo '<a href="reserved/login.php" class="opzione-btn">GESTIONE PRODOTTI</a>';
-    echo '<a href="?action=repair" class="opzione-btn">RIPRISTINA DB</a>';
-    echo '<a href="?action=info" class="opzione-btn">MODIFICA FESTA</a>';
-    echo '<form method="post" action="?action=fiera" onsubmit="return confirm(\'Cambiare MODALITA FIERA?\');" style="display:inline;">';
-    csrf_field();
-    echo '<input type="hidden" name="val" value="' . (isFieraAttiva() ? '0' : '1') . '">';
-    echo '<button type="submit" class="opzione-btn">FIERA: ' . (isFieraAttiva() ? 'ON' : 'OFF') . '</button>';
-    echo '</form>';
-    echo '</div>';
-    echo '</div>';
-
-    echo '<div>';
-    echo '<h3 class="admin-group-title">CASSA TERMINALE: ' . cassaCorrente() . ' (default da IP: ' . ID_CASSA . ')</h3>';
-    echo '<form method="post" action="?action=cassa" class="admin-btn-row" style="align-items:center;">';
-    csrf_field();
-    echo '<input type="number" name="id_cassa" value="' . cassaCorrente() . '" min="1" max="999" class="codice-text-field" style="max-width:160px;">';
-    echo '<button type="submit" class="opzione-btn">IMPOSTA CASSA</button>';
-    echo '</form>';
-    echo '</div>';
-
-    echo '<div>';
-    echo '<h3 class="admin-group-title">PRODOTTI VENDUTI</h3>';
-    echo '<div class="admin-btn-row">';
-    echo '<a href="?action=contatori" class="opzione-btn">CONTATORI</a>';
-    echo '</div>';
-    echo '</div>';
-
-    echo '<div>';
-    echo '<h3 class="admin-group-title">AMMINISTRAZIONE</h3>';
-    echo '<div class="admin-btn-row">';
-    echo '<a href="index.php" class="opzione-btn">CONTINUA ORDINE</a>';
-    echo '<a href="?action=logout" class="opzione-btn">ESCI</a>';
-    echo '</div>';
-    echo '<div class="admin-btn-row" style="margin-top:clamp(6px, 0.9765625vmin, 12px);">';
-    echo '<a href="?action=print_reset" class="opzione-btn">CAMBIA CARTA STAMPA: ' . ((defined('CONTINUOUS_LABEL') && CONTINUOUS_LABEL) ? 'CONTINUA' : 'SINGOLI') . '</a>';
-    echo '<a href="?action=switch_printer" class="opzione-btn">CAMBIA STAMPANTE</a>';
-    echo '<a href="?action=restart" class="opzione-btn danger">RIAVVIA</a>';
-    echo '<a href="?action=shutdown" class="opzione-btn danger">SPEGNI</a>';
-    echo '</div>';
-    echo '</div>';
-
-    echo '</section>';
+    \Salsiccia\Cassa\AdminView::pannello();
 }
 
 // F2.1 #68: preflight e funzioni pure power (da salsicciaStagisti 6b796de+d57a201).
@@ -940,154 +880,33 @@ function mostraShutdown()
 
 // Schermata unica CONTATORI: tutti i venduti monitorati con nome + quantita
 // (un solo GROUP BY via contatori_totali, paginato in PHP come le viste stat).
+// F2.4 #91: unica implementazione vera in Salsiccia\Cassa\AdminView::contatori()
+// (src/Cassa/AdminView.php, dati via contatori_totali() as-is, lo sposta F4);
+// qui resta solo lo shim con stessa firma. Delete legacy mai in F2 (§9).
 function mostraContatori($mysqli)
 {
-    if (!isAdmin())
-    {
-        header("Location: index.php?action=c");
-        exit;
-    }
-    echo '<section class="admin-panel">';
-    echo '<h3 class="admin-group-title">CONTATORI - PRODOTTI VENDUTI MONITORATI</h3>';
-    $rpp = 5;
-    $pagina = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-    if ($pagina < 1)
-        $pagina = 1;
-    $righe = contatori_totali($mysqli);
-    $tot = count($righe);
-    $totPagine = max(1, (int)ceil($tot / $rpp));
-    if ($pagina > $totPagine)
-        $pagina = $totPagine;
-    $offset = ($pagina - 1) * $rpp;
-    if ($tot == 0)
-    {
-        echo '<p style="font-weight:800;text-align:center;color:#8c9ba5;">NESSUN PRODOTTO MONITORATO</p>';
-    }
-    else
-    {
-        echo '<table class="modifica-table">';
-        echo '<thead><tr><th class="intestazione-tabella-descrizione">NOME PRODOTTO</th><th class="intestazione-tabella-quantita">QUANTITA VENDUTI</th></tr></thead>';
-        echo '<tbody>';
-        foreach (array_slice($righe, $offset, $rpp) as $c)
-        {
-            echo '<tr><td class="cella-tabella-descrizione">' . htmlspecialchars($c['nome'], ENT_QUOTES, 'UTF-8') . '</td><td class="cella-tabella-quantita">' . ($c['totale'] + 0) . '</td></tr>';
-        }
-        echo '</tbody>';
-        echo '</table>';
-        echo '<div class="admin-btn-row">';
-        if ($pagina > 1)
-            echo '<a href="?action=contatori&page=' . ($pagina - 1) . '" class="opzione-btn" style="padding:12px 20px;">&lt;</a>';
-        foreach (array_unique(array(1, $pagina - 1, $pagina, $pagina + 1, $totPagine)) as $numPagina)
-        {
-            if ($numPagina < 1 || $numPagina > $totPagine)
-                continue;
-            if ($numPagina == $pagina)
-                echo '<span class="opzione-btn" style="padding:12px 20px;border:2px solid #2b3d4e;">' . $numPagina . '</span>';
-            else
-                echo '<a href="?action=contatori&page=' . $numPagina . '" class="opzione-btn" style="padding:12px 20px;">' . $numPagina . '</a>';
-        }
-        if ($pagina < $totPagine)
-            echo '<a href="?action=contatori&page=' . ($pagina + 1) . '" class="opzione-btn" style="padding:12px 20px;">&gt;</a>';
-        echo '</div>';
-    }
-    echo '<div class="admin-btn-row"><a href="index.php" class="opzione-btn" style="text-decoration:none;">TORNA</a></div>';
-    echo '</section>';
+    \Salsiccia\Cassa\AdminView::contatori($mysqli);
 }
 
 // Repair database: REPAIR TABLE su tutte le tabelle
 // (port di 1.0/ripristino.php dal branch modificaStampa, riusa $mysqli)
+// F2.4 #91: unica implementazione vera in Salsiccia\Cassa\AdminView::repair()
+// (src/Cassa/AdminView.php, logica via DbRepair::run() da F2.2, mai duplicata);
+// qui resta solo lo shim con stessa firma. Delete legacy mai in F2 (§9).
 function mostraRipristinaDb($mysqli)
 {
-    // difesa in profondita, index.php filtra gia via isAdmin+redirect; mai GET anonimo.
-    if (!isAdmin())
-    {
-        header("Location: index.php?action=c");
-        exit;
-    }
-
-    echo '<section class="admin-panel">';
-    echo '<h3 class="admin-group-title">RIPRISTINA DATABASE</h3>';
-    if (isset($_POST['ripristina']))
-    {
-        if (!csrf_ok())
-        {
-            echo '<p style="background:#d9534f;color:#fff;font-weight:800;text-align:center;padding:12px;border-radius:6px;">TOKEN NON VALIDO.</p>';
-            echo '<br><div class="admin-btn-row"><a href="index.php" class="opzione-btn" style="text-decoration:none;">TORNA</a></div>';
-        }
-        else
-        {
-        // F2.2 #89: logica REPAIR in DbRepair::run(), qui solo stampa righe.
-        $righe = \Salsiccia\System\DbRepair::run($mysqli);
-        foreach ($righe as $riga)
-        {
-            $table = (string)$riga['table'];
-            if (!empty($riga['ok']))
-                echo "Tabella <b>$table</b> riparata.<br>";
-            else
-                echo "Errore su <b>$table</b>: " . htmlspecialchars((string)$riga['error']) . "<br>";
-        }
-        echo '<br><div class="admin-btn-row"><a href="index.php" class="opzione-btn" style="text-decoration:none;">TORNA</a></div>';
-        }
-    }
-    else
-    {
-        echo '<p style="color:#e54b3c;font-weight:800;text-align:center;">ATTENZIONE: verr&agrave; eseguito il recupero di tutte le tabelle.</p>';
-        echo '<form method="post" action="?action=repair" onsubmit="return confirm(\'Confermi il recupero di tutte le tabelle?\');">';
-        csrf_field();
-        echo '<div class="admin-btn-row">';
-        echo '<a href="index.php" class="opzione-btn" style="text-decoration:none;">ANNULLA</a>';
-        echo '<button type="submit" name="ripristina" value="1" class="opzione-btn">REPAIR DATABASE</button>';
-        echo '</div>';
-        echo '</form>';
-    }
-    echo '</section>';
+    \Salsiccia\Cassa\AdminView::repair($mysqli);
 }
 
 // Modifica info festa: legge/scrive EVENT_NAME e DURATA_FESTA in storage/festa.json
 // via festa_leggi()/festa_imposta() (F0.3, pattern T17); set.inc resta congelato
 // read-only, mai rewrite. (port di 1.0/configurazione.php dal branch modificaStampa)
+// F2.4 #91: unica implementazione vera in Salsiccia\Cassa\AdminView::info()
+// (src/Cassa/AdminView.php, solo vista); qui resta solo lo shim con stessa
+// firma. Delete legacy mai in F2 (§9).
 function mostraModificaInfo()
 {
-    if (!isAdmin())
-    {
-        header("Location: index.php?action=c");
-        exit;
-    }
-    $letto = festa_leggi();
-    $eventName = isset($letto['event_name']) ? (string)$letto['event_name'] : '';
-    $durataFesta = isset($letto['durata_festa']) ? (string)$letto['durata_festa'] : '1';
-
-    $messaggio = '';
-    if ($_SERVER['REQUEST_METHOD'] == 'POST')
-    {
-        if (!csrf_ok())
-        {
-            $messaggio = 'TOKEN NON VALIDO.';
-        }
-        else
-        {
-        festa_imposta(isset($_POST['EVENT_NAME']) ? $_POST['EVENT_NAME'] : '', isset($_POST['DURATA_FESTA']) ? $_POST['DURATA_FESTA'] : '');
-        $letto = festa_leggi();
-        $eventName = isset($letto['event_name']) ? (string)$letto['event_name'] : '';
-        $durataFesta = isset($letto['durata_festa']) ? (string)$letto['durata_festa'] : '1';
-        $messaggio = 'Configurazione salvata con successo.';
-        }
-    }
-
-    echo '<section class="admin-panel" style="align-items:center;text-align:center;">';
-    echo '<h3 class="admin-group-title">CONFIGURAZIONE FESTA</h3>';
-    if ($messaggio != '')
-        echo '<p style="background:#5cb85c;color:#fff;font-weight:800;text-align:center;padding:12px;border-radius:6px;">' . $messaggio . '</p>';
-    echo '<form method="post" action="?action=info" style="display:flex;flex-direction:column;gap:16px;max-width:560px;width:100%;margin:0 auto;align-items:center;text-align:center;">';
-    csrf_field();
-    echo '<label style="font-weight:800;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;width:100%;"><span style="font-size:18px;letter-spacing:1px;color:#2b3d4e;text-transform:uppercase;">NOME FESTA (max 32)</span><input type="text" name="EVENT_NAME" value="' . htmlspecialchars($eventName) . '" maxlength="32" class="codice-text-field"></label>';
-    echo '<label style="font-weight:800;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;width:100%;"><span style="font-size:18px;letter-spacing:1px;color:#2b3d4e;text-transform:uppercase;">DURATA (GIORNI)</span><input type="number" name="DURATA_FESTA" value="' . htmlspecialchars($durataFesta) . '" min="1" class="codice-text-field"></label>';
-    echo '<div class="admin-btn-row">';
-    echo '<a href="index.php" class="opzione-btn" style="text-decoration:none;">ANNULLA</a>';
-    echo '<button type="submit" class="opzione-btn">SALVA MODIFICHE</button>';
-    echo '</div>';
-    echo '</form>';
-    echo '</section>';
+    \Salsiccia\Cassa\AdminView::info();
 }
 
 // CAMBIA CARTA STAMPA (F3.4 #64, toggle continua <-> singoli): riusa F3.1
