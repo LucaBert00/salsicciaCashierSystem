@@ -119,7 +119,7 @@ function stat_pdf_render($dati)
 // Solo l'entry web gira qui: auth + requires + fetch + download per-richiesta.
 if (PHP_SAPI !== 'cli')
 {
-    require_once __DIR__ . '/../../env.inc';
+    require_once __DIR__ . '/../../bootstrap.php';
     salsiccia_session_start();
     if (empty($_SESSION['reserved_auth']))
     {
@@ -127,10 +127,7 @@ if (PHP_SAPI !== 'cli')
         exit;
     }
 
-    require_once __DIR__ . '/../../dbConnect.php';
-    require_once __DIR__ . '/../../set.inc';
     require_once __DIR__ . '/../../src/Stats/StatsData.php';
-    require_once __DIR__ . '/../../vendor/autoload.php'; // T31: FPDF via Composer (setasign/fpdf), vendored reserved/fpdf rimosso.
 
     $giorno = isset($_GET['giorno']) ? $_GET['giorno'] : date('Y-m-d');
     if (!\Salsiccia\Stats\StatsData::giornoValido($giorno))

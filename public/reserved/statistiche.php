@@ -7,7 +7,7 @@ declare(strict_types=1);
 // nessuna mutazione quindi nessun token (come ricerca/ordinamento in visualizza.php).
 // Filtri + query in src/Stats/StatsData.php (#95, condiviso con l'export PDF per-richiesta).
 
-require_once __DIR__ . '/../../env.inc';
+require_once __DIR__ . '/../../bootstrap.php';
 salsiccia_session_start();
 if (empty($_SESSION['reserved_auth']))
 {
@@ -15,14 +15,10 @@ if (empty($_SESSION['reserved_auth']))
     exit;
 }
 
-require_once __DIR__ . '/../../dbConnect.php';
-require_once __DIR__ . '/../../set.inc';
-
 if (!defined('DEBUG'))
 {
     define('DEBUG', 0);
 }
-require_once __DIR__ . '/../../funzioni.inc';
 require_once __DIR__ . '/../../src/Stats/StatsData.php';
 
 // Link a statistiche.php con parametri dati, gia url-encoded.

@@ -3,7 +3,7 @@ declare(strict_types=1);
 // reserved/backup.php — bottone dump fine-giornata intero DB (Decide #91, Task #96).
 // Stesso auth + CSRF di visualizza.php (M1): login riservata, mutazioni solo
 // via POST con token. Scrive fuori docroot, mai path web-diretti.
-require_once __DIR__ . '/../../env.inc';
+require_once __DIR__ . '/../../bootstrap.php';
 salsiccia_session_start();
 if (empty($_SESSION['reserved_auth']))
 {
@@ -11,8 +11,6 @@ if (empty($_SESSION['reserved_auth']))
     exit;
 }
 
-require_once __DIR__ . '/../../dbConnect.php';
-require_once __DIR__ . '/../../funzioni.inc';
 require_once __DIR__ . '/../../src/Backup/BackupRun.php';
 
 $messaggioStato = '';

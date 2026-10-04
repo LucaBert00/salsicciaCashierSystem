@@ -1,12 +1,9 @@
 <?php declare(strict_types=1);
-require_once __DIR__ . '/../src/Support/ErrorHandler.php';
-\Salsiccia\Support\ErrorHandler::registra();
-require_once __DIR__ . '/../functionsFrontend.inc';
-require_once __DIR__ . '/../src/Cassa/CassaController.php';
-require_once __DIR__ . '/../src/Cassa/CassaView.php';
-// F1.4: front controller onesto — dispatch + render (docs/ARCHITETTURA_REVISTA.md §10.7+§4).
-// functionsFrontend.inc resta per side-effect (bootstrap+sessione+DB+globali $mysqli/$cat/
-// dimensioni bottoni); lo swap su require bootstrap.php resta a F3, non qui.
+require_once __DIR__ . '/../bootstrap.php';
+// F3.1: front controller su require unico (docs/ARCHITETTURA_REVISTA.md §10.12a+§4).
+// Bootstrap (autoload+ErrorHandler+set.inc+dbConnect+funzioni.inc+
+// functionsFrontend.inc transitorio+CassaController+CassaView); qui solo
+// dispatch + render, markup invariato.
 // routes/cassa.php posseduta dal controller; tinta e match nella vista.
 $action = isset($_GET['action']) ? $_GET['action'] : '';
 $view = \Salsiccia\Cassa\CassaController::gestisci($mysqli);

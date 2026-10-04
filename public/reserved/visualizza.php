@@ -6,7 +6,7 @@ declare(strict_types=1);
 // (whitelist ORDER BY + LIKE bound + LIMIT int) in VisualizzaStore, invariata.
 
 // Avvia la sessione e blocca l'accesso diretto senza login riservato
-require_once __DIR__ . '/../../env.inc';
+require_once __DIR__ . '/../../bootstrap.php';
 salsiccia_session_start();
 if (empty($_SESSION['reserved_auth']))
 {
@@ -15,13 +15,10 @@ if (empty($_SESSION['reserved_auth']))
 }
 
 //carica connessione mysqli e funzioni condivise
-require_once __DIR__ . '/../../dbConnect.php';
-
 if (!defined('DEBUG'))
 {
     define('DEBUG', 0);
 }
-require_once __DIR__ . '/../../funzioni.inc';
 require_once __DIR__ . '/../../src/Backoffice/VisualizzaStore.php';
 require_once __DIR__ . '/../../src/Backoffice/Tabs/CategorieTab.php';
 require_once __DIR__ . '/../../src/Backoffice/Tabs/ProdottiTab.php';
