@@ -1016,19 +1016,15 @@ function mostraRipristinaDb($mysqli)
         }
         else
         {
-        $ris = $mysqli->query("SHOW TABLES");
-        while ($row = $ris->fetch_array())
+        // F2.2 #89: logica REPAIR in DbRepair::run(), qui solo stampa righe.
+        $righe = \Salsiccia\System\DbRepair::run($mysqli);
+        foreach ($righe as $riga)
         {
-            $table = $row[0];
-            if (!preg_match('/^[A-Za-z0-9_]+$/', $table))
-            {
-                cassa_log('warning', "REPAIR bloccato: tabella non whitelistata");
-                continue;
-            }
-            if ($mysqli->query("REPAIR TABLE `$table`"))
+            $table = (string)$riga['table'];
+            if (!empty($riga['ok']))
                 echo "Tabella <b>$table</b> riparata.<br>";
             else
-                echo "Errore su <b>$table</b>: " . htmlspecialchars($mysqli->error) . "<br>";
+                echo "Errore su <b>$table</b>: " . htmlspecialchars((string)$riga['error']) . "<br>";
         }
         echo '<br><div class="admin-btn-row"><a href="index.php" class="opzione-btn" style="text-decoration:none;">TORNA</a></div>';
         }
