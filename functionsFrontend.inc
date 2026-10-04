@@ -1156,39 +1156,46 @@ function mostraPrintReset()
 // gate printer_gate_allowed() (F4.1), salva in storage/stampante_selezione.json
 // via printer_selection_file() (letta a boot in set.inc F4.4). Solo
 // "DIRETTA"/"RETE", "ZPL"/"EPL", LOCK_EX. IP opzionale, solo RETE.
+// F2.3 #90: unica implementazione vera in Salsiccia\Printer\PrinterConfig::salva()
+// (src/Printer/PrinterConfig.php); qui resta solo lo shim con stessa firma
+// e stessi esiti. Delete legacy mai in F2 (§9).
 function impostaStampanteSelezionata($name, $conn, $lang, $ip = '')
 {
-    $name = (string)$name;
-    $conn = (string)$conn;
-    $lang = (string)$lang;
-    $ip = trim((string)$ip);
-    if (!preg_match('/^[A-Za-z0-9_-]+$/', $name))
-        return false;
-    if (!printer_gate_allowed($name, $conn, $lang))
-        return false;
-    if ($ip !== '' && ($conn !== 'RETE' || filter_var($ip, FILTER_VALIDATE_IP) === false))
-        return false;
-    $d = array('name' => $name, 'connection' => $conn, 'language' => $lang, 'ip' => $ip);
-    if (file_put_contents(printer_selection_file(), json_encode($d), LOCK_EX) === false)
-    {
-        cassa_log('error', "stampante_selezione: scrittura fallita");
-        return false;
-    }
-    return true;
+    return \Salsiccia\Printer\PrinterConfig::salva($name, $conn, $lang, $ip);
 }
 
 // Raggiungibilita' veritiera per la pagina switch (F4.5 #55): DIRETTA da stato
 // CUPS reale printer_lpstat_stato() + presenza USB lpinfo (F4.2) via
 // printer_stato_locale_ok(); RETE ping-only via printer_is_reachable().
 // Senza CUPS: rosso "non verificabile", mai fatal.
+// F2.3 #90: unica implementazione vera in Salsiccia\Printer\PrinterConfig::
+// raggiungibile(); qui resta solo lo shim con stessa firma e stessi esiti.
 function stampante_switch_ok($nome, $conn, $ip = '')
 {
-    if ($conn === 'RETE')
-        return printer_is_reachable($nome, $conn, $ip);
-    $st = printer_lpstat_stato($nome);
-    $dev = isset($st['device']) ? (string)$st['device'] : '';
-    $usb = stripos($dev, 'usb://') === 0 ? printer_usb_locale_presente($dev) : true;
-    return printer_stato_locale_ok($st, $usb);
+    return \Salsiccia\Printer\PrinterConfig::raggiungibile($nome, $conn, $ip);
+}
+
+// Handler switch_printer (F2.3 #90, routes/cassa.php: handler => salvaStampante,
+// view => switchPrinter, auth => admin; raggiunto via function_exists da
+// CassaController::gestisci() e gestisciAzioni()): delega a PrinterConfig con
+// gli stessi $_POST della vista (nome/conn/lingua/ip, regola RETE) e stesso
+// blocco irraggiungibile; mai echo/redirect qui (gli esiti li mostra la vista).
+function salvaStampante($mysqli = null, $id_cassa = null)
+{
+    if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST' || !isset($_POST['cambia_stampante']))
+        return;
+    if (!function_exists('csrf_ok') || !csrf_ok())
+        return;
+    if (!function_exists('isAdmin') || !isAdmin())
+        return;
+    $nome = (string)($_POST['nome'] ?? '');
+    $conn = (string)($_POST['conn'] ?? '');
+    $lingua = (string)($_POST['lingua'] ?? '');
+    $ip = $conn === 'RETE' ? trim((string)($_POST['ip'] ?? '')) : '';
+    $ipCheck = $conn === 'RETE' ? ($ip !== '' ? $ip : (defined('PRINTER_IP') ? PRINTER_IP : '')) : '';
+    if (!\Salsiccia\Printer\PrinterConfig::raggiungibile($nome, $conn, $ipCheck))
+        return;
+    \Salsiccia\Printer\PrinterConfig::salva($nome, $conn, $lingua, $ip);
 }
 
 // CAMBIA STAMPANTE (F4.5 #55, stato finale stagisti HEAD 0632388): una card
