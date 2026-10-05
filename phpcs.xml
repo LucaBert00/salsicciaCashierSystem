@@ -18,7 +18,6 @@
     <exclude-pattern>dbConnect.php</exclude-pattern>
     <exclude-pattern>env.inc</exclude-pattern>
     <exclude-pattern>fiscale.inc</exclude-pattern>
-    <exclude-pattern>funzioni.inc</exclude-pattern>
     <exclude-pattern>functionsFrontend.inc</exclude-pattern>
     <exclude-pattern>set.inc</exclude-pattern>
     <exclude-pattern>public/index.php</exclude-pattern>

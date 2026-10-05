@@ -10,10 +10,8 @@ namespace Salsiccia\Catalog;
 // preso dallo stato globale (come OrderService in src/Cassa/OrderService.php
 // e il sender iniettabile di Fiscale::ritentaCoda() in src/Fiscale/Fiscale.php).
 // Query verbatim dai call-site (prepared via db_select, statiche via
-// mysql_query_safe per T09); ritorna array puri, mai output HTML.
-if (!function_exists('db_select')) {
-    require_once dirname(__DIR__, 2) . '/funzioni.inc';
-}
+// mysql_query_safe per T09, helpers via autoload F4.4 #101, ciclo rotto §3.3);
+// ritorna array puri, mai output HTML.
 
 final class CatalogRepo
 {

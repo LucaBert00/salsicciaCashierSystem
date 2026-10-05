@@ -6,10 +6,10 @@ namespace Salsiccia\Support;
 
 // Livello accesso-dati unico della cassa (F4.1 #98,
 // docs/ARCHITETTURA_REVISTA.md §10 punto 14 + §6/§9): connect verbatim da
-// dbConnect.php, query/select/exec verbatim da funzioni.inc:34-79 (prepared
-// con "?", mai interpolazione, T09 invariato). Solo metodi statici, nessun
-// alias globale, nessun require legacy: i globali restano in funzioni.inc
-// fino a F4.4, qui la casa stabile che F4.2 adotta.
+// dbConnect.php, query/select/exec verbatim legacy pre-F4.4 (prepared
+// con "?", mai interpolazione, T09 invariato). Solo metodi statici;
+// i globali restano in helpers.php via autoload (F4.4 #101),
+// qui la casa stabile che F4.2 adotta.
 final class Db
 {
     // dbConnect.php verbatim: T10 fail-closed, nessun fallback credenziali.

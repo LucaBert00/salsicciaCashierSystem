@@ -15,7 +15,6 @@
     <source>
         <include>
             <file>src/Fiscale/Fiscale.php</file>
-            <file>funzioni.inc</file>
             <file>src/Stats/StatsData.php</file>
         </include>
     </source>

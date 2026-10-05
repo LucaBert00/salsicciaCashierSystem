@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Salsiccia\Cassa;
 
 // F4.3 #100 (punto 16, §6/§7/§9): unica casa dei 5 builder etichetta
-// (verbatim da funzioni.inc: testo_biglietti, stampaMenu, generaCardDegustazione,
+// (verbatim legacy pre-F4.4: testo_biglietti, stampaMenu, generaCardDegustazione,
 // etichetta_continua, get_product_label). Restano funzioni pure (calcolano e
 // ritornano, §7 vieta classi-wrapper), mai classi. generaCardDegustazione migra
 // col suo unico chiamante interno (dentro etichetta_continua) cosi' le chiamate
 // interne restano consistenti. Unico adattamento meccanico: __DIR__ punta a
 // src/Cassa, i path storage usano dirname(__DIR__, 2) per restare byte-identici.
-// Alias sottili in funzioni.inc (rimossi in F4.4); PrintService chiama qui.
+// Alias sottili legacy (rimossi in F4.4); PrintService chiama qui.
 function testo_biglietti($stringa)
 {
     #Converto i caratteri accentati in lattare + carattere '

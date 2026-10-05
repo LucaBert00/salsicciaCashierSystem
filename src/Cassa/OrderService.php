@@ -8,9 +8,7 @@ namespace Salsiccia\Cassa;
 // DB iniettato via costruttore, mai preso dallo stato globale (come il sender
 // iniettabile di Fiscale::ritentaCoda() in src/Fiscale/Fiscale.php); T06-T09
 // preservati verbatim: transazioni + prepared + scope id_cassa (T05).
-if (!function_exists('db_select')) {
-    require_once dirname(__DIR__, 2) . '/funzioni.inc';
-}
+// F4.4 #101: ciclo rotto (§3.3), solo autoload (Db + helpers) + require legittimo.
 require_once __DIR__ . '/OrderType.php';
 
 final class OrderService
@@ -180,8 +178,9 @@ final class OrderService
         return (bool)$mr_ok;
     }
 
-    // F4.2 #99: unica casa dei totali (verbatim da funzioni.inc:93-175, $mysqli
-    // -> $this->db, T07 invariato). Resta sui globali db_select/db_exec.
+    // F4.2 #99: unica casa dei totali (verbatim legacy pre-F4.4, $mysqli
+    // -> $this->db, T07 invariato). Resta sui globali db_select/db_exec via
+    // helpers autoload (Db:: dietro).
     public function calcolaTotali(int $id_prodotto, int $id_ordine, bool $in_txn = false): bool
     {
         // cast difensivo, i chiamanti cassa passano gia (int); la firma typed (T22)

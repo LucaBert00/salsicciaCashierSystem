@@ -6,7 +6,7 @@ namespace Salsiccia\Cassa;
 
 // Unica casa dell'invio Ricevuta (etichetta, mai Scontrino fiscale):
 // genera il file di stampa e lo invia alla Zebra (DIRETTA via lpr o RETE via FTP).
-// T32 follow-up #43: corpo verbatim da funzioni.inc (genera_file_stampa,
+// T32 follow-up #43: corpo verbatim legacy pre-F4.4 (genera_file_stampa,
 // invia_file_stampa, ftpPut). I 5 builder puri vivono in src/Cassa/LabelBuilder.php
 // (F4.3 #100, funzioni §7); qui solo spool su LABELS_FILE + invio, stessi esiti.
 if (!function_exists('cassa_log')) {

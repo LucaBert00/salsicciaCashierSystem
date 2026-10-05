@@ -65,7 +65,7 @@ final class PureBuildersTest extends TestCase
             true
         );
 
-        $ret = etichetta_continua(
+        $ret = \Salsiccia\Cassa\etichetta_continua(
             $righe,
             2,
             'Festa Salsiccia 15/08/26',
@@ -88,7 +88,7 @@ final class PureBuildersTest extends TestCase
             true
         );
 
-        $ret = etichetta_continua(
+        $ret = \Salsiccia\Cassa\etichetta_continua(
             $righe,
             2,
             'Festa Salsiccia 15/08/26',
