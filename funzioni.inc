@@ -3,6 +3,7 @@ declare(strict_types=1);
 // T31: file canonico (non shim) — migrazione per-funzione verso src/ (v. docs/ARCHITETTURA_REVISTA.md §6 e §9, fase 4): genera/invia/ftp stampa estratti in src/Cassa/PrintService.php (#43); rimozione solo dopo lo split, rivalutare entro 2026-12-31.
 if (!function_exists('cassa_log'))
     require_once __DIR__ . '/env.inc';
+require_once __DIR__ . '/src/Cassa/LabelBuilder.php';
 //define("DEBUG", 1);
 
 // Token anti-CSRF in sessione: mutazioni solo via POST con hidden tok.
@@ -100,243 +101,27 @@ function calcolaTotali(int $id_prodotto, int $id_ordine, mysqli $mysqli, bool $i
 }
 }
 
+// F4.3 #100: alias sottile verso Salsiccia\Cassa\testo_biglietti() (unica sede,
+// src/Cassa/LabelBuilder.php). Rimosso in F4.4; zero logica qui.
+if (!function_exists('testo_biglietti'))
+{
 function testo_biglietti($stringa)
 {
-    #Converto i caratteri accentati in lattare + carattere '
-    $stringa = str_replace("è","e'",$stringa);
-
-    #Divido la stringa del testo da stampare sul bigliestto nelle parole che la
-    #compongono e le tengo in un array dove metto ogni singola parola è un elemento
-    $array = explode(" ", $stringa);
-    $n = count($array);
-    #Variabili che conterrano il testo del diglietto, una variabile per riga
-    $str1 = "";
-    $str2 = "";
-    #Se il testo è composto da ...
-    switch($n)
-    {
-        #...una parola lo assegno alla stringa della prima riga
-        case 1:
-            $str1 = $array[0];
-            break;
-        #...due parole e la prima è minore di 12 caratteri, assegno la prima parola alla rpima riga e la seconda alla seconda riga
-        case 2:
-            if(strlen($array[0]) < 12)
-            {
-                $str1 = $array[0];
-                $str2 = $array[1];
-            }
-            break;
-        case 3:
-            if(strlen($array[0]) + strlen($array[1]) < 12)
-            {
-                $str1 = $array[0] ." ". $array[1];
-                $str2 = $array[2];
-            }
-            else
-            {
-                $str1 = $array[0];
-                $str2 = $array[1] ." ". $array[2];
-            }
-            break;
-        case 4:
-            if(strlen($array[0]) + strlen($array[1]) + strlen($array[2]) < 12)
-            {
-                $str1 = $array[0] ." ". $array[1] ." ". $array[2];
-                $str2 = $array[3];
-            }
-            else
-            {
-                if(strlen($array[0]) + strlen($array[1]) < 12)
-                {
-                    $str1 = $array[0] ." ". $array[1];
-                    $str2 = $array[2] ." ". $array[3];
-                }
-                else
-                {
-                    $str1 = $array[0];
-                    $str2 = $array[1] ." ". $array[2] ." ". $array[3];
-                }
-            }
-            break;
-        case 5:
-            if(strlen($array[0]) + strlen($array[1]) + strlen($array[2]) + strlen($array[3]) < 12)
-            {
-                $str1 = $array[0] ." ". $array[1] ." ". $array[2] ." ". $array[3];
-                $str2 = $array[4];
-            }
-            else
-            {
-                if(strlen($array[0]) + strlen($array[1]) + strlen($array[2]) < 12)
-                {
-                    $str1 = $array[0] ." ". $array[1] ." ". $array[2];
-                        $str2 = $array[3] ." ". $array[4];
-                }
-                else
-                {
-                    if(strlen($array[0]) + strlen($array[1]) < 12)
-                    {
-                        $str1 = $array[0] ." ". $array[1];
-                        $str2 = $array[2] ." ". $array[3] ." ". $array[4];
-                    }
-                    else
-                    {
-                        $str1 = $array[0];
-                        $str2 = $array[1] ." ". $array[2] ." ". $array[3] ." ". $array[4];
-                    }
-                }
-            }
-
-            break;
-    }
-    #print "Str 1: $str1<br>\n";
-    #print "Str 2: $str2<br>\n";
-
-    #Converto il testo in maisucolo perchè il font 5 della stampante stampa solo lettere maiuscole
-    $str1 = strtoupper($str1);
-    $str2 = strtoupper($str2);
-
-    $str[0] = $str1;
-    $str[1] = $str2;
-
-    //print "Biglietto:". $str1.$str2;
-
-    return $str;
+    return \Salsiccia\Cassa\testo_biglietti($stringa);
+}
 }
 
+
+// F4.3 #100: alias sottile verso Salsiccia\Cassa\stampaMenu() (unica sede,
+// src/Cassa/LabelBuilder.php). Rimosso in F4.4; zero logica qui.
+if (!function_exists('stampaMenu'))
+{
 function stampaMenu($testo,$quantita,$tipo_stampa,$parametri, $id=0)
 {
-    /*
-            tipo stampa, se è 1 allora sono 3 menù separati
-            se è 0 allora stampa i menù assieme
-                        0										                1
-          polenta, salsiccia, acqua				polenta, polenta, polenta
-            polenta, salsiccia, acqua				salsiccia, salsiccia, salsiccia
-            polenta, salsiccia, acqua				acqua, acqua, acqua
-    */
-
-//print_r($testo);
-
-    if(in_array("ACQUA", $testo))
-        $bevanda = "ACQUA";
-    else if(in_array("BUONO BIRRA", $testo))
-        $bevanda = "BIRRA";
-    else if(in_array("VINO", $testo))
-        $bevanda = "VINO";
-    else
-        $bevanda = "BIBITA";
-
-    $label = "";
-    $num_pezzi =0;
-    if($tipo_stampa==0)
-    {
-        $menu[0]="TARAGNA E";
-        $menu[1]="SALSICCIA";
-        $menu[2]="MIX FORMAGGI";
-        $menu[3]="PATATINE";
-        $menu[4]=$bevanda;
-        $menu[5]="DOLCE";
-        $menu[6]="CAFFE";
-        $numero_prodotti_menu = 3;
-        //print("	<script language=\"javascript\">alert(\"1 num_pezzi = $num_pezzi\")</script>");
-        for($i=0;$i<$quantita;$i++)
-        {
-            #Prodotto 1
-            $label .= "N\nA438,230,2,2,1,1,R,\"$parametri[evento]\"\n";
-            #Stampa di un'etichetta per ogni singola quantità di un prodotto
-            #Nome prodotto su 1 riga
-            $label .= "A440,195,2,5,1,1,N,\"$menu[6]\"\nA440,135,2,5,1,1,N,\"\"\n";
-            #Numero cassa data e ora biglietto
-            $label .= "A380,65,2,2,1,1,N,\"Cassa$parametri[cassa] - $parametri[now] $parametri[t]\"\n";
-            #Credits
-            $label .= "A390,14,2,1,1,1,N,\"$parametri[credits]\"\n";
-            #Quantità
-            $label .= "P1\n";
-            $num_pezzi ++;
-
-            #Prodotto 2
-            $label .= "N\nA438,230,2,2,1,1,R,\"$parametri[evento]\"\n";
-            #Stampa di un'etichetta per ogni singola quantità di un prodotto
-            #Nome prodotto su 1 riga
-            $label .= "A440,195,2,5,1,1,N,\"$menu[5]\"\nA440,135,2,5,1,1,N,\"\"\n";
-            #Numero cassa data e ora biglietto
-            $label .= "A380,65,2,2,1,1,N,\"Cassa$parametri[cassa] - $parametri[now] $parametri[t]\"\n";
-            #Credits
-            $label .= "A390,14,2,1,1,1,N,\"$parametri[credits]\"\n";
-            #Quantità
-            $label .= "P1\n";
-            $num_pezzi ++;
-
-            #Prodotto 3
-            $label .= "N\nA438,230,2,2,1,1,R,\"$parametri[evento]\"\n";
-            #Stampa di un'etichetta per ogni singola quantità di un prodotto
-            #Nome prodotto su 1 riga
-            $label .= "A440,195,2,5,1,1,N,\"$menu[4]\"\nA440,135,2,5,1,1,N,\"\"\n";
-            #Numero cassa data e ora biglietto
-            $label .= "A380,65,2,2,1,1,N,\"Cassa$parametri[cassa] - $parametri[now] $parametri[t]\"\n";
-            #Credits
-            $label .= "A390,14,2,1,1,1,N,\"$parametri[credits]\"\n";
-            #Quantità
-            $label .= "P1\n";
-            $num_pezzi ++;
-
-            #Prodotto 4
-            $label .= "N\nA438,230,2,2,1,1,R,\"$parametri[evento]\"\n";
-            #Stampa di un'etichetta per ogni singola quantità di un prodotto
-            #Nome prodotto su 1 riga
-            $label .= "A440,195,2,5,1,1,N,\"$menu[3]\"\nA440,135,2,5,1,1,N,\"\"\n";
-            #Numero cassa data e ora biglietto
-            $label .= "A380,65,2,2,1,1,N,\"Cassa$parametri[cassa] - $parametri[now] $parametri[t]\"\n";
-            #Credits
-            $label .= "A390,14,2,1,1,1,N,\"$parametri[credits]\"\n";
-            #Quantità
-            $label .= "P1\n";
-            $num_pezzi ++;
-
-            #Prodotto 5
-            $label .= "N\nA438,230,2,2,1,1,R,\"$parametri[evento]\"\n";
-            #Stampa di un'etichetta per ogni singola quantità di un prodotto
-            #Nome prodotto su 1 riga
-            $label .= "A440,195,2,5,1,1,N,\"$menu[2]\"\nA440,135,2,5,1,1,N,\"\"\n";
-            #Numero cassa data e ora biglietto
-            $label .= "A380,65,2,2,1,1,N,\"Cassa$parametri[cassa] - $parametri[now] $parametri[t]\"\n";
-            #Credits
-            $label .= "A390,14,2,1,1,1,N,\"$parametri[credits]\"\n";
-            #Quantità
-            $label .= "P1\n";
-            $num_pezzi ++;
-
-            #Prodotto 6
-            $label .= "N\nA438,230,2,2,1,1,R,\"$parametri[evento]\"\n";
-            #Stampa di un'etichetta per ogni singola quantità di un prodotto
-            #Nome prodotto su 2 righe
-            $label .= "A440,195,2,5,1,1,N,\"$menu[0]\"\nA440,135,2,5,1,1,N,\"$menu[1]\"\n";
-            #Numero cassa data e ora biglietto
-            $label .= "A380,65,2,2,1,1,N,\"Cassa$parametri[cassa] - $parametri[now] $parametri[t]\"\n";
-            #Credits
-            $label .= "A390,14,2,1,1,1,N,\"$parametri[credits]\"\n";
-            #Quantità
-            $label .= "P1\n";
-            $num_pezzi ++;
-
-
-        }
-        /*#Stampa NOME DEL MENU del Menu
-        #Stampa di un'etichetta per ogni singola quantità di un prodotto
-            #Nome prodotto su 2 righe
-            $label .= "N\nA438,230,2,2,1,1,R,\"$parametri[evento]\"\n";
-            $label .= "A440,195,2,5,1,1,N,\"$menu[0]\"\nA440,135,2,5,1,1,N,\"$menu[1]\"\n";
-            #Numero cassa data e ora biglietto
-            $label .= "A380,65,2,2,1,1,N,\"Cassa$parametri[cassa] - $parametri[now] $parametri[t]\"\n";
-            #Credits
-            $label .= "A390,14,2,1,1,1,N,\"$parametri[credits]\"\n";
-            #Quantità
-            $label .= "P1\n";*/
-    }
-    $vect["num_pezzi"] = $num_pezzi;
-    $vect["label"] = $label;
-    return $vect;
+    return \Salsiccia\Cassa\stampaMenu($testo, $quantita, $tipo_stampa, $parametri, $id);
 }
+}
+
 
 // F4.2 #99: alias sottile verso StatsData::contatori_totali() (unica sede,
 // src/Stats/StatsData.php). Rimosso in F4.4; zero logica qui.
@@ -348,376 +133,38 @@ function contatori_totali($mysqli)
 }
 }
 
+// F4.3 #100: alias sottile verso Salsiccia\Cassa\generaCardDegustazione() (unica
+// sede, src/Cassa/LabelBuilder.php). Rimosso in F4.4; zero logica qui.
+if (!function_exists('generaCardDegustazione'))
+{
 function generaCardDegustazione($numero, $qta)
 {
-    $top = 600;
-
-    $label = "N\nA832,$top,2,3,2,3,R,\"     DEGUSTAZIONE $numero SAKE         \"\n";
-    $top1 = $top-80;
-    //$label .= "A832,$top1,2,3,2,2,N,\"    30 Ott. - 3 Nov. 2025\"\n";
-    $h = $top1-120;
-    if($numero == 1)
-    {
-
-        $label .= "X475,$top1,10,355,$h\n";
-    }
-
-    if($numero == 2)
-    {
-        $label .= "X600,$top1,10,480,$h\n";
-        $label .= "X400,$top1,10,280,$h\n";
-    }
-
-    if($numero == 5)
-    {
-        $label .= "X770,$top1,10,650,$h\n";
-        $label .= "X620,$top1,10,500,$h\n";
-        $label .= "X470,$top1,10,350,$h\n";
-        $label .= "X320,$top1,10,200,$h\n";
-        $label .= "X170,$top1,10,50,$h\n";
-    }
-    $now = date("d/m/y H:i");
-    //$label .= "A800,$top1,2,3,1,1,N,\"                Cassa$cassa - $now\"\n";
-    /* $label .= "A800,$top1,2,4,2,2,N,\"     Totale: $totale"."Õ\"\n";
-       $top1 = $top1-60;
-       $label .= "A800,$top1,2,2,1,1,N,\"                   Non valido ai fini fiscali\"\n";*/
-    $top1 = $top1-150;
-    $label .= "A800,$top1,2,2,2,2,N,\"Il presente biglietto da diritto\"\n";
-    $top1 = $top1-40;
-    $label .= "A800,$top1,2,2,2,2,N,\"alla degustazione di $numero sake ed\"\n";
-    $top1 = $top1-40;
-    $label .= "A800,$top1,2,2,2,2,N,\"e' valido per tutta la durata \"\n";
-    $top1 = $top1-40;
-    $label .= "A800,$top1,2,2,2,2,N,\"dell'evento 16 Ottobbre 2025\"\n";
-    $top1 = $top1-60;
-    $label .= "A800,$top1,2,4,1,1,N,\"  La quantita' di ciascun assaggio e' di 30ml\"\n";
-    $top1 = $top1-60;
-    $label .= "A800,$top1,2,3,1,1,N,\"             Stampato il  $now\"\n";
-    $top1 = $top1-40;
-    $label .= "A800,$top1,2,2,1,1,N,\"(La vendita di bevande alcoliche e' vietata ai minori di 18 anni)\"\n";
-    /*$top1 = $top1-60;
-	  $label .= "A800,$top1,2,8,1,1,N,\"ppp 日本酒 ppp\"\n";*/
-    $top1 = $top1-40;
-    $label .= "A832,$top1,2,2,2,2,R,\"         www.sushitalia.com             \"\n";
-
-    $top1 = $top1-60;
-    //$label .= "A800,$top1,2,5,2,2,N,\"Ogni assaggio prevede una quantità di 30ml \"\n";
-    #Numero biglietti
-    $label .= "P1\n";
-    //Taglio Carta
-    $label .= "C\n";
-
-    if($qta > 1)
-    {
-        for($i=1; $i<$qta; $i++)
-        {
-            $label .= $label;
-        }
-    }
-
-    $pf = fopen(__DIR__ . "/storage/labelCards", "w")
-    or die("Impossibile aprire il file di stampa");
-    fwrite($pf, $label, strlen($label));
+    return \Salsiccia\Cassa\generaCardDegustazione($numero, $qta);
+}
 }
 
-// Scontrino unico (carta continua): builder puro su righe gia' lette, cosi'
-// e' testabile senza DB ne' stampante (issue #54). $righe = lista assoc con
-// id_ordine, tot_ord, tipo, testo, quantita, totale, id_prodotto.
-// Ritorna array(label, num_pezzi). Solo path fiscale, niente cucina.
+
+// F4.3 #100: alias sottile verso Salsiccia\Cassa\etichetta_continua() (unica
+// sede, src/Cassa/LabelBuilder.php). Rimosso in F4.4; zero logica qui.
+if (!function_exists('etichetta_continua'))
+{
 function etichetta_continua($righe, $numero_righe, $evento, $credits, $cassa, $now, $tipo_stampante)
 {
-    $riga0 = $righe[0];
-    $totale = number_format((float)$riga0['tot_ord'], 2, '.', '.');
-    $top = 420 + ($numero_righe * 60);
-    $label = "";
-
-    // CONTROLLO LINGUAGGIO CONTINUO: ZPL
-    if ($tipo_stampante == "ZPL")
-    {
-        $euro = "\xE2\x82\xAC";
-        $zpl_y = 280;
-        $zpl_step = 44;
-        $ll = 280 + ($numero_righe * $zpl_step) + 230;
-        // Titolo bilanciato su 2 righe: parole distribuite a meta', data in riga2
-        $titolo = trim(str_replace(array('^', '~'), ' ', $evento));
-        $evento_data = "";
-        if (preg_match('/^(.*?)(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})\s*$/', $titolo, $m)) {
-            $titolo = trim($m[1], " \t-");
-            $evento_data = $m[2];
-        }
-        if ($evento_data === "") {
-            $evento_data = date("d/m/y");
-        }
-        $titolo = trim(str_replace(" - ", " ", $titolo . " " . $evento_data));
-        $parole = preg_split('/\s+/', $titolo);
-        $tot = strlen($titolo);
-        $len = 0;
-        $i = 0;
-        $n = count($parole);
-        while ($i < $n) {
-            $nl = $len + ($len > 0 ? 1 : 0) + strlen($parole[$i]);
-            if ($len > 0 && $nl > $tot / 2) break;
-            $len = $nl;
-            $i++;
-        }
-        if ($i == 0) $i = 1;
-        $evento_nome = implode(" ", array_slice($parole, 0, $i));
-        $evento_data = implode(" ", array_slice($parole, $i));
-        $w_nome = (int)min(30, floor(800 / max(1, strlen($evento_nome))));
-        $w_data = (int)min(30, floor(800 / max(1, strlen($evento_data))));
-        $font_nome = "70,$w_nome";
-        $font_data = "70,$w_data";
-        $label .= "^XA\n^CI28\n^POI\n^PW832\n^LH0,0\n^LS0\n^LL$ll\n";
-        $label .= "^FO0,10^GB832,30,30^FS\n";
-        $label .= "^FO0,16^FB832,1,0,C^ADN,18^FR^FDCassa$cassa - $now^FS\n";
-        $label .= "^FO0,84^FB832,1,0,C^ADN,$font_nome^FD$evento_nome^FS\n";
-        $label .= "^FO2,84^FB832,1,0,C^ADN,$font_nome^FD$evento_nome^FS\n";
-        $label .= "^FO0,166^FB832,1,0,C^ADN,$font_data^FD$evento_data^FS\n";
-        $label .= "^FO2,166^FB832,1,0,C^ADN,$font_data^FD$evento_data^FS\n";
-
-        $num_pezzi = 0;
-        foreach($righe as $riga)
-        {
-            $testo = str_replace(array('^', '~'), ' ', strtoupper($riga['testo']));
-            // Nome max 18 caratteri su parole intere: se il taglio cade in
-            // mezzo a parola/numero, torna all'ultimo spazio
-            if(function_exists('mb_substr'))
-            {
-                $taglio = mb_substr($testo, 0, 18, 'UTF-8');
-                $oltre = mb_substr($testo, 18, 1, 'UTF-8');
-                $ultimo = mb_substr($taglio, -1, 1, 'UTF-8');
-            }
-            else
-            {
-                $taglio = substr($testo, 0, 18);
-                $oltre = substr($testo, 18, 1);
-                $ultimo = substr($taglio, -1, 1);
-            }
-            if($oltre !== "" && $oltre !== " " && $ultimo !== " ")
-            {
-                $sp = strrpos($taglio, " ");
-                if($sp !== false) $taglio = substr($taglio, 0, $sp);
-            }
-            $testo = rtrim($taglio);
-            $quantita = $riga['quantita'];
-            $importo = number_format((float)$riga['totale'], 2, '.', '.') . " $euro";
-
-            $label .= "^FO35,$zpl_y^FB560,1,0,L^ADN,28^FDN.$quantita $testo^FS\n";
-            $label .= "^FO610,$zpl_y^FB190,1,0,R^ADN,28^FD$importo^FS\n";
-            $num_pezzi++;
-            $zpl_y += $zpl_step;
-        }
-
-        // Riga vuota bianca tra ultimo prodotto e totale
-        $zpl_y += $zpl_step;
-        // Totale e chiusura scontrino unico ZPL
-        $label .= "^FO0,$zpl_y^FB832,1,0,C^ADN,30^FDTOTALE: $totale $euro^FS\n";
-        $zpl_y += 42;
-        $label .= "^FO0,$zpl_y^FB832,1,0,C^ADN,28^FDArrivederci e grazie!!^FS\n";
-        $zpl_y += 60;
-        $label .= "^FO0,$zpl_y^GB832,30,30^FS\n";
-        $label .= "^FO0,".($zpl_y+6)."^FB832,1,0,C^ADN,18^FR^FD$credits^FS\n";
-        $label .= "^PQ1\n^XZ\n";
-    }
-    // CONTROLLO LINGUAGGIO CONTINUO: EPL (stessi dati del ramo ZPL, niente hardcoded)
-    elseif ($tipo_stampante == "EPL")
-    {
-        $titolo_epl = str_replace(array('"', "\r", "\n"), '', $evento);
-        $credits_epl = str_replace(array('"', "\r", "\n"), '', $credits);
-        $label = "N\nA832,$top,2,3,2,3,R,\" $titolo_epl\"\n";
-        $top1 = $top-80;
-        $label .= "A832,$top1,2,3,2,2,N,\"    $now\"\n";
-        $top1 = $top1-60;
-        $label .= "A800,$top1,2,3,1,1,N,\"                Cassa$cassa - $now\"\n";
-        $top1 = $top1-60;
-
-        $num_pezzi = 0;
-        foreach($righe as $riga)
-        {
-            $testo = str_replace(array('"', "\r", "\n"), '', strtoupper($riga['testo']));
-            $quantita = $riga['quantita'];
-            $importo = number_format((float)$riga['totale'], 2, '.', '.')."\xc3\x95";
-
-            $label .= "A800,$top1,2,1,1,2,N,\"N.$quantita $testo\"\n";
-            if(strlen($importo) == 6) $importo = " ".$importo;
-            $label .= "A170,$top1,2,1,2,2,N,\"$importo\"\n";
-
-            $num_pezzi++;
-            $top1 = $top1-60;
-
-            if(in_array($riga['id_prodotto'], [14, 15, 16])) {
-                if($riga['id_prodotto'] == 14) generaCardDegustazione(1, $quantita);
-                if($riga['id_prodotto'] == 15) generaCardDegustazione(2, $quantita);
-                if($riga['id_prodotto'] == 16) generaCardDegustazione(5, $quantita);
-
-                if (PRINTER_CONNECTION == "DIRETTA") {
-                    // solo costanti set.inc, mai input utente; whitelist+escapeshellarg+log, niente @ silente.
-                    if (preg_match('/^[A-Za-z0-9_-]+$/', PRINTER_NAME))
-                    {
-                        $cmdCards = "lpr -P " . escapeshellarg(PRINTER_NAME) . " " . escapeshellarg(__DIR__ . "/storage/labelCards");
-                        system($cmdCards, $rcCards);
-                        if ($rcCards !== 0)
-                            cassa_log('error', "lpr labelCards fallito rc=$rcCards printer=" . PRINTER_NAME);
-                    }
-                    else
-                        cassa_log('warning', "lpr labelCards bloccato: PRINTER_NAME non whitelistato");
-                }
-            }
-        }
-        // Riga vuota bianca tra ultimo prodotto e totale
-        $top1 = $top1-60;
-        $label .= "A800,$top1,2,4,2,2,N,\"     TOTALE: $totale"."\xc3\x95\"\n";
-        $top1 = $top1-120;
-        $label .= "A800,$top1,2,2,2,2,N,\"     Arrivederci e grazie!!\"\n";
-        $top1 = $top1-60;
-        $label .= "A832,$top1,2,2,2,2,R,\"         $credits_epl             \"\n";
-        // Niente C qui: il taglio EPL (fuori form) scatta solo a richiesta
-        // in PrintService::generaFileStampa() (?taglia=1), come ^MMC in ZPL.
-        $label .= "P1\n";
-    }
-
-    $ret_c['label'] = $label;
-    $ret_c['num_pezzi'] = isset($num_pezzi) ? $num_pezzi : 0;
-    return $ret_c;
+    return \Salsiccia\Cassa\etichetta_continua($righe, $numero_righe, $evento, $credits, $cassa, $now, $tipo_stampante);
+}
 }
 
+
+// F4.3 #100: alias sottile verso Salsiccia\Cassa\get_product_label() (unica
+// sede, src/Cassa/LabelBuilder.php). Rimosso in F4.4; zero logica qui.
+if (!function_exists('get_product_label'))
+{
 function get_product_label($parametri)
 {
-    $label = "";
-    $now = $parametri["now"] ;
-    $id = $parametri["id"];
-    $cassa = $parametri["cassa"];
-    $credits = $parametri["credits"];
-    $evento = $parametri["evento"];
-    $t = $parametri["t"];
-    $quantita = $parametri["quantita"];
-    $testo = $parametri["testo"];
-    $olpp = $parametri["olpp"];
-    $num_pezzi = $parametri["num_pezzi"];
-    $print_order_id = $parametri["print_order_id"];
-    // Unica chiave linguaggio (issue #54): EPL o ZPL da PrintService::generaFileStampa.
-    $tipo_stampante = isset($parametri["tipo_stampante"]) ? $parametri["tipo_stampante"] : "ZPL";
-
-    if ($tipo_stampante == "EPL")
-    {
-        // EPL: i campi viaggiano tra doppi apici, via le virgolette spurie.
-        $evento_epl = str_replace('"', '', $evento);
-        $credits_epl = str_replace('"', '', $credits);
-        $testo_epl0 = str_replace('"', '', $testo[0]);
-        $testo_epl1 = str_replace('"', '', $testo[1]);
-        if(($olpp=="T") || ($quantita==1))
-        {
-            #Un'etichetta per ogni singola quantita, nome su 2 righe
-            $label .= "N\nA438,230,2,2,1,1,R,\"$evento_epl\"\n";
-            $label .= "A440,195,2,5,1,1,N,\"$testo_epl0\"\nA440,135,2,5,1,1,N,\"$testo_epl1\"\n";
-            #Numero cassa data e ora biglietto
-            if($print_order_id == 1)
-                $label .= "A430,65,2,2,1,1,N,\"$id Cassa$cassa - $now $t\"\n";
-            else
-                $label .= "A380,65,2,2,1,1,N,\"Cassa$cassa - $now $t\"\n";
-            #Credits
-            $label .= "A390,14,2,1,1,1,N,\"$credits_epl\"\n";
-            #Quantita
-            $label .= "P".$quantita."\n";
-            $num_pezzi += $quantita;
-        }
-        else
-        {
-            $label .= "N\nA438,230,2,2,1,1,R,\"$evento_epl\"\n";
-            #Un'etichetta con la quantita; se il testo e' lungo riduce il font
-            if(strlen($testo_epl0)<=8)
-            {
-                #Nome prodotto su 2 righe
-                $label .= "A440,195,2,5,1,1,N,\"$quantita"."X $testo_epl0\"\nA440,135,2,5,1,1,N,\"$testo_epl1\"\n";
-                #Numero cassa data e ora biglietto
-                if($print_order_id == 1)
-                    $label .= "A430,65,2,2,1,1,N,\"$id Cassa$cassa - $now $t\"\n";
-                else
-                    $label .= "A380,65,2,2,1,1,N,\"Cassa$cassa - $now $t\"\n";
-                #Credits
-                $label .= "A390,14,2,1,1,1,N,\"$credits_epl\"\n";
-                #Quantita
-                $label .= "P1\n";
-                $num_pezzi++;
-            }
-            else
-            {
-                #Nome prodotto su 2 righe, font ridotto
-                $label .= "A440,195,2,1,3,3,N,\"$quantita"."x $testo_epl0\"\nA440,135,2,1,3,3,N,\"$testo_epl1\"\n";
-                #Numero cassa data e ora biglietto
-                if($print_order_id == 1)
-                    $label .= "A430,65,2,2,1,1,N,\"$id Cassa$cassa - $now $t\"\n";
-                else
-                    $label .= "A380,65,2,2,1,1,N,\"Cassa$cassa - $now $t\"\n";
-                #Credits
-                $label .= "A390,14,2,1,1,1,N,\"$credits_epl\"\n";
-                #Quantita
-                $label .= "P1\n";
-                $num_pezzi++;
-            }
-        }
-    }
-    else
-    {
-        if(($olpp=="T") || ($quantita==1))
-        {
-            #TEST ZPL - biglietti singoli: font item ingranditi (solo ramo non continuo)
-            $label .= "^XA\n^POI\n^FO0,9^GB470,20,20^FS\n^FO35,12^ADN,16,9^FR^FD$evento^FS\n";
-            $label .= "^FO35,60^ADN,55^FD$testo[0]^FS\n^FO35,135^ADN,55^FD$testo[1]^FS\n";
-            #Numero cassa data e ora biglietto
-            if($print_order_id == 1)
-                $label .= "^FO90,195^ADN^FD$id Cassa$cassa - $now $t^FS\n";
-            else
-                $label .= "^FO90,195^ADN^FDCassa$cassa - $now $t^FS\n";
-            #Credits
-            $label .= "^FO15,225^AAN,14^FD$credits^FS\n";
-            #Quantita
-            $label .= "^PQ".$quantita."\n^XZ\n";
-            $num_pezzi += $quantita;
-        }
-        else
-        {
-            #TEST ZPL
-            $label .= "^XA\n^POI\n^FO0,9^GB470,20,20^FS\n^FO35,12^ADN,16,9^FR^FD$evento^FS\n";
-            #Un'etichetta con la quantita; se il testo e' lungo riduce il font
-            if(strlen($testo[0])<=8)
-            {
-                #Nome prodotto su 2 righe - biglietti singoli: font ingranditi (ramo continuo non toccato)
-                $label .= "^FO35,60^ADN,55^FD$quantita"."X $testo[0]^FS\n^FO35,135^ADN,55^FD$testo[1]^FS\n";
-                #Numero cassa data e ora biglietto
-                if($print_order_id == 1)
-                    $label .= "^FO90,195^ADN^FD$id Cassa$cassa - $now $t^FS\n";
-                else
-                    $label .= "^FO90,195^ADN^FDCassa$cassa - $now $t^FS\n";
-                #Credits
-                $label .= "^FO15,225^AAN,14^FD$credits^FS\n";
-                #Quantita
-                $label .= "^PQ1\n^XZ\n";
-                $num_pezzi++;
-            }
-            else
-            {
-                #Nome prodotto su 2 righe - nomi lunghi biglietti singoli: font ingrandito (ramo continuo non toccato)
-                $label .= "^FO35,60^ABN,32^FD$quantita"."X $testo[0]^FS\n^FO35,135^ABN,32^FD$testo[1]^FS\n";
-                #Numero cassa data e ora biglietto
-                if($print_order_id == 1)
-                    $label .= "^FO90,195^ADN^FD$id Cassa$cassa - $now $t^FS\n";
-                else
-                    $label .= "^FO90,195^ADN^FDCassa$cassa - $now $t^FS\n";
-                #Credits
-                $label .= "^FO15,225^AAN,14^FD$credits^FS\n";
-                #Quantita
-                $label .= "^PQ1\n^XZ\n";
-                $num_pezzi++;
-            }
-        }
-    }
-
-    $ret['num_pezzi'] = $num_pezzi;
-    $ret['label'] = $label;
-    return $ret;
-
+    return \Salsiccia\Cassa\get_product_label($parametri);
 }
+}
+
 
 
 

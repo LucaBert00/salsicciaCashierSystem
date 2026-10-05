@@ -7,12 +7,12 @@ namespace Salsiccia\Cassa;
 // Unica casa dell'invio Ricevuta (etichetta, mai Scontrino fiscale):
 // genera il file di stampa e lo invia alla Zebra (DIRETTA via lpr o RETE via FTP).
 // T32 follow-up #43: corpo verbatim da funzioni.inc (genera_file_stampa,
-// invia_file_stampa, ftpPut). I builder puri (etichetta_continua,
-// get_product_label, testo_biglietti) restano in funzioni.inc; qui solo
-// spool su LABELS_FILE + invio, stessi esiti di prima.
+// invia_file_stampa, ftpPut). I 5 builder puri vivono in src/Cassa/LabelBuilder.php
+// (F4.3 #100, funzioni §7); qui solo spool su LABELS_FILE + invio, stessi esiti.
 if (!function_exists('cassa_log')) {
     require_once dirname(__DIR__, 2) . '/env.inc';
 }
+require_once __DIR__ . '/LabelBuilder.php';
 
 final class PrintService
 {
@@ -64,7 +64,7 @@ final class PrintService
             $id_ordine = $righe[0]['id_ordine'];
             $totale = number_format((float)$righe[0]['tot_ord'], 2, '.', '.');
             $now = date("d/m/y H:i");
-            $ret_c = etichetta_continua($righe, $numero_righe, $evento, $credits, $cassa, $now, $tipo_stampante);
+            $ret_c = \Salsiccia\Cassa\etichetta_continua($righe, $numero_righe, $evento, $credits, $cassa, $now, $tipo_stampante);
             $label = $ret_c['label'];
 
             $num_pezzi = 1;
@@ -106,7 +106,7 @@ final class PrintService
 
             while ($riga = mysqli_fetch_array($ris)) {
                 $now = date("d/m/y H:i");
-                $testo = testo_biglietti($riga['testo']);
+                $testo = \Salsiccia\Cassa\testo_biglietti($riga['testo']);
                 $quantita = $riga['quantita'];
                 $olpp_2 = $riga['olpp'];
 
@@ -127,12 +127,12 @@ final class PrintService
                 $parametri["tipo_stampante"] = $tipo_stampante;
 
                 if (($riga["id_prodotto"] == 60 || $riga["id_prodotto"] == 61 || $riga["id_prodotto"] == 62 || $riga["id_prodotto"] == 63) && MENU_ENABLE) {
-                    $vect = stampaMenu($testo, $quantita, 0, $parametri);
+                    $vect = \Salsiccia\Cassa\stampaMenu($testo, $quantita, 0, $parametri);
                     $num_pezzi += $vect["num_pezzi"];
                     $label .= $vect["label"];
                 } else {
                     // Richiama get_product_label passandogli il tipo stampante impostato dalla costante
-                    $ret = get_product_label($parametri);
+                    $ret = \Salsiccia\Cassa\get_product_label($parametri);
                     $num_pezzi = $ret['num_pezzi'];
                     $label .= $ret['label'];
                 }

@@ -81,6 +81,28 @@ final class PureBuildersTest extends TestCase
         $this->assertStringContainsString('^XZ', $ret['label']);
     }
 
+    public function testEtichettaContinuaEplSenzaDbNeStampante(): void
+    {
+        $righe = json_decode(
+            (string) file_get_contents(__DIR__ . '/../fixtures/etichetta_righe.json'),
+            true
+        );
+
+        $ret = etichetta_continua(
+            $righe,
+            2,
+            'Festa Salsiccia 15/08/26',
+            'crediti fiera',
+            '1',
+            '15/08/26 12:00',
+            'EPL'
+        );
+
+        $this->assertSame(2, $ret['num_pezzi']);
+        $this->assertStringContainsString('TOTALE: 12.50', $ret['label']);
+        $this->assertStringContainsString("\nP1\n", $ret['label']);
+    }
+
     public function testStatLimitiGiornoDura24OreDallOraDiCambio(): void
     {
         $this->assertSame(
