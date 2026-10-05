@@ -648,94 +648,46 @@ function mostraPannelloAdmin()
 }
 
 // F2.1 #68: preflight e funzioni pure power (da salsicciaStagisti 6b796de+d57a201).
-// Alimentazione: system() sul fork ritorna 0 anche se fallisce dopo, mai verde falso.
-// Candidati legacy-first (systemctl poi shutdown), preflight con "sudo -n -l" sul comando esatto.
-// Il primo permesso viene schedulato, altrimenti COMANDO NON AVVIATO. Marker in storage/
-// (mai path di directory del file: docroot target = public/), riscontro marker/uptime sotto.
+// F2.5 #92: unica implementazione vera in Salsiccia\System\Power
+// (src/System/Power.php, corpi verbatim invariati); qui restano solo gli shim
+// con stesse firme. Delete legacy mai in F2 (§9).
 function candidatiAlimentazione($mode)
 {
-    $aSys = ($mode === 'poweroff') ? 'poweroff' : 'reboot';
-    $aShut = ($mode === 'poweroff') ? '-h now' : '-r now';
-    $c = array();
-    foreach (array('/bin/systemctl', '/usr/bin/systemctl') as $s)
-        if (is_executable($s))
-            $c[] = $s . ' ' . $aSys;
-    foreach (array('/sbin/shutdown', '/usr/sbin/shutdown') as $s)
-        if (is_executable($s))
-            $c[] = $s . ' ' . $aShut;
-    if (empty($c))
-    {
-        $out = array();
-        @exec('command -v systemctl shutdown 2>/dev/null', $out);
-        foreach ($out as $r)
-        {
-            $r = trim((string)$r);
-            if ($r === '' || !is_executable($r))
-                continue;
-            $c[] = $r . (substr($r, -10) === 'systemctl' ? ' ' . $aSys : ' ' . $aShut);
-        }
-    }
-    return $c;
+    return \Salsiccia\System\Power::candidatiAlimentazione($mode);
 }
 
 function escapaComando($cmdline)
 {
-    $e = array();
-    foreach (explode(' ', $cmdline) as $p)
-        if ($p !== '')
-            $e[] = escapeshellarg($p);
-    return implode(' ', $e);
+    return \Salsiccia\System\Power::escapaComando($cmdline);
 }
 
 // Ritorna il primo candidato permesso via "sudo -n -l", o ''.
 function scegliComandoAlimentazione($mode)
 {
-    foreach (candidatiAlimentazione($mode) as $cand)
-    {
-        $out = array();
-        $rc = 1;
-        @exec('sudo -n -l -- ' . escapaComando($cand) . ' >/dev/null 2>&1', $out, $rc);
-        if ($rc !== 0)
-            @exec('sudo -n ' . escapaComando(strtok($cand, " ")) . ' --help >/dev/null 2>&1', $out, $rc);
-        if ($rc === 0)
-            return $cand;
-    }
-    return '';
+    return \Salsiccia\System\Power::scegliComandoAlimentazione($mode);
 }
 
 // Riscontro spegnimento: marker con timestamp, al reload eta marker vs uptime (/proc/uptime).
 // Uptime < eta = RIUSCITO; oltre 180s = FALLITO; entro = IN ATTESA. Marker una tantum.
 function markerPowerFile()
 {
-    return salsiccia_storage_path('power_attempt.json');
+    return \Salsiccia\System\Power::markerPowerFile();
 }
 
 function uptimeMacchina()
 {
-    $u = @file_get_contents('/proc/uptime');
-    if ($u === false)
-        return null;
-    $p = (float)strtok(trim((string)$u), " ");
-    return $p > 0 ? $p : null;
+    return \Salsiccia\System\Power::uptimeMacchina();
 }
 
 // Pura e testabile: ritorna 'riuscito', 'fallito' o 'attesa'.
 function esitoTentativoPower($markerTime, $now, $uptime)
 {
-    $soglia = 180;
-    $eta = $now - $markerTime;
-    if ($eta < 0)
-        return 'attesa';
-    if ($uptime !== null && $uptime < $eta)
-        return 'riuscito';
-    if ($eta > $soglia)
-        return 'fallito';
-    return 'attesa';
+    return \Salsiccia\System\Power::esitoTentativoPower($markerTime, $now, $uptime);
 }
 
 function scriviMarkerPower($mode)
 {
-    @file_put_contents(markerPowerFile(), json_encode(array('t' => time(), 'mode' => $mode)));
+    \Salsiccia\System\Power::scriviMarkerPower($mode);
 }
 
 // F2.2 #69: braccio operativo power (da salsicciaStagisti 57d8298/master).
@@ -743,139 +695,45 @@ function scriviMarkerPower($mode)
 // DIRETTA: cancel best-effort pre-shutdown mai bloccante. RETE: invio sincrono, nessun job.
 function svuotaCodaStampaPreSpegnimento()
 {
-    if (PRINTER_CONNECTION !== 'DIRETTA')
-        return;
-    if (!preg_match('/^[A-Za-z0-9_-]+$/', PRINTER_NAME))
-    {
-        cassa_log('error', 'power: cancel bloccato, PRINTER_NAME non whitelistato');
-        return;
-    }
-    $cmd = 'cancel -a ' . escapeshellarg(printer_cups_queue(PRINTER_NAME)) . ' >/dev/null 2>&1';
-    system($cmd, $rc);
-    if ($rc !== 0)
-        cassa_log('error', 'power: cancel coda fallito rc=' . $rc . ' printer=' . PRINTER_NAME);
+    \Salsiccia\System\Power::svuotaCodaStampaPreSpegnimento();
 }
 
 // Schedula reboot/poweroff in background (sleep 2 cosi la risposta HTTP
 // viene flushed prima che systemd killi PHP).
 function schedulaAzioneAlimentazione($mode)
 {
-    $cmdline = scegliComandoAlimentazione($mode);
-    if ($cmdline === '')
-    {
-        cassa_log('error', 'power: schedulazione ' . $mode . ' impossibile, nessun comando permesso');
-        return false;
-    }
-    svuotaCodaStampaPreSpegnimento();
-    $cmd = '(sleep 2; sudo ' . escapaComando($cmdline) . ') >/dev/null 2>&1 &';
-    system($cmd, $rc);
-    if ($rc !== 0)
-    {
-        cassa_log('error', 'power: schedulazione ' . $mode . ' fallita rc=' . $rc);
-        return false;
-    }
-    scriviMarkerPower($mode);
-    return true;
+    return \Salsiccia\System\Power::schedulaAzioneAlimentazione($mode);
 }
 
 // F2.3 #70: schermate RIAVVIA/SPEGNI + riscontro + diagnostica (da salsicciaStagisti d57a201/57d8298).
-// Riscontro: marker una tantum, solo echo. Diagnostica: firma CON $mode (fix bug upstream
-// $mode indefinito che mostrava sempre i candidati reboot). Prerequisiti kiosk restano
-// testo schermata come nel source: NOPASSWD sui comandi esatti + systemd presente.
+// F2.5 #92: unica implementazione vera in Salsiccia\Cassa\AdminView::
+// riscontroPower()/diagnosticaPower()/power()/restart()/shutdown()
+// (src/Cassa/AdminView.php, logica via System\Power); qui restano solo gli
+// shim con stesse firme. Delete legacy mai in F2 (§9).
 function mostraRiscontroPower($mode)
 {
-    $f = markerPowerFile();
-    $raw = is_readable($f) ? @file_get_contents($f) : false;
-    if ($raw === false || trim((string)$raw) === '')
-        return;
-    $d = json_decode((string)$raw, true);
-    if (!is_array($d) || empty($d['t']) || !isset($d['mode']) || $d['mode'] !== $mode)
-    {
-        if (is_array($d))
-            return;
-        @unlink($f);
-        return;
-    }
-    $esito = esitoTentativoPower((int)$d['t'], time(), uptimeMacchina());
-    $quando = date('d/m H:i:s', (int)$d['t']);
-    if ($esito === 'riuscito')
-    {
-        echo '<p class="admin-msg-big" style="background:#5cb85c;color:#fff;padding:12px;border-radius:6px;">COMANDO RIUSCITO: cassa riavviata/riaccesa dopo invio delle ' . $quando . '.</p>';
-        @unlink($f);
-    }
-    elseif ($esito === 'fallito')
-    {
-        echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;padding:12px;border-radius:6px;">COMANDO FALLITO: invio delle ' . $quando . ' senza effetto, cassa mai spenta. Verifica sudoers/systemd (vedi DIAGNOSTICA sotto).</p>';
-        @unlink($f);
-    }
-    else
-    {
-        echo '<p class="admin-msg-big" style="color:#2b3d4e;font-weight:600;">COMANDO IN ATTESA: invio delle ' . $quando . ', la cassa dovrebbe spegnersi a momenti. Ricarica tra un minuto per il riscontro.</p>';
-    }
+    \Salsiccia\Cassa\AdminView::riscontroPower($mode);
 }
 
 // Diagnostica kiosk: valori reali letti al momento, comandi fissi.
 function mostraDiagnosticaPower($mode)
 {
-    $who = array();
-    @exec('whoami 2>/dev/null', $who);
-    $utente = !empty($who[0]) ? trim((string)$who[0]) : '?';
-    $cmd = scegliComandoAlimentazione($mode);
-    $up = uptimeMacchina();
-    echo '<p class="admin-msg-big" style="color:#2b3d4e;font-weight:600;">DIAGNOSTICA: utente=' . htmlspecialchars($utente, ENT_QUOTES, 'UTF-8') . ' os=' . PHP_OS_FAMILY . ' cmd=' . ($cmd !== '' ? htmlspecialchars($cmd, ENT_QUOTES, 'UTF-8') : 'NESSUNO (permessi?)') . ' systemd=' . (is_dir('/run/systemd/system') ? 'si' : 'no') . ' uptime=' . ($up !== null ? (int)$up . 's' : 'n/d') . '</p>';
+    \Salsiccia\Cassa\AdminView::diagnosticaPower($mode);
 }
 
 function mostraPower($mode, $action, $field, $titolo, $msgConferma, $labelBtn, $msgOk)
 {
-    if (!isAdmin())
-    {
-        header("Location: index.php?action=c");
-        exit;
-    }
-    echo '<section class="admin-panel">';
-    echo '<h3 class="admin-group-title admin-msg-big">' . $titolo . '</h3>';
-    mostraRiscontroPower($mode);
-    if (isset($_POST[$field]))
-    {
-        if (!csrf_ok())
-        {
-            echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;padding:12px;border-radius:6px;">TOKEN NON VALIDO.</p>';
-        }
-        else
-        {
-            $ok = schedulaAzioneAlimentazione($mode);
-            if ($ok)
-                echo '<p class="admin-msg-big" style="background:#5cb85c;color:#fff;padding:12px;border-radius:6px;">' . $msgOk . '</p>';
-            else
-                echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;padding:12px;border-radius:6px;">COMANDO NON AVVIATO: verifica sudoers/systemd sul kiosk.</p>';
-            echo '<p class="admin-msg-big" style="color:#2b3d4e;font-weight:600;">Coda stampa: DIRETTA cancellata (best-effort), RETE nessun job pendente (FTP sincrono verso ' . htmlspecialchars(PRINTER_IP, ENT_QUOTES, 'UTF-8') . '). Se nulla accade: utente web senza NOPASSWD su /sbin/shutdown o host senza systemd.</p>';
-        }
-        echo '<br><div class="admin-btn-row"><a href="index.php" class="opzione-btn" style="text-decoration:none;">TORNA</a></div>';
-    }
-    else
-    {
-        echo '<p class="admin-msg-big" style="color:#e54b3c;">ATTENZIONE: ' . $msgConferma . '</p>';
-        echo '<p class="admin-msg-big" style="color:#2b3d4e;font-weight:600;">Coda stampa: DIRETTA verra svuotata, RETE nessun job pendente (invio FTP sincrono).</p>';
-        echo '<form method="post" action="?action=' . $action . '" onsubmit="return confirm(\'Confermi?\');">';
-        csrf_field();
-        echo '<div class="admin-btn-row">';
-        echo '<a href="index.php?action=c&ok=1" class="opzione-btn" style="text-decoration:none;">ANNULLA</a>';
-        echo '<button type="submit" name="' . $field . '" value="1" class="opzione-btn danger">' . $labelBtn . '</button>';
-        echo '</div>';
-        echo '</form>';
-    }
-    mostraDiagnosticaPower($mode);
-    echo '</section>';
+    \Salsiccia\Cassa\AdminView::power($mode, $action, $field, $titolo, $msgConferma, $labelBtn, $msgOk);
 }
 
 function mostraRestart()
 {
-    mostraPower('reboot', 'restart', 'restart', 'RIAVVIA TERMINALE', 'il terminale cassa verra riavviato.', 'RIAVVIA ORA', 'RIAVVIO SCHEDULATO: il terminale si riavvia tra pochi secondi.');
+    \Salsiccia\Cassa\AdminView::restart();
 }
 
 function mostraShutdown()
 {
-    mostraPower('poweroff', 'shutdown', 'shutdown', 'SPEGNI TERMINALE', 'il terminale cassa verra spento.', 'SPEGNI ORA', 'SPEGNIMENTO SCHEDULATO: il terminale si spegne tra pochi secondi.');
+    \Salsiccia\Cassa\AdminView::shutdown();
 }
 
 // Schermata unica CONTATORI: tutti i venduti monitorati con nome + quantita
@@ -913,62 +771,12 @@ function mostraModificaInfo()
 // (cartaStampaLeggiSetup) + F3.2 (PrintService::inviaSetupCarta) + F3.3
 // (impostaCartaStampa). Setup/invio falliti => errore, modalita invariata.
 // Pattern mostraRipristinaDb: isAdmin + POST + CSRF + confirm.
+// F2.5 #92: unica implementazione vera in Salsiccia\Cassa\AdminView::carta()
+// (src/Cassa/AdminView.php); qui resta solo lo shim con stessa firma.
+// Delete legacy mai in F2 (§9).
 function mostraPrintReset()
 {
-    // difesa in profondita, index.php filtra gia via isAdmin+redirect; mai GET anonimo.
-    if (!isAdmin())
-    {
-        header("Location: index.php?action=c");
-        exit;
-    }
-    $modo = (defined('CONTINUOUS_LABEL') && CONTINUOUS_LABEL) ? 'CONTINUA' : 'SINGOLI';
-    $nuovo = (defined('CONTINUOUS_LABEL') && CONTINUOUS_LABEL) ? '0' : '1';
-    $modoNuovo = $nuovo === '1' ? 'CONTINUA' : 'SINGOLI';
-    echo '<section class="admin-panel">';
-    echo '<h3 class="admin-group-title admin-msg-big">CAMBIA CARTA STAMPA - CARTA ATTUALE: ' . $modo . '</h3>';
-    if (isset($_POST['cambia_carta']))
-    {
-        if (!csrf_ok())
-        {
-            echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;font-weight:800;text-align:center;padding:12px;border-radius:6px;">TOKEN NON VALIDO.</p>';
-            echo '<br><div class="admin-btn-row"><a href="index.php" class="opzione-btn" style="text-decoration:none;">TORNA</a></div>';
-        }
-        else
-        {
-        $continuaNuova = ($nuovo === '1');
-        $erroreSetup = '';
-        $setup = cartaStampaLeggiSetup(PRINTER_NAME, PRINTER_CONNECTION, PRINTER_LANGUAGE, $continuaNuova, $erroreSetup, salsiccia_storage_path('printerCommand'));
-        if ($setup === false)
-        {
-            echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;font-weight:800;text-align:center;padding:12px;border-radius:6px;">' . htmlspecialchars($erroreSetup, ENT_QUOTES, 'UTF-8') . '</p>';
-        }
-        elseif (!\Salsiccia\Cassa\PrintService::inviaSetupCarta($setup))
-        {
-            echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;font-weight:800;text-align:center;padding:12px;border-radius:6px;">INVIO SETUP CARTA ALLA STAMPANTE FALLITO, modalita invariata.</p>';
-        }
-        elseif (impostaCartaStampa($nuovo))
-        {
-            echo '<p class="admin-msg-big" style="background:#5cb85c;color:#fff;font-weight:800;text-align:center;padding:12px;border-radius:6px;">Carta commutata a ' . $modoNuovo . ': setup stampante applicato, la prossima stampa usa la nuova modalita.</p>';
-        }
-        else
-        {
-            echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;font-weight:800;text-align:center;padding:12px;border-radius:6px;">SETUP STAMPANTE APPLICATO MA SCRITTURA STATO CARTA FALLITA: riallineare al prossimo toggle.</p>';
-        }
-        echo '<br><div class="admin-btn-row"><a href="index.php" class="opzione-btn" style="text-decoration:none;">TORNA</a></div>';
-        }
-    }
-    else
-    {
-        echo '<p class="admin-msg-big" style="color:#e54b3c;">ATTENZIONE: dopo aver cambiato fisicamente la carta, la modalita di stampa passera da ' . $modo . ' a ' . $modoNuovo . '.</p>';
-        echo '<form method="post" action="?action=print_reset" onsubmit="return confirm(\'Cambiare carta di stampa in ' . $modoNuovo . '?\');">';
-        csrf_field();
-        echo '<div class="admin-btn-row">';
-        echo '<a href="index.php" class="opzione-btn" style="text-decoration:none;">ANNULLA</a>';
-        echo '<button type="submit" name="cambia_carta" value="1" class="opzione-btn">CAMBIA IN ' . $modoNuovo . '</button>';
-        echo '</div>';
-        echo '</form>';
-    }
-    echo '</section>';
+    \Salsiccia\Cassa\AdminView::carta();
 }
 
 // Selezione stampante (F4.5 #55, stato finale stagisti HEAD): valida contro
@@ -1024,130 +832,19 @@ function salvaStampante($mysqli = null, $id_cassa = null)
 // le altre mostrano badge fisso ZPL/EPL + SELEZIONA diretto. Selezione
 // irraggiungibile bloccata (tranne RETE ping-only).
 // Pattern mostraPrintReset: isAdmin + POST + CSRF + confirm + impostaStampanteSelezionata().
+// CAMBIA STAMPANTE (F4.5 #55, stato finale stagisti HEAD 0632388): una card
+// per stampante con pallino verde/rosso (stampante_switch_ok sopra), grid 2x2
+// ($rpp=4), raggiungibili prime, senza riga STATO (272aee3). Solo la GX420t
+// e' dual: scelta ZPL/EPL via pill, SELEZIONA disabilitato finche' non scegli;
+// le altre mostrano badge fisso ZPL/EPL + SELEZIONA diretto. Selezione
+// irraggiungibile bloccata (tranne RETE ping-only).
+// Pattern mostraPrintReset: isAdmin + POST + CSRF + confirm + impostaStampanteSelezionata().
+// F2.5 #92: unica implementazione vera in Salsiccia\Cassa\AdminView::switchPrinter()
+// (src/Cassa/AdminView.php, scrittura via PrinterConfig F2.3); qui resta solo
+// lo shim con stessa firma. Delete legacy mai in F2 (§9).
 function mostraSwitchPrinter()
 {
-    // difesa in profondita, index.php filtra gia via isAdmin+redirect; mai GET anonimo.
-    if (!isAdmin())
-    {
-        header("Location: index.php?action=c");
-        exit;
-    }
-    echo '<section class="admin-panel switch-printer-panel">';
-    echo '<h3 class="admin-group-title admin-msg-big">CAMBIA STAMPANTE - ATTUALE: ' . htmlspecialchars(PRINTER_NAME . ' - ' . PRINTER_CONNECTION . ' - ' . PRINTER_LANGUAGE, ENT_QUOTES, 'UTF-8') . '</h3>';
-    if (isset($_POST['cambia_stampante']))
-    {
-        if (!csrf_ok())
-        {
-            echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;padding:12px;border-radius:6px;">TOKEN NON VALIDO.</p>';
-        }
-        else
-        {
-            $nome = (string)($_POST['nome'] ?? '');
-            $conn = (string)($_POST['conn'] ?? '');
-            $lingua = (string)($_POST['lingua'] ?? '');
-            $ip = $conn === 'RETE' ? trim((string)($_POST['ip'] ?? '')) : '';
-            // riuso reachability F4.2; ip POST o fallback PRINTER_IP come in lista
-            $ipCheck = $conn === 'RETE' ? ($ip !== '' ? $ip : (defined('PRINTER_IP') ? PRINTER_IP : '')) : '';
-            if (!stampante_switch_ok($nome, $conn, $ipCheck))
-            {
-                echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;padding:12px;border-radius:6px;">STAMPANTE NON RAGGIUNGIBILE (pallino rosso), selezione non cambiata.</p>';
-            }
-            elseif (impostaStampanteSelezionata($nome, $conn, $lingua, $ip))
-            {
-                echo '<p class="admin-msg-big" style="background:#5cb85c;color:#fff;padding:12px;border-radius:6px;">Stampante commutata a ' . htmlspecialchars($nome . ' - ' . $conn . ' - ' . $lingua, ENT_QUOTES, 'UTF-8') . ': la prossima stampa usa la nuova selezione.</p>';
-            }
-            else
-            {
-                echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;padding:12px;border-radius:6px;">SELEZIONE NON VALIDA (gate), stampante invariata.</p>';
-            }
-        }
-        echo '<br><div class="admin-btn-row"><a href="index.php" class="opzione-btn" style="text-decoration:none;">TORNA</a></div>';
-    }
-    else
-    {
-        echo '<script>function selModo(r){var f=r.form,b=f.cambia_stampante;if(b){if(b.getAttribute("data-unreach")==="1")return;b.disabled=false;b.style.opacity="";b.style.cursor="";}var L=f.querySelectorAll("label.opzione-btn");for(var i=0;i<L.length;i++){L[i].removeAttribute("style");}var l=r.parentNode;l.style.border="2px solid #2b3d4e";l.style.background="#2b3d4e";l.style.color="#fff";}</script>';
-        $raggiungibili = array();
-        $altre = array();
-        foreach (printer_known_printers() as $p)
-        {
-            $p['ok'] = stampante_switch_ok((string)$p['name'], (string)$p['connection'], defined('PRINTER_IP') ? PRINTER_IP : '');
-            if ($p['ok'])
-                $raggiungibili[] = $p;
-            else
-                $altre[] = $p;
-        }
-        $ordinate = array_merge($raggiungibili, $altre);
-        $rpp = 4;
-        $pagina = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-        if ($pagina < 1)
-            $pagina = 1;
-        $totPagine = max(1, (int)ceil(count($ordinate) / $rpp));
-        if ($pagina > $totPagine)
-            $pagina = $totPagine;
-        $visibili = array_slice($ordinate, ($pagina - 1) * $rpp, $rpp);
-        echo '<div class="switch-printer-grid">';
-        foreach ($visibili as $p)
-        {
-            $nome = (string)$p['name'];
-            $conn = (string)$p['connection'];
-            $ok = !empty($p['ok']);
-            $attuale = ($nome === PRINTER_NAME && $conn === PRINTER_CONNECTION);
-            echo '<div class="switch-printer-card">';
-            echo '<p class="admin-msg-big" style="color:#2b3d4e;margin:0 0 4px;"><span title="' . ($ok ? 'Raggiungibile' : 'Non raggiungibile') . '" style="color:' . ($ok ? '#5cb85c' : '#d9534f') . ';">&#9679;</span> ' . htmlspecialchars($nome, ENT_QUOTES, 'UTF-8') . ($attuale ? ' <span style="display:inline-flex;align-items:center;background:#5cb85c;color:#fff;font-weight:800;border-radius:12px;padding:2px 12px;font-size:14px;">ATTUALE</span>' : '') . '</p>';
-            echo '<p class="admin-msg-big" style="color:#8c9ba5;margin:0 0 8px;">CONNESSIONE: ' . htmlspecialchars($conn, ENT_QUOTES, 'UTF-8') . '</p>';
-            echo '<div class="admin-btn-row" style="align-items:center;">';
-            if ($nome === 'GX420t')
-            {
-                echo '<span class="admin-msg-big" style="color:#8c9ba5;">MODALITA STAMPA:</span>';
-                echo '<form method="post" action="?action=switch_printer" onsubmit="return confirm(\'Cambiare stampante?\');" style="display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;">';
-                csrf_field();
-                echo '<input type="hidden" name="nome" value="GX420t">';
-                echo '<input type="hidden" name="conn" value="DIRETTA">';
-                foreach (array('ZPL', 'EPL') as $lingua)
-                {
-                    $sel = ($attuale && PRINTER_LANGUAGE === $lingua);
-                    echo '<label class="opzione-btn"' . ($sel ? ' style="border:2px solid #2b3d4e;background:#2b3d4e;color:#fff;"' : '') . '><input type="radio" name="lingua" value="' . $lingua . '"' . ($sel ? ' checked' : '') . ($ok ? '' : ' disabled') . ' onchange="selModo(this)" style="display:none;"> ' . $lingua . '</label>';
-                }
-                echo '<button type="submit" name="cambia_stampante" value="1" class="opzione-btn"' . ((!$ok || !$attuale) ? ' disabled style="opacity:.45;cursor:not-allowed;"' : '') . (!$ok ? ' data-unreach="1"' : '') . '>SELEZIONA</button>';
-                echo '</form>';
-            }
-            else
-            {
-                $lingua = (string)$p['language'];
-                echo '<span class="admin-msg-big" style="color:#8c9ba5;">MODALITA STAMPA:</span>';
-                echo '<span class="opzione-btn" style="border:2px solid #2b3d4e;cursor:default;">' . htmlspecialchars($lingua, ENT_QUOTES, 'UTF-8') . '</span>';
-                echo '<form method="post" action="?action=switch_printer" onsubmit="return confirm(\'Cambiare stampante?\');" style="display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;">';
-                csrf_field();
-                echo '<input type="hidden" name="nome" value="' . htmlspecialchars($nome, ENT_QUOTES, 'UTF-8') . '">';
-                echo '<input type="hidden" name="conn" value="' . htmlspecialchars($conn, ENT_QUOTES, 'UTF-8') . '">';
-                echo '<input type="hidden" name="lingua" value="' . htmlspecialchars($lingua, ENT_QUOTES, 'UTF-8') . '">';
-                if ($conn === 'RETE')
-                    echo '<input type="hidden" name="ip" value="' . htmlspecialchars(defined('PRINTER_IP') ? PRINTER_IP : '', ENT_QUOTES, 'UTF-8') . '">';
-                echo '<button type="submit" name="cambia_stampante" value="1" class="opzione-btn"' . ($ok ? '' : ' disabled style="opacity:.45;cursor:not-allowed;"') . '>SELEZIONA</button>';
-                echo '</form>';
-            }
-            echo '</div>';
-            echo '</div>';
-        }
-        echo '</div>';
-        echo '<div class="admin-btn-row">';
-        if ($pagina > 1)
-            echo '<a href="?action=switch_printer&page=' . ($pagina - 1) . '" class="opzione-btn" style="padding:12px 20px;">&lt;</a>';
-        foreach (array_unique(array(1, $pagina - 1, $pagina, $pagina + 1, $totPagine)) as $numPagina)
-        {
-            if ($numPagina < 1 || $numPagina > $totPagine)
-                continue;
-            if ($numPagina == $pagina)
-                echo '<span class="opzione-btn" style="padding:12px 20px;border:2px solid #2b3d4e;">' . $numPagina . '</span>';
-            else
-                echo '<a href="?action=switch_printer&page=' . $numPagina . '" class="opzione-btn" style="padding:12px 20px;">' . $numPagina . '</a>';
-        }
-        if ($pagina < $totPagine)
-            echo '<a href="?action=switch_printer&page=' . ($pagina + 1) . '" class="opzione-btn" style="padding:12px 20px;">&gt;</a>';
-        echo '</div>';
-        echo '<div class="admin-btn-row"><a href="index.php" class="opzione-btn" style="text-decoration:none;">TORNA</a></div>';
-    }
-    echo '</section>';
+    \Salsiccia\Cassa\AdminView::switchPrinter();
 }
 
 // F2.1 #88: shim sottile verso StampaView/StampaController (unica implementazione vera in src/Cassa).

@@ -165,28 +165,32 @@ final class CassaView
     {
         self::barraNavigazione($db, $cat);
         echo '<header><h1>CAMBIA CARTA STAMPA</h1></header>';
-        mostraPrintReset();
+        // F2.5 #92: vista via AdminView (setup/invio/stato come oggi).
+        AdminView::carta();
     }
 
     private static function corpoRestart($db, int $cat): void
     {
         self::barraNavigazione($db, $cat);
         echo '<header><h1>RIAVVIA</h1></header>';
-        mostraRestart();
+        // F2.5 #92: vista via AdminView (logica in System\Power).
+        AdminView::restart();
     }
 
     private static function corpoShutdown($db, int $cat): void
     {
         self::barraNavigazione($db, $cat);
         echo '<header><h1>SPEGNI</h1></header>';
-        mostraShutdown();
+        // F2.5 #92: vista via AdminView (logica in System\Power).
+        AdminView::shutdown();
     }
 
     private static function corpoSwitchPrinter($db, int $cat): void
     {
         self::barraNavigazione($db, $cat);
         echo '<header><h1>CAMBIA STAMPANTE</h1></header>';
-        mostraSwitchPrinter();
+        // F2.5 #92: vista via AdminView (scrittura via PrinterConfig F2.3).
+        AdminView::switchPrinter();
     }
 
     private static function corpoInfo($db, int $cat): void
