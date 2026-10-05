@@ -105,7 +105,7 @@ final class OrderService
 
         // ricalcolo ordine (saltato se il rollback ha annullato la creazione: niente orfani)
         if ($id_ordine > 0) {
-            calcolaTotali($idProdotto, $id_ordine, $db);
+            $this->calcolaTotali($idProdotto, $id_ordine);
         }
         return $id_ordine;
     }
@@ -133,7 +133,7 @@ final class OrderService
         try {
             $mq_ok = db_exec($db, "UPDATE righe_ordini SET quantita = ? WHERE id_ordine = ? AND id_prodotto = ?", 'iii', array($qta, $id_ordine, $idProdotto));
             if ($mq_ok) {
-                $mq_ok = calcolaTotali($idProdotto, $id_ordine, $db, true);
+                $mq_ok = $this->calcolaTotali($idProdotto, $id_ordine, true);
             }
         } catch (\Throwable) {
             // PHP8: query fallita lancia invece di tornare false; annulla come sopra.
@@ -165,7 +165,7 @@ final class OrderService
         try {
             $mr_ok = db_exec($db, "DELETE FROM righe_ordini WHERE id_ordine = ? AND id_prodotto = ?", 'ii', array($id_ordine, $idProdotto));
             if ($mr_ok) {
-                $mr_ok = calcolaTotali($idProdotto, $id_ordine, $db, true);
+                $mr_ok = $this->calcolaTotali($idProdotto, $id_ordine, true);
             }
         } catch (\Throwable) {
             // PHP8: query fallita lancia invece di tornare false; annulla come sopra.
@@ -178,6 +178,92 @@ final class OrderService
             cassa_log('warning', "mr: rollback id_ordine=$id_ordine [T08]");
         }
         return (bool)$mr_ok;
+    }
+
+    // F4.2 #99: unica casa dei totali (verbatim da funzioni.inc:93-175, $mysqli
+    // -> $this->db, T07 invariato). Resta sui globali db_select/db_exec.
+    public function calcolaTotali(int $id_prodotto, int $id_ordine, bool $in_txn = false): bool
+    {
+        // cast difensivo, i chiamanti cassa passano gia (int); la firma typed (T22)
+        // rende ogni coercizione un TypeError forte in rehearsal, mai drift in fiera.
+        $id_prodotto = (int)$id_prodotto;
+        $id_ordine = (int)$id_ordine;
+        // T08: $in_txn=true quando il chiamante (mq/mr) possiede gia' la transazione:
+        // niente begin/commit/rollback interni (un begin annidato farebbe implicit commit
+        // su InnoDB), l'esito torna al chiamante. Ritorna bool per la catena esterna.
+        $ok = false;
+        if(isSet($id_prodotto))
+        {
+            // T07: catena SELECT->UPDATE->SELECT->UPDATE in un'unica transazione; la riga
+            // ordini padre e' bloccata via SELECT ... FOR UPDATE dove il motore lo permette
+            // (effettivo su InnoDB da T21, no-op su MyISAM baseline). Ordine di lock costante
+            // padre->figlio anti-deadlock; niente retry interno, il prossimo tap ricalcola.
+            if (!$in_txn)
+                $this->db->begin_transaction();
+            $ok = true;
+            try
+            {
+                #Lock riga padre: serializza i tap concorrenti sullo stesso ordine.
+                $ris = db_select($this->db, "SELECT id_ordine FROM ordini WHERE id_ordine = ? FOR UPDATE", 'i', array($id_ordine));
+                if (!$ris)
+                    $ris = db_select($this->db, "SELECT id_ordine FROM ordini WHERE id_ordine = ?", 'i', array($id_ordine));
+                $ok = (bool)$ris;
+                if ($ok)
+                {
+                    #DOPO AVER INSERITO O AGGIUNTO UN PRODOTTO DEVO AGGIORNARE QUANTITA E TOTALE IN righe_ordini
+                    $ris = db_select($this->db, "SELECT quantita, prezzo FROM prodotti,righe_ordini WHERE prodotti.id_prodotto = righe_ordini.id_prodotto AND id_ordine = ? AND prodotti.id_prodotto = ?", 'ii', array($id_ordine, $id_prodotto));
+                    //print "query: calcolaTotali select righe";
+                    $ok = (bool)$ris;
+                }
+                if($ok && mysqli_num_rows($ris) > 0)
+                {
+                    $riga = mysqli_fetch_array($ris);
+                    $quantita = (int)$riga['quantita'];
+                    $prezzo = (float)$riga['prezzo'];
+                    $totale = $quantita * $prezzo;
+                    //print "\n<script>alert('n_pezzi: $quantita - totale:$totale');</script>";
+                    //print "query: calcolaTotali update righe";
+                    $ok = db_exec($this->db, "UPDATE righe_ordini set quantita = ?, totale = ? WHERE id_ordine = ? AND id_prodotto = ?", 'idii', array($quantita, $totale, $id_ordine, $id_prodotto));
+                }
+                if ($ok)
+                {
+                    #DOPO AVER INSERITO O AGGIUNTO UN PRODOTTO DEVO AGGIORNARE n_pezzi e totale IN ordini
+                    $ris = db_select($this->db, "SELECT sum(quantita) as n_pezzi, sum(totale) as totale FROM righe_ordini WHERE id_ordine = ? GROUP BY id_ordine", 'i', array($id_ordine));
+                    $ok = (bool)$ris;
+                }
+                if ($ok)
+                {
+                    $riga = mysqli_fetch_array($ris);
+                    $n_pezzi = (int)$riga['n_pezzi'];
+                    $totale = (float)$riga['totale'];
+
+                    if($totale == 0)
+                        //print "query: calcolaTotali azzera ordini";
+                        $ok = db_exec($this->db, "UPDATE ordini set n_pezzi = 0, totale = 0 WHERE id_ordine = ?", 'i', array($id_ordine));
+                    //print "query: calcolaTotali update ordini";
+                    else
+                        $ok = db_exec($this->db, "UPDATE ordini set n_pezzi = ?, totale = ? WHERE id_ordine = ?", 'idi', array($n_pezzi, $totale, $id_ordine));
+                    //print "query: calcolaTotali update ordini";
+                }
+            }
+            catch (Throwable)
+            {
+                // PHP8: query fallita lancia invece di tornare false; annulla come sopra.
+                $ok = false;
+            }
+            if ($in_txn)
+                return $ok; // commit/rollback al chiamante (mq/mr, T08).
+            if ($ok)
+                $this->db->commit();
+            else
+            {
+                $this->db->rollback();
+                cassa_log('warning', "calcolaTotali: rollback id_ordine=$id_ordine [T07]");
+            }
+        }
+
+        return $ok;
+
     }
 
     // action=st: imposta tipo ordine (T26: whitelist = OrderType enum).

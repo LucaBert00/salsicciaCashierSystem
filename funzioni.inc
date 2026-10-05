@@ -90,88 +90,14 @@ function db_exec($mysqli, $sql, $tipi = '', $params = array())
     return $ok;
 }
 
+// F4.2 #99: alias sottile verso OrderService::calcolaTotali() (unica sede,
+// src/Cassa/OrderService.php). Rimosso in F4.4; zero logica qui.
+if (!function_exists('calcolaTotali'))
+{
 function calcolaTotali(int $id_prodotto, int $id_ordine, mysqli $mysqli, bool $in_txn = false): bool
 {
-    // cast difensivo, i chiamanti cassa passano gia (int); la firma typed (T22)
-    // rende ogni coercizione un TypeError forte in rehearsal, mai drift in fiera.
-    $id_prodotto = (int)$id_prodotto;
-    $id_ordine = (int)$id_ordine;
-    // T08: $in_txn=true quando il chiamante (mq/mr) possiede gia' la transazione:
-    // niente begin/commit/rollback interni (un begin annidato farebbe implicit commit
-    // su InnoDB), l'esito torna al chiamante. Ritorna bool per la catena esterna.
-    $ok = false;
-    if(isSet($id_prodotto))
-    {
-        // T07: catena SELECT->UPDATE->SELECT->UPDATE in un'unica transazione; la riga
-        // ordini padre e' bloccata via SELECT ... FOR UPDATE dove il motore lo permette
-        // (effettivo su InnoDB da T21, no-op su MyISAM baseline). Ordine di lock costante
-        // padre->figlio anti-deadlock; niente retry interno, il prossimo tap ricalcola.
-        if (!$in_txn)
-            $mysqli->begin_transaction();
-        $ok = true;
-        try
-        {
-            #Lock riga padre: serializza i tap concorrenti sullo stesso ordine.
-            $ris = db_select($mysqli, "SELECT id_ordine FROM ordini WHERE id_ordine = ? FOR UPDATE", 'i', array($id_ordine));
-            if (!$ris)
-                $ris = db_select($mysqli, "SELECT id_ordine FROM ordini WHERE id_ordine = ?", 'i', array($id_ordine));
-            $ok = (bool)$ris;
-            if ($ok)
-            {
-                #DOPO AVER INSERITO O AGGIUNTO UN PRODOTTO DEVO AGGIORNARE QUANTITA E TOTALE IN righe_ordini
-                $ris = db_select($mysqli, "SELECT quantita, prezzo FROM prodotti,righe_ordini WHERE prodotti.id_prodotto = righe_ordini.id_prodotto AND id_ordine = ? AND prodotti.id_prodotto = ?", 'ii', array($id_ordine, $id_prodotto));
-                //print "query: calcolaTotali select righe";
-                $ok = (bool)$ris;
-            }
-            if($ok && mysqli_num_rows($ris) > 0)
-            {
-                $riga = mysqli_fetch_array($ris);
-                $quantita = (int)$riga['quantita'];
-                $prezzo = (float)$riga['prezzo'];
-                $totale = $quantita * $prezzo;
-                //print "\n<script>alert('n_pezzi: $quantita - totale:$totale');</script>";
-                //print "query: calcolaTotali update righe";
-                $ok = db_exec($mysqli, "UPDATE righe_ordini set quantita = ?, totale = ? WHERE id_ordine = ? AND id_prodotto = ?", 'idii', array($quantita, $totale, $id_ordine, $id_prodotto));
-            }
-            if ($ok)
-            {
-                #DOPO AVER INSERITO O AGGIUNTO UN PRODOTTO DEVO AGGIORNARE n_pezzi e totale IN ordini
-                $ris = db_select($mysqli, "SELECT sum(quantita) as n_pezzi, sum(totale) as totale FROM righe_ordini WHERE id_ordine = ? GROUP BY id_ordine", 'i', array($id_ordine));
-                $ok = (bool)$ris;
-            }
-            if ($ok)
-            {
-                $riga = mysqli_fetch_array($ris);
-                $n_pezzi = (int)$riga['n_pezzi'];
-                $totale = (float)$riga['totale'];
-
-                if($totale == 0)
-                    //print "query: calcolaTotali azzera ordini";
-                    $ok = db_exec($mysqli, "UPDATE ordini set n_pezzi = 0, totale = 0 WHERE id_ordine = ?", 'i', array($id_ordine));
-                //print "query: calcolaTotali update ordini";
-                else
-                    $ok = db_exec($mysqli, "UPDATE ordini set n_pezzi = ?, totale = ? WHERE id_ordine = ?", 'idi', array($n_pezzi, $totale, $id_ordine));
-                //print "query: calcolaTotali update ordini";
-            }
-        }
-        catch (Throwable)
-        {
-            // PHP8: query fallita lancia invece di tornare false; annulla come sopra.
-            $ok = false;
-        }
-        if ($in_txn)
-            return $ok; // commit/rollback al chiamante (mq/mr, T08).
-        if ($ok)
-            $mysqli->commit();
-        else
-        {
-            $mysqli->rollback();
-            cassa_log('warning', "calcolaTotali: rollback id_ordine=$id_ordine [T07]");
-        }
-    }
-
-    return $ok;
-
+    return (new \Salsiccia\Cassa\OrderService($mysqli, 0))->calcolaTotali($id_prodotto, $id_ordine, $in_txn);
+}
 }
 
 function testo_biglietti($stringa)
@@ -412,21 +338,14 @@ function stampaMenu($testo,$quantita,$tipo_stampa,$parametri, $id=0)
     return $vect;
 }
 
-// Tutti i contatori attivi con un UNICO statement GROUP BY (T25): niente
-// fan-out per prodotto di conta_prodotto. La finestra periodo e' per-contatore
-// nella ON di ordini (BINARY = confronto byte-esatto come il == "T" in PHP);
-// le righe senza ordine (data fuori finestra o orfane) danno o NULL e restano
-// fuori dalla SUM come nel join interno di prima. Ritorna lista
-// array(id_contatore, nome, totale float) in ordine di nome.
+// F4.2 #99: alias sottile verso StatsData::contatori_totali() (unica sede,
+// src/Stats/StatsData.php). Rimosso in F4.4; zero logica qui.
+if (!function_exists('contatori_totali'))
+{
 function contatori_totali($mysqli)
 {
-    $ris = db_select($mysqli, "SELECT `c`.`id_contatore` AS `id_contatore`, `c`.`nome` AS `nome`, COALESCE(SUM(CASE WHEN `o`.`id_ordine` IS NULL THEN NULL ELSE (`r`.`quantita` * `pc`.`quantita`) END), 0) AS `totale` FROM `contatori` `c` LEFT JOIN `prodotti_contatori` `pc` ON `pc`.`id_contatore` = `c`.`id_contatore` LEFT JOIN `righe_ordini` `r` ON `r`.`id_prodotto` = `pc`.`id_prodotto` LEFT JOIN `ordini` `o` ON `o`.`id_ordine` = `r`.`id_ordine` AND (BINARY `c`.`controllo_periodo` <> 'T' OR `o`.`data_ora` BETWEEN `c`.`data_da` AND `c`.`data_a`) WHERE `c`.`attivo` = 'T' GROUP BY `c`.`id_contatore`, `c`.`nome` ORDER BY `c`.`nome` ASC");
-    $righe = array();
-    while($ris && ($riga = mysqli_fetch_array($ris)))
-    {
-        $righe[] = array('id_contatore' => (int)$riga['id_contatore'], 'nome' => $riga['nome'], 'totale' => (float)$riga['totale']);
-    }
-    return $righe;
+    return \Salsiccia\Stats\StatsData::contatori_totali($mysqli);
+}
 }
 
 function generaCardDegustazione($numero, $qta)

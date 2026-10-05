@@ -16,7 +16,7 @@ namespace Salsiccia\Cassa;
 // dati gia pronti; stessi byte odierni (stessi link, stesso tastierino JS,
 // stessa paginazione 5 righe, stessi campi festa, stessa form repair).
 // Riuso as-is (mai spostati qui, restano dov sono): isFieraAttiva(),
-// cassaCorrente(), contatori_totali() (lo sposta F4 punto 15),
+// cassaCorrente(), StatsData::contatori_totali() (F4.2 punto 15, #99),
 // festa_leggi()/festa_imposta() su storage/festa.json (F0.3, mai
 // file_put_contents su set.inc, congelato read-only), DbRepair::run()
 // (F2.2, mai logica REPAIR duplicata), csrf_field()/csrf_ok() (T14),
@@ -115,7 +115,7 @@ final class AdminView
         $pagina = isset($_GET['page']) ? (int)$_GET['page'] : 1;
         if ($pagina < 1)
             $pagina = 1;
-        $righe = \contatori_totali($db);
+        $righe = \Salsiccia\Stats\StatsData::contatori_totali($db);
         $tot = count($righe);
         $totPagine = max(1, (int)ceil($tot / $rpp));
         if ($pagina > $totPagine)
