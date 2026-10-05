@@ -6,6 +6,11 @@ if (!function_exists('cassa_log'))
 //define("DEBUG", 1);
 
 // Token anti-CSRF in sessione: mutazioni solo via POST con hidden tok.
+// F4.1 #98: guardia pluggable (come env.inc) — la copia canonica vive in
+// src/Support/helpers.php via autoload.files; vince chi carica per primo.
+// Corpi intoccati, rimozione rinviata a F4.4.
+if (!function_exists('csrf_token'))
+{
 function csrf_token()
 {
     salsiccia_session_start();
@@ -13,16 +18,23 @@ function csrf_token()
         $_SESSION['tok'] = bin2hex(random_bytes(32));
     return $_SESSION['tok'];
 }
+}
 
+if (!function_exists('csrf_ok'))
+{
 function csrf_ok()
 {
     salsiccia_session_start();
     return isset($_POST['tok'], $_SESSION['tok']) && hash_equals((string)$_SESSION['tok'], (string)$_POST['tok']);
 }
+}
 
+if (!function_exists('csrf_field'))
+{
 function csrf_field()
 {
     echo '<input type="hidden" name="tok" value="' . htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') . '">';
+}
 }
 
 

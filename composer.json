@@ -14,7 +14,10 @@
     "autoload": {
         "psr-4": {
             "Salsiccia\\": "src/"
-        }
+        },
+        "files": [
+            "src/Support/helpers.php"
+        ]
     },
     "scripts": {
         "test": "phpunit",
