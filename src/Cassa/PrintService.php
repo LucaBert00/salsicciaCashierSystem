@@ -148,12 +148,13 @@ final class PrintService
         #Scrittura finale del file unico generato
         // Taglio GX420t a richiesta: EPL = C (fuori form), ZPL = ^MMC (dentro ^XA).
         $vuole_taglio = isset($_GET['taglia']) && $_GET['taglia'] === '1' && $continua && \Salsiccia\Printer\PrinterRegistry::taglioPermesso($printerNome, $printerConn, $printerLang);
-        if ($vuole_taglio && $printerLang === 'ZPL')
+        if ($vuole_taglio && $printerLang === 'ZPL') {
             $label = preg_replace('/\^XA\s*/', "^XA\n^MMC\n", $label, 1);
-        elseif ($vuole_taglio && $printerLang === 'EPL')
+        } elseif ($vuole_taglio && $printerLang === 'EPL') {
             $label .= "C\n";
-        else
+        } else {
             $label .= " \n";
+        }
         fwrite($pf, $label, strlen($label));
         fclose($pf);
 
