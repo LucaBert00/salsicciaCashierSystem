@@ -8,7 +8,7 @@ namespace Salsiccia\System;
 // functionsFrontend.inc:1019-1032, mappa §6 1023-1056).
 // Rif. docs/ARCHITETTURA_REVISTA.md §10 punto 9 + §6 + §9 + §3.2b (sola lettura).
 // Pura: solo $db, mai echo/header/$_POST/$_GET/sessione/isAdmin (restano nel chiamante).
-// Whitelist identica a oggi: /^[A-Za-z0-9_]+$/, backtick, cassa_log warning + continue.
+// Whitelist identica a oggi: /^[A-Za-z0-9_]+$/, backtick, Env::log warning + continue.
 final class DbRepair
 {
     /**
@@ -26,7 +26,7 @@ final class DbRepair
             $table = (string)$row[0];
             if (!preg_match('/^[A-Za-z0-9_]+$/', $table))
             {
-                cassa_log('warning', 'REPAIR bloccato: tabella non whitelistata');
+                \Salsiccia\Support\Env::log('warning', 'REPAIR bloccato: tabella non whitelistata');
                 continue;
             }
             $ok = $db->query('REPAIR TABLE `' . $table . '`');

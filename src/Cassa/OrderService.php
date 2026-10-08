@@ -96,7 +96,7 @@ final class OrderService
                 $db->commit();
             } else {
                 $db->rollback();
-                cassa_log('warning', 'ordini: rollback nuovo ordine [T06]');
+                \Salsiccia\Support\Env::log('warning', 'ordini: rollback nuovo ordine [T06]');
                 $id_ordine = 0;
             }
         }
@@ -141,7 +141,7 @@ final class OrderService
             $db->commit();
         } else {
             $db->rollback();
-            cassa_log('warning', "mq: rollback id_ordine=$id_ordine [T08]");
+            \Salsiccia\Support\Env::log('warning', "mq: rollback id_ordine=$id_ordine [T08]");
         }
         return (bool)$mq_ok;
     }
@@ -173,7 +173,7 @@ final class OrderService
             $db->commit();
         } else {
             $db->rollback();
-            cassa_log('warning', "mr: rollback id_ordine=$id_ordine [T08]");
+            \Salsiccia\Support\Env::log('warning', "mr: rollback id_ordine=$id_ordine [T08]");
         }
         return (bool)$mr_ok;
     }
@@ -257,7 +257,7 @@ final class OrderService
             else
             {
                 $this->db->rollback();
-                cassa_log('warning', "calcolaTotali: rollback id_ordine=$id_ordine [T07]");
+                \Salsiccia\Support\Env::log('warning', "calcolaTotali: rollback id_ordine=$id_ordine [T07]");
             }
         }
 

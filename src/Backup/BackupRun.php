@@ -11,10 +11,6 @@ use mysqli;
 // cassa chiusa: niente cron, niente dump a ogni scontrino. Metodi statici: il
 // modulo e' stateless, $db/$cfg viaggiano come parametri come nelle funzioni
 // d'origine. Credenziali solo da env SALSICCIA_DB_* (mai in chiaro qui).
-if (!function_exists('cassa_log')) {
-    require_once dirname(__DIR__, 2) . '/env.inc';
-}
-
 final class BackupRun
 {
     // Config da env. Stringhe vuote = mysqldump salta, il fallback PHP usa la
@@ -58,7 +54,7 @@ final class BackupRun
             mkdir($fb, 0770, true);
         }
         if (file_put_contents($fb . '/.htaccess', "<IfModule mod_authz_core.c>\n  Require all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\n  Order allow,deny\n  Deny from all\n</IfModule>\n") === false) {
-            cassa_log('warning', 'backup htaccess scrittura fallita');
+            \Salsiccia\Support\Env::log('warning', 'backup htaccess scrittura fallita');
         }
         return array('path' => $fb, 'outside' => true);
     }
@@ -130,7 +126,7 @@ final class BackupRun
         }
         $fh = fopen($file, 'wb');
         if ($fh === false) {
-            cassa_log('error', 'backup apertura dump fallita');
+            \Salsiccia\Support\Env::log('error', 'backup apertura dump fallita');
             return false;
         }
         fwrite($fh, '-- SalsicciaStagisti dump intero DB `' . $db_name . '` del ' . date('c') . " (fallback PHP)\n\n");

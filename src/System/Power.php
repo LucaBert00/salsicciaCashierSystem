@@ -14,13 +14,13 @@ namespace Salsiccia\System;
 // Corpi verbatim invariati: legacy-first systemctl poi shutdown con
 // is_executable + fallback command -v, escapeshellarg per pezzo, primo
 // permesso via sudo -n -l sul comando esatto (mai verde falso), marker via
-// salsiccia_storage_path('power_attempt.json') mai docroot, uptime da
+// Storage::path('power_attempt.json') mai docroot, uptime da
 // /proc/uptime, esito riuscito/fallito/attesa soglia 180s, coda DIRETTA
-// cancel -a best-effort mai bloccante con whitelist + printer_cups_queue
+// cancel -a best-effort mai bloccante con whitelist + CupsState::cupsQueue
 // as-is (RETE nessun job, invio sincrono), schedulazione sleep 2 + sudo in
 // background con system() rc.
-// Riuso as-is (mai spostati qui, restano dov sono, F5): salsiccia_storage_path(),
-// cassa_log(), printer_cups_queue(), PRINTER_*.
+// Riuso diretto dei moduli F5: Storage::path(), Env::log(),
+// CupsState::cupsQueue(), PRINTER_*.
 final class Power
 {
     public static function candidatiAlimentazione($mode): array
@@ -75,7 +75,7 @@ final class Power
 
     public static function markerPowerFile(): string
     {
-        return salsiccia_storage_path('power_attempt.json');
+        return \Salsiccia\Support\Storage::path('power_attempt.json');
     }
 
     public static function uptimeMacchina(): mixed
@@ -111,13 +111,13 @@ final class Power
             return;
         if (!preg_match('/^[A-Za-z0-9_-]+$/', PRINTER_NAME))
         {
-            cassa_log('error', 'power: cancel bloccato, PRINTER_NAME non whitelistato');
+            \Salsiccia\Support\Env::log('error', 'power: cancel bloccato, PRINTER_NAME non whitelistato');
             return;
         }
-        $cmd = 'cancel -a ' . escapeshellarg(printer_cups_queue(PRINTER_NAME)) . ' >/dev/null 2>&1';
+        $cmd = 'cancel -a ' . escapeshellarg(\Salsiccia\Printer\CupsState::cupsQueue(PRINTER_NAME)) . ' >/dev/null 2>&1';
         system($cmd, $rc);
         if ($rc !== 0)
-            cassa_log('error', 'power: cancel coda fallito rc=' . $rc . ' printer=' . PRINTER_NAME);
+            \Salsiccia\Support\Env::log('error', 'power: cancel coda fallito rc=' . $rc . ' printer=' . PRINTER_NAME);
     }
 
     public static function schedulaAzioneAlimentazione($mode): bool
@@ -125,7 +125,7 @@ final class Power
         $cmdline = self::scegliComandoAlimentazione($mode);
         if ($cmdline === '')
         {
-            cassa_log('error', 'power: schedulazione ' . $mode . ' impossibile, nessun comando permesso');
+            \Salsiccia\Support\Env::log('error', 'power: schedulazione ' . $mode . ' impossibile, nessun comando permesso');
             return false;
         }
         self::svuotaCodaStampaPreSpegnimento();
@@ -133,7 +133,7 @@ final class Power
         system($cmd, $rc);
         if ($rc !== 0)
         {
-            cassa_log('error', 'power: schedulazione ' . $mode . ' fallita rc=' . $rc);
+            \Salsiccia\Support\Env::log('error', 'power: schedulazione ' . $mode . ' fallita rc=' . $rc);
             return false;
         }
         self::scriviMarkerPower($mode);

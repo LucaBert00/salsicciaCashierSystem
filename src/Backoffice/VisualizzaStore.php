@@ -177,7 +177,7 @@ final class VisualizzaStore
     // Modalita' fiera via store JSON (T17), mai parse di set.inc (verbatim).
     public static function fieraAttiva(): bool
     {
-        return \function_exists('cassa_leggi_fiera') ? (bool)\cassa_leggi_fiera() : false;
+        return \Salsiccia\Config\CassaFlags::cassaLeggiFiera();
     }
 
     // Errore DB grezzo in messaggio leggibile da cassa (verbatim).

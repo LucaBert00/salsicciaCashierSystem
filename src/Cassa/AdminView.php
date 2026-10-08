@@ -20,14 +20,15 @@ namespace Salsiccia\Cassa;
 // stessa paginazione 5 righe, stessi campi festa, stessa form repair,
 // stesse card/grid/pill switch, stessi 4 esiti carta, stessi messaggi
 // power TOKEN/COMANDO NON AVVIATO/SCHEDULATO + riga coda DIRETTA/RETE).
-// Riuso as-is (mai spostati qui, restano dove sono): isFieraAttiva(),
+// Riuso diretto dei moduli F5: isFieraAttiva(),
 // cassaCorrente(), StatsData::contatori_totali() (F4.2 punto 15, #99),
-// festa_leggi()/festa_imposta() su storage/festa.json (F0.3, mai
+// CassaFlags::festaLeggi()/festaImposta() su storage/festa.json (F0.3, mai
 // file_put_contents su set.inc, congelato read-only), DbRepair::run()
 // (F2.2, mai logica REPAIR duplicata), csrf_field()/csrf_ok() (T14),
 // isAdmin() + redirect dentro i metodi (difesa in profondita §3.2b),
-// cartaStampaLeggiSetup()/impostaCartaStampa()/printer_known_printers()/
-// printer_cups_queue()/PRINTER_* (F5, qui solo riuso, mai duplicare),
+// PaperSetup::leggiSetup()/impostaCartaStampa()/PrinterRegistry::
+// knownPrinters()/CupsState::cupsQueue()/PRINTER_* (F5, qui solo riuso,
+// mai duplicare),
 // PrinterConfig::salva()/raggiungibile() (F2.3), PrintService::
 // inviaSetupCarta() (F3.2), Power::* (F2.5, logica sudo/marker/uptime).
 final class AdminView
@@ -172,7 +173,7 @@ final class AdminView
             header("Location: index.php?action=c");
             exit;
         }
-        $letto = \festa_leggi();
+        $letto = \Salsiccia\Config\CassaFlags::festaLeggi();
         $eventName = isset($letto['event_name']) ? (string)$letto['event_name'] : '';
         $durataFesta = isset($letto['durata_festa']) ? (string)$letto['durata_festa'] : '1';
 
@@ -185,8 +186,8 @@ final class AdminView
             }
             else
             {
-            \festa_imposta(isset($_POST['EVENT_NAME']) ? $_POST['EVENT_NAME'] : '', isset($_POST['DURATA_FESTA']) ? $_POST['DURATA_FESTA'] : '');
-            $letto = \festa_leggi();
+            \Salsiccia\Config\CassaFlags::festaImposta(isset($_POST['EVENT_NAME']) ? $_POST['EVENT_NAME'] : '', isset($_POST['DURATA_FESTA']) ? $_POST['DURATA_FESTA'] : '');
+        $letto = \Salsiccia\Config\CassaFlags::festaLeggi();
             $eventName = isset($letto['event_name']) ? (string)$letto['event_name'] : '';
             $durataFesta = isset($letto['durata_festa']) ? (string)$letto['durata_festa'] : '1';
             $messaggio = 'Configurazione salvata con successo.';
@@ -282,7 +283,7 @@ final class AdminView
             {
             $continuaNuova = ($nuovo === '1');
             $erroreSetup = '';
-            $setup = \cartaStampaLeggiSetup(PRINTER_NAME, PRINTER_CONNECTION, PRINTER_LANGUAGE, $continuaNuova, $erroreSetup, \salsiccia_storage_path('printerCommand'));
+            $setup = \Salsiccia\Printer\PaperSetup::leggiSetup(PRINTER_NAME, PRINTER_CONNECTION, PRINTER_LANGUAGE, $continuaNuova, $erroreSetup, \Salsiccia\Support\Storage::path('printerCommand'));
             if ($setup === false)
             {
                 echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;font-weight:800;text-align:center;padding:12px;border-radius:6px;">' . htmlspecialchars($erroreSetup, ENT_QUOTES, 'UTF-8') . '</p>';
@@ -360,7 +361,7 @@ final class AdminView
             echo '<script>function selModo(r){var f=r.form,b=f.cambia_stampante;if(b){if(b.getAttribute("data-unreach")==="1")return;b.disabled=false;b.style.opacity="";b.style.cursor="";}var L=f.querySelectorAll("label.opzione-btn");for(var i=0;i<L.length;i++){L[i].removeAttribute("style");}var l=r.parentNode;l.style.border="2px solid #2b3d4e";l.style.background="#2b3d4e";l.style.color="#fff";}</script>';
             $raggiungibili = array();
             $altre = array();
-            foreach (\printer_known_printers() as $p)
+            foreach (\Salsiccia\Printer\PrinterRegistry::knownPrinters() as $p)
             {
                 $p['ok'] = \Salsiccia\Printer\PrinterConfig::raggiungibile((string)$p['name'], (string)$p['connection'], defined('PRINTER_IP') ? PRINTER_IP : '');
                 if ($p['ok'])

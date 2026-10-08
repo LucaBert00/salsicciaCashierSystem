@@ -9,11 +9,9 @@ namespace Salsiccia\Printer;
 // 1214-1247). Rif. docs/ARCHITETTURA_REVISTA.md §10 punto 10 + §6 + §9 + §5
 // (sola lettura). Pura: mai echo/header/$_POST/$_GET/sessione/isAdmin
 // (restano nel chiamante: mostraSwitchPrinter() oggi, AdminView in F2.5).
-// Riuso as-is (mai spostati qui, sono F5): printer_gate_allowed(),
-// printer_selection_file(), cassa_log(); per raggiungibile():
-// printer_is_reachable(), printer_lpstat_stato(),
-// printer_usb_locale_presente(), printer_stato_locale_ok().
-// printer_cups_queue() resta in env.inc, riuso as-is altrove.
+// Riuso diretto dei moduli F5 (stessi esiti dello shim): PrinterRegistry::
+// gateAllowed()/selectionFile(), Env::log(); per raggiungibile():
+// CupsState::isReachable()/stato()/usbLocalePresente()/statoLocaleOk().
 final class PrinterConfig
 {
     /**
@@ -30,14 +28,14 @@ final class PrinterConfig
         $ip = trim((string)$ip);
         if (!preg_match('/^[A-Za-z0-9_-]+$/', $name))
             return false;
-        if (!printer_gate_allowed($name, $conn, $lang))
+        if (!PrinterRegistry::gateAllowed($name, $conn, $lang))
             return false;
         if ($ip !== '' && ($conn !== 'RETE' || filter_var($ip, FILTER_VALIDATE_IP) === false))
             return false;
         $d = array('name' => $name, 'connection' => $conn, 'language' => $lang, 'ip' => $ip);
-        if (file_put_contents(printer_selection_file(), json_encode($d), LOCK_EX) === false)
+        if (file_put_contents(PrinterRegistry::selectionFile(), json_encode($d), LOCK_EX) === false)
         {
-            cassa_log('error', "stampante_selezione: scrittura fallita");
+            \Salsiccia\Support\Env::log('error', "stampante_selezione: scrittura fallita");
             return false;
         }
         return true;
@@ -51,10 +49,10 @@ final class PrinterConfig
     public static function raggiungibile($nome, $conn, $ip = ''): bool
     {
         if ($conn === 'RETE')
-            return (bool)printer_is_reachable($nome, $conn, $ip);
-        $st = printer_lpstat_stato($nome);
+            return (bool)CupsState::isReachable($nome, $conn, $ip);
+        $st = CupsState::stato($nome);
         $dev = isset($st['device']) ? (string)$st['device'] : '';
-        $usb = stripos($dev, 'usb://') === 0 ? printer_usb_locale_presente($dev) : true;
-        return (bool)printer_stato_locale_ok($st, $usb);
+        $usb = stripos($dev, 'usb://') === 0 ? CupsState::usbLocalePresente($dev) : true;
+        return (bool)CupsState::statoLocaleOk($st, $usb);
     }
 }

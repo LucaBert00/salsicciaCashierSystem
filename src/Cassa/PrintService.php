@@ -9,9 +9,6 @@ namespace Salsiccia\Cassa;
 // T32 follow-up #43: corpo verbatim legacy pre-F4.4 (genera_file_stampa,
 // invia_file_stampa, ftpPut). I 5 builder puri vivono in src/Cassa/LabelBuilder.php
 // (F4.3 #100, funzioni §7); qui solo spool su LABELS_FILE + invio, stessi esiti.
-if (!function_exists('cassa_log')) {
-    require_once dirname(__DIR__, 2) . '/env.inc';
-}
 require_once __DIR__ . '/LabelBuilder.php';
 
 final class PrintService
@@ -19,7 +16,7 @@ final class PrintService
     public static function generaFileStampa($ris, $numero_righe)
     {
         $print_order_id = PRINT_ORDER_ID;
-        $festa = function_exists('festa_leggi') ? festa_leggi() : array();
+        $festa = \Salsiccia\Config\CassaFlags::festaLeggi();
         $evento = isset($festa['event_name']) ? (string)$festa['event_name'] : (defined('EVENT_NAME') ? (string)EVENT_NAME : '');
         $credits = CREDITS;
         $cassa = function_exists('cassaCorrente') ? cassaCorrente() : ID_CASSA;
@@ -28,8 +25,8 @@ final class PrintService
         // Unica chiave linguaggio: "ZPL" o "EPL" da PRINTER_LANGUAGE.
         $tipo_stampante = PRINTER_LANGUAGE;
 
-        // Gate unico in env.inc: stessa tabella di CONTINUOUS_LABEL in set.inc.
-        $stampa_permessa = printer_gate_allowed(PRINTER_NAME, PRINTER_CONNECTION, PRINTER_LANGUAGE);
+        // Gate unico PrinterRegistry: stessa tabella di CONTINUOUS_LABEL in set.inc.
+        $stampa_permessa = \Salsiccia\Printer\PrinterRegistry::gateAllowed(PRINTER_NAME, PRINTER_CONNECTION, PRINTER_LANGUAGE);
 
         if ($stampa_permessa == false) {
             $specifiche = "";
@@ -141,7 +138,7 @@ final class PrintService
 
         #Scrittura finale del file unico generato
         // Taglio GX420t a richiesta: EPL = C (fuori form), ZPL = ^MMC (dentro ^XA).
-        $vuole_taglio = isset($_GET['taglia']) && $_GET['taglia'] === '1' && CONTINUOUS_LABEL && printer_taglia_permesso(PRINTER_NAME, PRINTER_CONNECTION, PRINTER_LANGUAGE);
+        $vuole_taglio = isset($_GET['taglia']) && $_GET['taglia'] === '1' && CONTINUOUS_LABEL && \Salsiccia\Printer\PrinterRegistry::taglioPermesso(PRINTER_NAME, PRINTER_CONNECTION, PRINTER_LANGUAGE);
         if ($vuole_taglio && PRINTER_LANGUAGE === 'ZPL')
             $label = preg_replace('/\^XA\s*/', "^XA\n^MMC\n", $label, 1);
         elseif ($vuole_taglio && PRINTER_LANGUAGE === 'EPL')
@@ -165,23 +162,23 @@ final class PrintService
         // nessun input GET/POST qui, solo costanti set.inc; whitelist+escapeshellarg+error_log.
         // T16: LABELS_FILE e' assoluto in storage/, whitelist sul basename.
         if (!preg_match('/^[A-Za-z0-9_-]+$/', PRINTER_NAME) || !preg_match('/^[A-Za-z0-9_.-]+$/', basename(LABELS_FILE))) {
-            cassa_log('warning', "invia_file_stampa bloccato: costanti stampa non whitelistate");
+            \Salsiccia\Support\Env::log('warning', "invia_file_stampa bloccato: costanti stampa non whitelistate");
             return false;
         }
         if (PRINTER_CONNECTION == "DIRETTA") {
-            $coda = printer_cups_queue(PRINTER_NAME);
+            $coda = \Salsiccia\Printer\CupsState::cupsQueue(PRINTER_NAME);
             $cmd = "lpr -P " . escapeshellarg($coda) . " " . escapeshellarg(LABELS_FILE);
             system($cmd, $rc);
             if ($rc !== 0) {
-                cassa_log('error', "lpr fallito rc=$rc printer=" . $coda . " file=" . LABELS_FILE);
+                \Salsiccia\Support\Env::log('error', "lpr fallito rc=$rc printer=" . $coda . " file=" . LABELS_FILE);
             }
             return $rc === 0;
         }
         return self::ftpPut();
     }
 
-    // F3.2 #62: invio setup carta (contenuto normalizzato da F3.1), stessa
-    // logica di cartaStampaInviaContenuto() upstream (a79ed89): valida -> tmp
+    // F3.2 #62: invio setup carta (contenuto normalizzato da PaperSetup), stessa
+    // logica di invio setup upstream (a79ed89): valida -> tmp
     // -> DIRETTA/RETE -> unlink -> return. Mai LABELS_FILE come remoto
     // (nel target e' un path storage, set.inc:43): solo basename.
     public static function inviaSetupCarta(string $contenuto): bool
@@ -191,39 +188,39 @@ final class PrintService
         }
         $tmp = tempnam(sys_get_temp_dir(), 'carta');
         if ($tmp === false) {
-            cassa_log('error', 'carta_stampa: tmp non creato');
+            \Salsiccia\Support\Env::log('error', 'carta_stampa: tmp non creato');
             return false;
         }
         if (file_put_contents($tmp, $contenuto, LOCK_EX) === false) {
-            cassa_log('error', 'carta_stampa: scrittura tmp fallita');
+            \Salsiccia\Support\Env::log('error', 'carta_stampa: scrittura tmp fallita');
             @unlink($tmp);
             return false;
         }
         if (PRINTER_CONNECTION == 'DIRETTA') {
-            $coda = printer_cups_queue(PRINTER_NAME);
+            $coda = \Salsiccia\Printer\CupsState::cupsQueue(PRINTER_NAME);
             $cmd = 'lpr -P ' . escapeshellarg($coda) . ' ' . escapeshellarg($tmp);
             system($cmd, $rc);
             @unlink($tmp);
             if ($rc !== 0) {
-                cassa_log('error', 'carta_stampa: lpr fallito rc=' . $rc . ' printer=' . $coda);
+                \Salsiccia\Support\Env::log('error', 'carta_stampa: lpr fallito rc=' . $rc . ' printer=' . $coda);
             }
             return $rc === 0;
         }
         $ftp = ftp_connect(PRINTER_IP, 21, 5);
         if ($ftp === false) {
-            cassa_log('error', 'carta_stampa: ftp_connect fallito verso ' . PRINTER_IP);
+            \Salsiccia\Support\Env::log('error', 'carta_stampa: ftp_connect fallito verso ' . PRINTER_IP);
             @unlink($tmp);
             return false;
         }
         if (!ftp_login($ftp, '', '')) {
-            cassa_log('error', 'carta_stampa: ftp_login anonimo fallito verso ' . PRINTER_IP);
+            \Salsiccia\Support\Env::log('error', 'carta_stampa: ftp_login anonimo fallito verso ' . PRINTER_IP);
             ftp_close($ftp);
             @unlink($tmp);
             return false;
         }
         $ok = ftp_put($ftp, basename(LABELS_FILE), $tmp, FTP_BINARY);
         if (!$ok) {
-            cassa_log('error', 'carta_stampa: ftp_put fallito verso ' . PRINTER_IP);
+            \Salsiccia\Support\Env::log('error', 'carta_stampa: ftp_put fallito verso ' . PRINTER_IP);
         }
         ftp_close($ftp);
         @unlink($tmp);
@@ -239,13 +236,13 @@ final class PrintService
         // timeout corto cosi' in fiera la cassa fallisce in fretta invece di bloccarsi.
         $ftp = ftp_connect(PRINTER_IP, 21, 5);
         if ($ftp === false) {
-            cassa_log('error', "ftp_connect fallito verso " . PRINTER_IP);
+            \Salsiccia\Support\Env::log('error', "ftp_connect fallito verso " . PRINTER_IP);
             return false;
         }
 
         // login with username and password
         if (!ftp_login($ftp, "", "")) {
-            cassa_log('error', "ftp_login anonimo fallito verso " . PRINTER_IP);
+            \Salsiccia\Support\Env::log('error', "ftp_login anonimo fallito verso " . PRINTER_IP);
             ftp_close($ftp);
             return false;
         }
@@ -253,7 +250,7 @@ final class PrintService
         // upload a file (spool locale assoluto in storage/ da T16, nome remoto solo basename)
         $ok = ftp_put($ftp, basename($file), $file, FTP_BINARY);
         if (!$ok) {
-            cassa_log('error', "ftp_put fallito file=$file verso " . PRINTER_IP);
+            \Salsiccia\Support\Env::log('error', "ftp_put fallito file=$file verso " . PRINTER_IP);
         }
 
         // close the connection

@@ -8,9 +8,6 @@ namespace Salsiccia\Fiscale;
 // T32 follow-up #43: corpo verbatim da fiscale.inc, stessi esiti e stessa
 // Coda/Fallback (la vendita non si blocca mai). Metodi statici: il modulo e'
 // stateless, $db/$cfg viaggiano come parametri come nelle funzioni d'origine.
-if (!function_exists('cassa_log')) {
-    require_once dirname(__DIR__, 2) . '/env.inc';
-}
 require_once __DIR__ . '/../Cassa/PayMethod.php';
 
 final class Fiscale
@@ -98,13 +95,13 @@ final class Fiscale
 
     // Trasporto puro: un solo tentativo verso il registratore, mai code, mai eccezioni.
     // Ritorna ['ok'=>true,'mock'=>true] | ['ok'=>true,'stato'=>...]
-    // oppure ['ok'=>false,'motivo'=>...,'log'=>riga gia' sanificata per cassa_log].
+    // oppure ['ok'=>false,'motivo'=>...,'log'=>riga gia' sanificata per Env::log].
     // 'log' contiene solo codici di stato, mai XML ne' dati del documento.
     public static function trasmetti(string $xml, array $cfg): array
     {
         if (!empty($cfg['mock'])) {
             if (file_put_contents((string)$cfg['mock_file'], $xml . "\n", FILE_APPEND | LOCK_EX) === false) {
-                cassa_log('warning', 'fiscale mock scrittura fallita');
+                \Salsiccia\Support\Env::log('warning', 'fiscale mock scrittura fallita');
             }
             return array('ok' => true, 'mock' => true);
         }
@@ -152,7 +149,7 @@ final class Fiscale
                 return array('ok' => false, 'skipped' => true, 'msg' => 'fiscale non configurato');
             }
             if (!empty($t['log'])) {
-                cassa_log('warning', (string)$t['log']);
+                \Salsiccia\Support\Env::log('warning', (string)$t['log']);
             }
             return self::fallback($cfg, $id_ordine, $metodo, $xml, (string)($t['motivo'] ?? 'trasmissione'));
         }
@@ -165,7 +162,7 @@ final class Fiscale
     {
         $riga = json_encode(array('ts' => date('c'), 'id_ordine' => $id_ordine, 'metodo' => $metodo, 'motivo' => $motivo, 'xml' => $xml));
         if (is_string($riga) && file_put_contents((string)$cfg['queue_file'], $riga . "\n", FILE_APPEND | LOCK_EX) === false) {
-            cassa_log('error', 'fiscale coda scrittura fallita id_ordine=' . $id_ordine);
+            \Salsiccia\Support\Env::log('error', 'fiscale coda scrittura fallita id_ordine=' . $id_ordine);
         }
         return array('ok' => false, 'fallback' => true, 'msg' => $motivo);
     }
@@ -185,7 +182,7 @@ final class Fiscale
         }
         $righe = file($qf, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
         if (!is_array($righe)) {
-            cassa_log('warning', 'fiscale coda lettura fallita');
+            \Salsiccia\Support\Env::log('warning', 'fiscale coda lettura fallita');
             return $esito;
         }
         if ($righe === array()) {
@@ -212,7 +209,7 @@ final class Fiscale
             if (is_array($t) && !empty($t['ok'])) {
                 $riga = json_encode(array('ts' => date('c'), 'id_ordine' => (int)($j['id_ordine'] ?? 0), 'metodo' => (string)($j['metodo'] ?? \Salsiccia\Cassa\PayMethod::Contanti->value), 'retry' => true));
                 if (is_string($riga) && file_put_contents((string)$cfg['sent_file'], $riga . "\n", FILE_APPEND | LOCK_EX) === false) {
-                    cassa_log('warning', 'fiscale inviati scrittura fallita');
+                    \Salsiccia\Support\Env::log('warning', 'fiscale inviati scrittura fallita');
                 }
                 $esito['inviati']++;
             } else {
@@ -220,7 +217,7 @@ final class Fiscale
             }
         }
         if (file_put_contents($qf, $resta === array() ? '' : implode("\n", $resta) . "\n", LOCK_EX) === false) {
-            cassa_log('error', 'fiscale coda rewrite fallita');
+            \Salsiccia\Support\Env::log('error', 'fiscale coda rewrite fallita');
         }
         $esito['residui'] = count($resta);
         return $esito;
@@ -267,12 +264,12 @@ final class Fiscale
         }
         $stmt = $db->prepare("SELECT SUM(righe_ordini.totale) AS totale, prodotti.iva AS iva FROM righe_ordini, prodotti WHERE righe_ordini.id_prodotto = prodotti.id_prodotto AND righe_ordini.id_ordine = ? GROUP BY prodotti.iva");
         if ($stmt === false) {
-            cassa_log('error', 'fiscale: prepare fallito, coda');
+            \Salsiccia\Support\Env::log('error', 'fiscale: prepare fallito, coda');
             return self::fallback($cfg, $id_ordine, $metodo, '', 'prepare');
         }
         $stmt->bind_param('i', $id_ordine);
         if (!$stmt->execute()) {
-            cassa_log('error', 'fiscale: query fallita, coda');
+            \Salsiccia\Support\Env::log('error', 'fiscale: query fallita, coda');
             $stmt->close();
             return self::fallback($cfg, $id_ordine, $metodo, '', 'query');
         }
@@ -287,14 +284,14 @@ final class Fiscale
         if (!empty($esito['ok'])) {
             $riga = json_encode(array('ts' => date('c'), 'id_ordine' => $id_ordine, 'metodo' => $metodo) + (!empty($esito['mock']) ? array('mock' => true) : array()));
             if (is_string($riga) && file_put_contents((string)$cfg['sent_file'], $riga . "\n", FILE_APPEND | LOCK_EX) === false) {
-                cassa_log('warning', 'fiscale inviati scrittura fallita');
+                \Salsiccia\Support\Env::log('warning', 'fiscale inviati scrittura fallita');
             }
             // Il registratore ha appena risposto: drenare la coda ora costa poco.
             // Se invece avesse fallito non saremmo qui dentro: nessuna attesa
             // aggiuntiva a registratore spento e nessuna latenza in cassa.
             $dren = self::ritentaCoda($cfg);
             if ($dren['inviati'] + $dren['residui'] + $dren['scarti'] > 0) {
-                cassa_log('info', 'fiscale: coda drenata inviati=' . $dren['inviati'] . ' residui=' . $dren['residui'] . ' scarti=' . $dren['scarti']);
+                \Salsiccia\Support\Env::log('info', 'fiscale: coda drenata inviati=' . $dren['inviati'] . ' residui=' . $dren['residui'] . ' scarti=' . $dren['scarti']);
             }
         }
         return $esito;

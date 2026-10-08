@@ -120,7 +120,7 @@ final class StampaController
             }
             catch (\Throwable $e)
             {
-                cassa_log('warning', 'fiscale non bloccante: ' . $e->getMessage());
+                \Salsiccia\Support\Env::log('warning', 'fiscale non bloccante: ' . $e->getMessage());
             }
         }
 

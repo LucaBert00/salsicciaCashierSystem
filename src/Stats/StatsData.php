@@ -35,15 +35,8 @@ final class StatsData
     // Giorni di festa coperti dalla tabella per-giorno (default 1), tetto anti-loop.
     public static function durataFesta()
     {
-        if (function_exists('festa_leggi'))
-        {
-            $festa = festa_leggi();
-            $giorni = isset($festa['durata_festa']) ? (int)$festa['durata_festa'] : 1;
-        }
-        else
-        {
-            $giorni = defined('DURATA_FESTA') ? (int)DURATA_FESTA : 1;
-        }
+        $festa = \Salsiccia\Config\CassaFlags::festaLeggi();
+        $giorni = isset($festa['durata_festa']) ? (int)$festa['durata_festa'] : 1;
         if ($giorni < 1) {
             $giorni = 1;
         }

@@ -459,10 +459,10 @@ function etichetta_continua($righe, $numero_righe, $evento, $credits, $cassa, $n
                         $cmdCards = "lpr -P " . escapeshellarg(PRINTER_NAME) . " " . escapeshellarg(dirname(__DIR__, 2) . "/storage/labelCards");
                         system($cmdCards, $rcCards);
                         if ($rcCards !== 0)
-                            cassa_log('error', "lpr labelCards fallito rc=$rcCards printer=" . PRINTER_NAME);
+                            \Salsiccia\Support\Env::log('error', "lpr labelCards fallito rc=$rcCards printer=" . PRINTER_NAME);
                     }
                     else
-                        cassa_log('warning', "lpr labelCards bloccato: PRINTER_NAME non whitelistato");
+                        \Salsiccia\Support\Env::log('warning', "lpr labelCards bloccato: PRINTER_NAME non whitelistato");
                 }
             }
         }
