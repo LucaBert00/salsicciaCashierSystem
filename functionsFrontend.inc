@@ -190,15 +190,15 @@ function cassa_azione_fiera($mysqli = null, $id_cassa = null)
 {
 
     // Toggle fiera da pannello admin: solo POST con token, GET resta lettura.
-    if (($_GET['action'] ?? '') == 'fiera')
+    if (!isAdmin())
     {
-        if (!isAdmin())
-        {
-            header("Location: index.php?action=c");
-            exit;
-        }
-        if (($_SERVER['REQUEST_METHOD'] ?? '') == 'POST' && csrf_ok() && isset($_POST['val']))
-            impostaModalitaFiera($_POST['val'] === "1" ? "1" : "0");
+        header("Location: index.php?action=c");
+        exit;
+    }
+    $post_ok = (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') && csrf_ok();
+    if ($post_ok && isset($_POST['val']))
+    {
+        impostaModalitaFiera($_POST['val'] === "1" ? "1" : "0");
         header("Location: index.php");
         exit;
     }
