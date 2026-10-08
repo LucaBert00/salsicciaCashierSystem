@@ -31,8 +31,9 @@ class StatPDF extends FPDF
     function Header()
     {
         $this->SetFont('Arial', 'B', 14);
+        // F6.2 #110: nome festa solo via JSON (CassaFlags::festaLeggi), mai piu EVENT_NAME da set.inc.
         $festa = \Salsiccia\Config\CassaFlags::festaLeggi();
-        $nomeFesta = isset($festa['event_name']) ? (string)$festa['event_name'] : (defined('EVENT_NAME') ? (string)EVENT_NAME : '');
+        $nomeFesta = isset($festa['event_name']) ? (string)$festa['event_name'] : '';
         $this->Cell(0, 9, stat_pdf_testo(strtoupper($nomeFesta)), 0, 1, 'C');
         $this->SetFont('Arial', '', 10);
         $this->Cell(0, 6, stat_pdf_testo('STATISTICHE — GIORNATA FISCALE ' . $this->giornata), 0, 1, 'C');

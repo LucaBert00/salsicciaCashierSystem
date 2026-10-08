@@ -15,7 +15,8 @@ function isAdmin()
 }
 
 // Cassa del terminale: scelta esplicita in sessione (pannello admin) se valida,
-// altrimenti fallback legacy da IP in set.inc (fiera: nessuna config extra).
+// altrimenti default da CassaConfig (config/cassa.php, fiera senza config extra).
+// F6.2 #110: unica fonte ID_CASSA, mai piu sniffing IP da set.inc.
 function cassaCorrente()
 {
     if (isset($_SESSION['id_cassa']))
@@ -24,11 +25,13 @@ function cassaCorrente()
         if ($c >= 1 && $c <= 999)
             return $c;
     }
-    return ID_CASSA;
+    $cfg = \Salsiccia\Config\CassaConfig::carica();
+    return isset($cfg['ID_CASSA']) ? (int)$cfg['ID_CASSA'] : 1;
 }
 
 // Default categoria da .env SALSICCIA_DEFAULT_CAT: id numerico o nome (case-insensitive, messo in CAPS).
-// ?cat= esplicito vince sempre; senza -> env -> MIN(id) -> DEFAULT_CAT.
+// ?cat= esplicito vince sempre; senza -> env -> MIN(id) -> CassaConfig DEFAULT_CAT.
+// F6.2 #110: fallback da CassaConfig, mai piu DEFAULT_CAT da set.inc.
 function defaultCat($mysqli)
 {
     $raw = trim((string)(getenv('SALSICCIA_DEFAULT_CAT') ?: ''));
@@ -45,7 +48,8 @@ function defaultCat($mysqli)
     $min = $repo->minCategoriaId();
     if ($min !== null)
         return $min;
-    return DEFAULT_CAT;
+    $cfg = \Salsiccia\Config\CassaConfig::carica();
+    return isset($cfg['DEFAULT_CAT']) ? (int)$cfg['DEFAULT_CAT'] : 19;
 }
 
 // Modalita' fiera (issue, consumata in): "1" = barcode visibile/obbligatorio, "0" = nascosto con default '-'.
@@ -128,7 +132,8 @@ function cassa_azione_login($mysqli = null, $id_cassa = null)
             header("Location: index.php?action=c&ok=1&err=1");
             exit;
         }
-        if (password_verify((string)$_POST['code'], (string)PWD_HASH))
+        // F6.2 #110: hash admin da env (stesso fail-closed di set.inc), mai piu PWD_HASH da set.inc.
+        if (password_verify((string)$_POST['code'], trim((string)getenv('SALSICCIA_ADMIN_PWD_HASH'))))
         {
             session_regenerate_id(true);
             $_SESSION['admin'] = true;
@@ -459,12 +464,16 @@ function mostraModificaOrdine($mysqli)
 
 // TAGLIA visibile solo con GX420t + carta continua (ZPL o EPL): in
 // biglietti singoli il pulsante non appare mai e il taglio non scatta mai.
+// F6.2 #110: stampante/carta da CassaConfig, mai piu PRINTER_*/CONTINUOUS_LABEL da set.inc.
 function tagliaVisibile()
 {
-    return defined('PRINTER_NAME') && defined('PRINTER_CONNECTION')
-        && defined('PRINTER_LANGUAGE') && defined('CONTINUOUS_LABEL')
-        && \Salsiccia\Printer\PrinterRegistry::taglioPermesso(PRINTER_NAME, PRINTER_CONNECTION, PRINTER_LANGUAGE)
-        && CONTINUOUS_LABEL && (PRINTER_LANGUAGE === 'ZPL' || PRINTER_LANGUAGE === 'EPL');
+    $cfg = \Salsiccia\Config\CassaConfig::carica();
+    $nome = isset($cfg['PRINTER_NAME']) ? (string)$cfg['PRINTER_NAME'] : '';
+    $conn = isset($cfg['PRINTER_CONNECTION']) ? (string)$cfg['PRINTER_CONNECTION'] : '';
+    $lang = isset($cfg['PRINTER_LANGUAGE']) ? (string)$cfg['PRINTER_LANGUAGE'] : '';
+    $continua = !empty($cfg['CONTINUOUS_LABEL']);
+    return \Salsiccia\Printer\PrinterRegistry::taglioPermesso($nome, $conn, $lang)
+        && $continua && ($lang === 'ZPL' || $lang === 'EPL');
 }
 
 // Footer modifica
@@ -821,7 +830,10 @@ function salvaStampante($mysqli = null, $id_cassa = null)
     $conn = (string)($_POST['conn'] ?? '');
     $lingua = (string)($_POST['lingua'] ?? '');
     $ip = $conn === 'RETE' ? trim((string)($_POST['ip'] ?? '')) : '';
-    $ipCheck = $conn === 'RETE' ? ($ip !== '' ? $ip : (defined('PRINTER_IP') ? PRINTER_IP : '')) : '';
+    // F6.2 #110: fallback IP da CassaConfig, mai piu PRINTER_IP da set.inc.
+    $cfgIp = \Salsiccia\Config\CassaConfig::carica();
+    $cfgIp = isset($cfgIp['PRINTER_IP']) ? (string)$cfgIp['PRINTER_IP'] : '';
+    $ipCheck = $conn === 'RETE' ? ($ip !== '' ? $ip : $cfgIp) : '';
     if (!\Salsiccia\Printer\PrinterConfig::raggiungibile($nome, $conn, $ipCheck))
         return;
     \Salsiccia\Printer\PrinterConfig::salva($nome, $conn, $lingua, $ip);

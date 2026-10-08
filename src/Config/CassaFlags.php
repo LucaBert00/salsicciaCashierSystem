@@ -14,9 +14,10 @@ use Salsiccia\Support\Storage;
 // cassa_imposta_fiera) + env.inc:765-808 (festa_file, festa_leggi,
 // festa_imposta). Stessi path JSON (storage/cassa_flags.json,
 // storage/festa.json), stessa forma del JSON, stessa semantica atomica
-// tmp+rename con LOCK_EX e tmp per-process (getmypid), stesso fallback
-// config/cassa.php -> set.inc congelato (solo default, P4 resta fixato),
-// stessi messaggi di log, stessi ritorni. Nessun consumer migrato qui:
+// tmp+rename con LOCK_EX e tmp per-process (getmypid),
+// F6.2 #110: fallback solo a config/cassa.php inerte + JSON, mai piu
+// defined() da set.inc (P4 resta fixato), stessi messaggi di log,
+// stessi ritorni. Nessun consumer migrato qui:
 // i globali env.inc restano intatti e i chiamanti (functionsFrontend.inc
 // isFieraAttiva/impostaModalitaFiera, cassa_azione_fiera, AdminView::info,
 // StatsData, PrintService, VisualizzaStore, stat_pdf) restano invariati;
@@ -33,7 +34,7 @@ final class CassaFlags
     // (functionsFrontend.inc) e fieraAttiva() (public/reserved/visualizza.php),
     // scritto da impostaModalitaFiera(). Scrittura atomica tmp+rename con LOCK_EX:
     // concorrente = last-writer-wins, mai file troncato ne' sorgente toccato.
-    // Fallback a config/cassa.php inerte poi a set.inc congelato (solo default).
+    // F6.2 #110: fallback a config/cassa.php inerte (default), mai piu set.inc.
     public static function cassaFlagsFile(): string
     {
         return Storage::path('cassa_flags.json');
@@ -55,7 +56,7 @@ final class CassaFlags
             if (is_array($arr) && isset($arr['MODALITA_FIERA']))
                 return (string)$arr['MODALITA_FIERA'] === '1';
         }
-        return defined('MODALITA_FIERA') && MODALITA_FIERA === '1';
+        return false;
     }
 
     // tmp+rename atomico, per-process tmp per concorrenza
@@ -84,7 +85,7 @@ final class CassaFlags
     // (functionsFrontend.inc), PrintService, StatsData, stat_pdf; scritto da
     // festa_imposta(). Scrittura atomica tmp+rename con LOCK_EX:
     // concorrente = last-writer-wins, mai file troncato ne' sorgente toccato.
-    // Fallback a set.inc congelato (solo default) a festa.json assente.
+    // F6.2 #110: a festa.json assente default inerte (vuoto/1), mai piu set.inc.
     public static function festaFile(): string
     {
         return Storage::path('festa.json');
@@ -100,8 +101,8 @@ final class CassaFlags
                 return array('event_name' => (string)$j['event_name'], 'durata_festa' => (string)$j['durata_festa']);
         }
         return array(
-            'event_name' => defined('EVENT_NAME') ? (string)EVENT_NAME : '',
-            'durata_festa' => defined('DURATA_FESTA') ? (string)DURATA_FESTA : '1',
+            'event_name' => '',
+            'durata_festa' => '1',
         );
     }
 

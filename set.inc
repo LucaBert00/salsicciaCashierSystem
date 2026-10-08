@@ -138,13 +138,10 @@ define("BOT_WIDTH", 205);
 define("BOT_HEIGHT",120);
 
 define("TIPO_ORDINE", "nor");
-define("REMOTE_CLIENT_IP", "192.168.0.30");
-$remoteIP = $_SERVER['REMOTE_ADDR'];
-
-if($remoteIP == REMOTE_CLIENT_IP)
-    define("ID_CASSA", 100);
-else
-    define("ID_CASSA", 1);
+#F6.2 #110: sniffing IP eliminato (REMOTE_CLIENT_IP/$remoteIP/branch 100/1).
+#Unica fonte ID_CASSA = cassaCorrente() in functionsFrontend.inc (sessione,
+#fiera senza config extra); qui resta solo il default 1 (ramo else storico).
+define("ID_CASSA", 1);
 $__admin_hash = trim((string)getenv('SALSICCIA_ADMIN_PWD_HASH'));
 if ($__admin_hash === '' || password_get_info($__admin_hash)['algo'] === null)
 {

@@ -12,12 +12,13 @@ final class StatsData
 {
     // Ora di cambio giornata fiscale (default 5): la giornata fiscale inizia a
     // quest'ora del giorno dato e dura 24 ore, mai a mezzanotte. Valore grezzo
-    // da .env (SALSICCIA_ORA_CAMBIO via set.inc): se non e intero 0..23 le query
-    // usano 5 ma pagina e PDF mostrano oraCambioErrore() al posto della
-    // scritta giornata, mai fallback silenzioso.
+    // da .env (SALSICCIA_ORA_CAMBIO via CassaConfig, F6.2 #110): se non e intero
+    // 0..23 le query usano 5 ma pagina e PDF mostrano oraCambioErrore() al posto
+    // della scritta giornata, mai fallback silenzioso.
     public static function oraCambioErrore()
     {
-        $raw = defined('ORA_CAMBIO_DATA') ? trim((string)ORA_CAMBIO_DATA) : '';
+        $cfg = \Salsiccia\Config\CassaConfig::carica();
+        $raw = isset($cfg['ORA_CAMBIO_DATA']) ? trim((string)$cfg['ORA_CAMBIO_DATA']) : '';
         if (!ctype_digit($raw) || (int)$raw < 0 || (int)$raw > 23) {
             return "ORA GIORNATA FISCALE '" . $raw . "' NON VALIDA: CORREGGI SALSICCIA_ORA_CAMBIO NEL FILE .ENV (INTERO 0-23)";
         }
@@ -29,7 +30,8 @@ final class StatsData
         if (self::oraCambioErrore() !== '') {
             return 5;
         }
-        return (int)ORA_CAMBIO_DATA;
+        $cfg = \Salsiccia\Config\CassaConfig::carica();
+        return isset($cfg['ORA_CAMBIO_DATA']) ? (int)$cfg['ORA_CAMBIO_DATA'] : 5;
     }
 
     // Giorni di festa coperti dalla tabella per-giorno (default 1), tetto anti-loop.

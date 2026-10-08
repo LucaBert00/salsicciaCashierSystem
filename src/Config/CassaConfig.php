@@ -18,8 +18,8 @@ use Salsiccia\Support\Storage;
 // (env > selezione JSON > default; env > carta_stampa.mode > gate),
 // stessi valori (smoke: byte-identici ai defined() di set.inc).
 // Mai define(): i consumer leggono ancora set.inc in questo ticket
-// (migrazione in F6.2, delete in F6.3). Mai $remoteIP/REMOTE_CLIENT_IP:
-// ID_CASSA qui e' solo il default (1, ramo else di set.inc).
+// (migrazione in F6.2, delete in F6.3). Mai sniffing IP:
+// ID_CASSA qui e' solo il default (1, ex ramo else di set.inc).
 final class CassaConfig
 {
     public static function carica(): array

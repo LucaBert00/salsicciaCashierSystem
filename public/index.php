@@ -11,8 +11,11 @@ $action = isset($_GET['action']) ? $_GET['action'] : '';
 $cat = isset($_GET['cat']) ? (int)$_GET['cat'] : 0;
 if ($cat <= 0)
     $cat = defaultCat($mysqli);
-$but_x_row = BOT_X_ROW;
-$but_x_col = BOT_X_COL;
+// F6.2 #110: geometria bottoni da CassaConfig (config/cassa.php + ONLY_ONE_CATEGORY
+// 6/7 byte-identica a set.inc), mai piu BOT_X_* da set.inc.
+$cassaCfg = \Salsiccia\Config\CassaConfig::carica();
+$but_x_row = $cassaCfg['BOT_X_ROW'];
+$but_x_col = $cassaCfg['BOT_X_COL'];
 $view = \Salsiccia\Cassa\CassaController::gestisci($mysqli);
 // Flag ok in $_GET che la vista non legge: c+ok senza login = errore kiosk, mai fatal.
 if ($view === 'config' && $action === 'c' && isset($_GET['ok']) && !isAdmin()) {

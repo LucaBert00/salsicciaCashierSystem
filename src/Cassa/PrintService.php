@@ -16,8 +16,9 @@ final class PrintService
     public static function generaFileStampa($ris, $numero_righe)
     {
         $print_order_id = PRINT_ORDER_ID;
+        // F6.2 #110: evento solo via JSON (CassaFlags::festaLeggi), mai piu EVENT_NAME da set.inc.
         $festa = \Salsiccia\Config\CassaFlags::festaLeggi();
-        $evento = isset($festa['event_name']) ? (string)$festa['event_name'] : (defined('EVENT_NAME') ? (string)EVENT_NAME : '');
+        $evento = isset($festa['event_name']) ? (string)$festa['event_name'] : '';
         $credits = CREDITS;
         $cassa = function_exists('cassaCorrente') ? cassaCorrente() : ID_CASSA;
 
@@ -97,7 +98,7 @@ final class PrintService
             $label = "";
 
             # Singola: mai biglietto totale ne' "Arrivederci e grazie" (solo ramo continuo).
-            # Ogni etichetta ha solo il prodotto; TOTAL_LABEL resta disattivo qui.
+            # Ogni etichetta ha solo il prodotto (ramo totale mai emesso qui).
             $label = "";
             $num_pezzi = 0;
 
@@ -123,16 +124,11 @@ final class PrintService
                 // PASSA LA COSTANTE DI LINGUAGGIO DINAMICA
                 $parametri["tipo_stampante"] = $tipo_stampante;
 
-                if (($riga["id_prodotto"] == 60 || $riga["id_prodotto"] == 61 || $riga["id_prodotto"] == 62 || $riga["id_prodotto"] == 63) && MENU_ENABLE) {
-                    $vect = \Salsiccia\Cassa\stampaMenu($testo, $quantita, 0, $parametri);
-                    $num_pezzi += $vect["num_pezzi"];
-                    $label .= $vect["label"];
-                } else {
-                    // Richiama get_product_label passandogli il tipo stampante impostato dalla costante
-                    $ret = \Salsiccia\Cassa\get_product_label($parametri);
-                    $num_pezzi = $ret['num_pezzi'];
-                    $label .= $ret['label'];
-                }
+                // F6.2 #110: ramo menu eliminato con la costante morta (sempre falso:
+                // ogni etichetta ha solo il prodotto via get_product_label).
+                $ret = \Salsiccia\Cassa\get_product_label($parametri);
+                $num_pezzi = $ret['num_pezzi'];
+                $label .= $ret['label'];
             }
         }
 
