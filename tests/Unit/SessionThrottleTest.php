@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Salsiccia\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
+use Salsiccia\Support\Session;
+use Salsiccia\Support\Throttle;
 
 // T28: throttle server-side in env.inc (file, fuori docroot).
 // Niente DB, niente rete: ogni test usa un file temp dedicato.
@@ -15,7 +17,6 @@ final class SessionThrottleTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        require_once __DIR__ . '/../../env.inc';
         $this->file = (string)tempnam(sys_get_temp_dir(), 't28_');
     }
 
@@ -30,22 +31,22 @@ final class SessionThrottleTest extends TestCase
     public function testCinqueFailBloccanoSessantaSecondi(): void
     {
         for ($i = 0; $i < 4; $i++) {
-            salsiccia_login_fail('t', 'ip', $this->file);
-            $this->assertFalse(salsiccia_login_throttled('t', 'ip', $this->file));
+            Throttle::fail('t', 'ip', $this->file);
+            $this->assertFalse(Throttle::throttled('t', 'ip', $this->file));
         }
-        salsiccia_login_fail('t', 'ip', $this->file);
-        $this->assertTrue(salsiccia_login_throttled('t', 'ip', $this->file));
+        Throttle::fail('t', 'ip', $this->file);
+        $this->assertTrue(Throttle::throttled('t', 'ip', $this->file));
     }
 
     public function testBloccoSopravviveAlResetSessioneESiSbloccaConOk(): void
     {
         for ($i = 0; $i < 5; $i++) {
-            salsiccia_login_fail('t', 'ip', $this->file);
+            Throttle::fail('t', 'ip', $this->file);
         }
         $_SESSION = array(); // attaccante butta il cookie: il file blocca comunque
-        $this->assertTrue(salsiccia_login_throttled('t', 'ip', $this->file));
-        salsiccia_login_ok('t', 'ip', $this->file);
-        $this->assertFalse(salsiccia_login_throttled('t', 'ip', $this->file));
+        $this->assertTrue(Throttle::throttled('t', 'ip', $this->file));
+        Throttle::ok('t', 'ip', $this->file);
+        $this->assertFalse(Throttle::throttled('t', 'ip', $this->file));
     }
 
     public function testCookieParamsInduriti(): void
@@ -55,7 +56,7 @@ final class SessionThrottleTest extends TestCase
         }
         unset($_SERVER['HTTPS'], $_SERVER['HTTP_X_FORWARDED_PROTO'], $_SERVER['REQUEST_SCHEME']);
         $_SERVER['SERVER_PORT'] = 80;
-        $this->assertTrue(salsiccia_session_start());
+        $this->assertTrue(Session::start());
         $p = session_get_cookie_params();
         $this->assertTrue(!empty($p['httponly']));
         $this->assertSame('Lax', $p['samesite'] ?? '');

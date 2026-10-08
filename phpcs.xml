@@ -16,7 +16,6 @@
     <!-- Toccati da T05-T28 ma stile legacy congelato; normalizzare solo i file nuovi (src/config/routes/tests/auth_password). -->
     <exclude-pattern>backup.inc</exclude-pattern>
     <exclude-pattern>dbConnect.php</exclude-pattern>
-    <exclude-pattern>env.inc</exclude-pattern>
     <exclude-pattern>fiscale.inc</exclude-pattern>
     <exclude-pattern>functionsFrontend.inc</exclude-pattern>
     <exclude-pattern>set.inc</exclude-pattern>

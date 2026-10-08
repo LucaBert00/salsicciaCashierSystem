@@ -6,6 +6,7 @@ namespace Salsiccia\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
 use Salsiccia\Printer\PrinterConfig;
+use Salsiccia\Printer\PrinterRegistry;
 
 // F2.3 #90: PrinterConfig::salva() riuso di impostaStampanteSelezionata()
 // (functionsFrontend.inc, mappa §6 1214-1247). Pura logica: regex nome, gate,
@@ -21,8 +22,7 @@ final class PrinterConfigTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        require_once __DIR__ . '/../../env.inc';
-        $this->file = printer_selection_file();
+        $this->file = PrinterRegistry::selectionFile();
         $this->avevaFile = is_readable($this->file);
         $this->backup = $this->avevaFile ? (string)@file_get_contents($this->file) : '';
     }
