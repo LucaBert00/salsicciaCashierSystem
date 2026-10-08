@@ -38,7 +38,9 @@ final class Db
      */
     public static function query($mysqli, $query)
     {
-        if (defined('DEBUG') && DEBUG) {
+        // F6.3 #111: flag ex set.inc da CassaConfig (stesso valore, mai define()).
+        $cfg = \Salsiccia\Config\CassaConfig::carica();
+        if (!empty($cfg['DEBUG'])) {
             $risultato = mysqli_query($mysqli, $query)
             or die(print "<br><center class=errore>Errore di MySql con la query <br><b>" . htmlspecialchars($query, ENT_QUOTES, 'UTF-8') . "</b><br>" . htmlspecialchars(mysqli_error($mysqli), ENT_QUOTES, 'UTF-8') . "<br><br><INPUT type=\"BUTTON\" value='INDIETRO' onClick=\"javascript:history.back(1);\"></center>");
         } else {

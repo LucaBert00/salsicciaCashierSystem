@@ -19,8 +19,8 @@ namespace Salsiccia\System;
 // cancel -a best-effort mai bloccante con whitelist + CupsState::cupsQueue
 // as-is (RETE nessun job, invio sincrono), schedulazione sleep 2 + sudo in
 // background con system() rc.
-// Riuso diretto dei moduli F5: Storage::path(), Env::log(),
-// CupsState::cupsQueue(), PRINTER_*.
+// Riuso diretto dei moduli F5/F6: Storage::path(), Env::log(),
+// CupsState::cupsQueue(), CassaConfig::carica().
 final class Power
 {
     public static function candidatiAlimentazione($mode): array
@@ -107,17 +107,21 @@ final class Power
 
     public static function svuotaCodaStampaPreSpegnimento(): void
     {
-        if (PRINTER_CONNECTION !== 'DIRETTA')
+        // F6.3 #111: valori ex set.inc da CassaConfig (stessi valori, mai define()).
+        $cfg = \Salsiccia\Config\CassaConfig::carica();
+        $printerConn = isset($cfg['PRINTER_CONNECTION']) ? (string)$cfg['PRINTER_CONNECTION'] : '';
+        $printerNome = isset($cfg['PRINTER_NAME']) ? (string)$cfg['PRINTER_NAME'] : '';
+        if ($printerConn !== 'DIRETTA')
             return;
-        if (!preg_match('/^[A-Za-z0-9_-]+$/', PRINTER_NAME))
+        if (!preg_match('/^[A-Za-z0-9_-]+$/', $printerNome))
         {
             \Salsiccia\Support\Env::log('error', 'power: cancel bloccato, PRINTER_NAME non whitelistato');
             return;
         }
-        $cmd = 'cancel -a ' . escapeshellarg(\Salsiccia\Printer\CupsState::cupsQueue(PRINTER_NAME)) . ' >/dev/null 2>&1';
+        $cmd = 'cancel -a ' . escapeshellarg(\Salsiccia\Printer\CupsState::cupsQueue($printerNome)) . ' >/dev/null 2>&1';
         system($cmd, $rc);
         if ($rc !== 0)
-            \Salsiccia\Support\Env::log('error', 'power: cancel coda fallito rc=' . $rc . ' printer=' . PRINTER_NAME);
+            \Salsiccia\Support\Env::log('error', 'power: cancel coda fallito rc=' . $rc . ' printer=' . $printerNome);
     }
 
     public static function schedulaAzioneAlimentazione($mode): bool

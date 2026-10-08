@@ -59,14 +59,14 @@ function isFieraAttiva()
 }
 
 // T17: scrive il flag in storage/cassa_flags.json via CassaFlags::cassaImpostaFiera()
-// (atomico, concorrente-safe); set.inc resta congelato read-only, mai rewrite.
+// (atomico, concorrente-safe); mai rewrite di sorgente PHP (set.inc eliminato in F6.3 #111).
 function impostaModalitaFiera($valore)
 {
     \Salsiccia\Config\CassaFlags::cassaImpostaFiera($valore === "1" ? "1" : "0");
 }
 
 // F3.3 #63: persistenza toggle carta in storage/carta_stampa.mode (monoriga "1"/"0"),
-// letta in set.inc con precedenza env > file > gate.
+// letta in CassaConfig::carica() con precedenza env > file > gate.
 function impostaCartaStampa($valore)
 {
     $v = $valore === "1" ? "1" : "0";
@@ -768,8 +768,8 @@ function mostraRipristinaDb($mysqli)
 }
 
 // Modifica info festa: legge/scrive EVENT_NAME e DURATA_FESTA in storage/festa.json
-// via CassaFlags::festaLeggi()/festaImposta() (F0.3, pattern T17); set.inc resta congelato
-// read-only, mai rewrite. (port di 1.0/configurazione.php dal branch modificaStampa)
+// via CassaFlags::festaLeggi()/festaImposta() (F0.3, pattern T17; set.inc
+// eliminato in F6.3 #111, mai rewrite di sorgente PHP). (port di 1.0/configurazione.php dal branch modificaStampa)
 // F2.4 #91: unica implementazione vera in Salsiccia\Cassa\AdminView::info()
 // (src/Cassa/AdminView.php, solo vista); qui resta solo lo shim con stessa
 // firma. Delete legacy mai in F2 (§9).
@@ -792,7 +792,7 @@ function mostraPrintReset()
 
 // Selezione stampante (F4.5 #55, stato finale stagisti HEAD): valida contro
 // gate PrinterRegistry::gateAllowed() (F4.1), salva in storage/stampante_selezione.json
-// via PrinterRegistry::selectionFile() (letta a boot in set.inc F4.4). Solo
+// via PrinterRegistry::selectionFile() (letta a boot in CassaConfig, ex set.inc F4.4). Solo
 // "DIRETTA"/"RETE", "ZPL"/"EPL", LOCK_EX. IP opzionale, solo RETE.
 // F2.3 #90: unica implementazione vera in Salsiccia\Printer\PrinterConfig::salva()
 // (src/Printer/PrinterConfig.php); qui resta solo lo shim con stessa firma

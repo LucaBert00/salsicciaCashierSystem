@@ -15,10 +15,7 @@ if (empty($_SESSION['reserved_auth']))
     exit;
 }
 
-if (!defined('DEBUG'))
-{
-    define('DEBUG', 0);
-}
+// F6.3 #111: flag DEBUG ex set.inc via CassaConfig in Db::query, mai define() qui.
 require_once __DIR__ . '/../../src/Stats/StatsData.php';
 
 // Link a statistiche.php con parametri dati, gia url-encoded.

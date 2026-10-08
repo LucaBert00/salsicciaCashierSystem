@@ -23,11 +23,11 @@ storage/fiscale_*.log
 storage/fiscale_mock.xml
 # T17: flag fiera mutabile, mai in git (default in config/cassa.php).
 storage/cassa_flags.json
-# F0.3: info festa mutabili, mai in git (default EVENT_NAME/DURATA_FESTA in set.inc).
+# F0.3: info festa mutabili, mai in git (default EVENT_NAME/DURATA_FESTA via FestaConfig).
 storage/festa.json
-# F4.4: selezione stampante persistita dalla UI, mai in git (default ZD230 in set.inc).
+# F4.4: selezione stampante persistita dalla UI, mai in git (default ZD230 in config/cassa.php).
 storage/stampante_selezione.json
-# F3.3: modo carta persistito dalla UI, mai in git (default dal gate in set.inc).
+# F3.3: modo carta persistito dalla UI, mai in git (default dal gate in CassaConfig::carica()).
 storage/carta_stampa.mode
 # F2.2: marker riscontro power, mai in git (default assente).
 storage/power_attempt.json

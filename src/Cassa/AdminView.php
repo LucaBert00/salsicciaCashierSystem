@@ -23,7 +23,7 @@ namespace Salsiccia\Cassa;
 // Riuso diretto dei moduli F5: isFieraAttiva(),
 // cassaCorrente(), StatsData::contatori_totali() (F4.2 punto 15, #99),
 // CassaFlags::festaLeggi()/festaImposta() su storage/festa.json (F0.3, mai
-// file_put_contents su set.inc, congelato read-only), DbRepair::run()
+// rewrite di sorgente PHP), DbRepair::run()
 // (F2.2, mai logica REPAIR duplicata), csrf_field()/csrf_ok() (T14),
 // isAdmin() + redirect dentro i metodi (difesa in profondita §3.2b),
 // PaperSetup::leggiSetup()/impostaCartaStampa()/PrinterRegistry::
@@ -33,8 +33,18 @@ namespace Salsiccia\Cassa;
 // inviaSetupCarta() (F3.2), Power::* (F2.5, logica sudo/marker/uptime).
 final class AdminView
 {
+    // F6.3 #111: unica delega config del file (stesso pattern F6.2, mai logica nuova).
+    private static function cfg(): array
+    {
+        return \Salsiccia\Config\CassaConfig::carica();
+    }
+
     public static function pannello(): void
     {
+        // F6.3 #111: valori ex set.inc da CassaConfig (stessi valori, mai define()).
+        $cfg = self::cfg();
+        $idCassaDefault = isset($cfg['ID_CASSA']) ? (int)$cfg['ID_CASSA'] : 1;
+        $continua = !empty($cfg['CONTINUOUS_LABEL']);
         echo '<section class="admin-panel">';
 
         echo '<div>';
@@ -53,7 +63,7 @@ final class AdminView
         echo '</div>';
 
         echo '<div>';
-        echo '<h3 class="admin-group-title">CASSA TERMINALE: ' . \cassaCorrente() . ' (default da IP: ' . ID_CASSA . ')</h3>';
+        echo '<h3 class="admin-group-title">CASSA TERMINALE: ' . \cassaCorrente() . ' (default da IP: ' . $idCassaDefault . ')</h3>';
         echo '<form method="post" action="?action=cassa" class="admin-btn-row" style="align-items:center;">';
         \csrf_field();
         echo '<input type="number" name="id_cassa" value="' . \cassaCorrente() . '" min="1" max="999" class="codice-text-field" style="max-width:160px;">';
@@ -75,7 +85,7 @@ final class AdminView
         echo '<a href="?action=logout" class="opzione-btn">ESCI</a>';
         echo '</div>';
         echo '<div class="admin-btn-row" style="margin-top:clamp(6px, 0.9765625vmin, 12px);">';
-        echo '<a href="?action=print_reset" class="opzione-btn">CAMBIA CARTA STAMPA: ' . ((defined('CONTINUOUS_LABEL') && CONTINUOUS_LABEL) ? 'CONTINUA' : 'SINGOLI') . '</a>';
+        echo '<a href="?action=print_reset" class="opzione-btn">CAMBIA CARTA STAMPA: ' . ($continua ? 'CONTINUA' : 'SINGOLI') . '</a>';
         echo '<a href="?action=switch_printer" class="opzione-btn">CAMBIA STAMPANTE</a>';
         echo '<a href="?action=restart" class="opzione-btn danger">RIAVVIA</a>';
         echo '<a href="?action=shutdown" class="opzione-btn danger">SPEGNI</a>';
@@ -267,8 +277,14 @@ final class AdminView
             header("Location: index.php?action=c");
             exit;
         }
-        $modo = (defined('CONTINUOUS_LABEL') && CONTINUOUS_LABEL) ? 'CONTINUA' : 'SINGOLI';
-        $nuovo = (defined('CONTINUOUS_LABEL') && CONTINUOUS_LABEL) ? '0' : '1';
+        // F6.3 #111: valori ex set.inc da CassaConfig (stessi valori, mai define()).
+        $cfg = self::cfg();
+        $continua = !empty($cfg['CONTINUOUS_LABEL']);
+        $printerNome = isset($cfg['PRINTER_NAME']) ? (string)$cfg['PRINTER_NAME'] : '';
+        $printerConn = isset($cfg['PRINTER_CONNECTION']) ? (string)$cfg['PRINTER_CONNECTION'] : '';
+        $printerLang = isset($cfg['PRINTER_LANGUAGE']) ? (string)$cfg['PRINTER_LANGUAGE'] : '';
+        $modo = $continua ? 'CONTINUA' : 'SINGOLI';
+        $nuovo = $continua ? '0' : '1';
         $modoNuovo = $nuovo === '1' ? 'CONTINUA' : 'SINGOLI';
         echo '<section class="admin-panel">';
         echo '<h3 class="admin-group-title admin-msg-big">CAMBIA CARTA STAMPA - CARTA ATTUALE: ' . $modo . '</h3>';
@@ -283,7 +299,7 @@ final class AdminView
             {
             $continuaNuova = ($nuovo === '1');
             $erroreSetup = '';
-            $setup = \Salsiccia\Printer\PaperSetup::leggiSetup(PRINTER_NAME, PRINTER_CONNECTION, PRINTER_LANGUAGE, $continuaNuova, $erroreSetup, \Salsiccia\Support\Storage::path('printerCommand'));
+            $setup = \Salsiccia\Printer\PaperSetup::leggiSetup($printerNome, $printerConn, $printerLang, $continuaNuova, $erroreSetup, \Salsiccia\Support\Storage::path('printerCommand'));
             if ($setup === false)
             {
                 echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;font-weight:800;text-align:center;padding:12px;border-radius:6px;">' . htmlspecialchars($erroreSetup, ENT_QUOTES, 'UTF-8') . '</p>';
@@ -325,8 +341,14 @@ final class AdminView
             header("Location: index.php?action=c");
             exit;
         }
+        // F6.3 #111: valori ex set.inc da CassaConfig (stessi valori, mai define()).
+        $cfg = self::cfg();
+        $printerNome = isset($cfg['PRINTER_NAME']) ? (string)$cfg['PRINTER_NAME'] : '';
+        $printerConn = isset($cfg['PRINTER_CONNECTION']) ? (string)$cfg['PRINTER_CONNECTION'] : '';
+        $printerLang = isset($cfg['PRINTER_LANGUAGE']) ? (string)$cfg['PRINTER_LANGUAGE'] : '';
+        $printerIp = isset($cfg['PRINTER_IP']) ? (string)$cfg['PRINTER_IP'] : '';
         echo '<section class="admin-panel switch-printer-panel">';
-        echo '<h3 class="admin-group-title admin-msg-big">CAMBIA STAMPANTE - ATTUALE: ' . htmlspecialchars(PRINTER_NAME . ' - ' . PRINTER_CONNECTION . ' - ' . PRINTER_LANGUAGE, ENT_QUOTES, 'UTF-8') . '</h3>';
+        echo '<h3 class="admin-group-title admin-msg-big">CAMBIA STAMPANTE - ATTUALE: ' . htmlspecialchars($printerNome . ' - ' . $printerConn . ' - ' . $printerLang, ENT_QUOTES, 'UTF-8') . '</h3>';
         if (isset($_POST['cambia_stampante']))
         {
             if (!\csrf_ok())
@@ -339,8 +361,8 @@ final class AdminView
                 $conn = (string)($_POST['conn'] ?? '');
                 $lingua = (string)($_POST['lingua'] ?? '');
                 $ip = $conn === 'RETE' ? trim((string)($_POST['ip'] ?? '')) : '';
-                // riuso reachability F4.2; ip POST o fallback PRINTER_IP come in lista
-                $ipCheck = $conn === 'RETE' ? ($ip !== '' ? $ip : (defined('PRINTER_IP') ? PRINTER_IP : '')) : '';
+                // riuso reachability F4.2; ip POST o fallback CassaConfig come in lista
+                $ipCheck = $conn === 'RETE' ? ($ip !== '' ? $ip : $printerIp) : '';
                 if (!\Salsiccia\Printer\PrinterConfig::raggiungibile($nome, $conn, $ipCheck))
                 {
                     echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;padding:12px;border-radius:6px;">STAMPANTE NON RAGGIUNGIBILE (pallino rosso), selezione non cambiata.</p>';
@@ -363,7 +385,7 @@ final class AdminView
             $altre = array();
             foreach (\Salsiccia\Printer\PrinterRegistry::knownPrinters() as $p)
             {
-                $p['ok'] = \Salsiccia\Printer\PrinterConfig::raggiungibile((string)$p['name'], (string)$p['connection'], defined('PRINTER_IP') ? PRINTER_IP : '');
+                $p['ok'] = \Salsiccia\Printer\PrinterConfig::raggiungibile((string)$p['name'], (string)$p['connection'], $printerIp);
                 if ($p['ok'])
                     $raggiungibili[] = $p;
                 else
@@ -384,7 +406,7 @@ final class AdminView
                 $nome = (string)$p['name'];
                 $conn = (string)$p['connection'];
                 $ok = !empty($p['ok']);
-                $attuale = ($nome === PRINTER_NAME && $conn === PRINTER_CONNECTION);
+                $attuale = ($nome === $printerNome && $conn === $printerConn);
                 echo '<div class="switch-printer-card">';
                 echo '<p class="admin-msg-big" style="color:#2b3d4e;margin:0 0 4px;"><span title="' . ($ok ? 'Raggiungibile' : 'Non raggiungibile') . '" style="color:' . ($ok ? '#5cb85c' : '#d9534f') . ';">&#9679;</span> ' . htmlspecialchars($nome, ENT_QUOTES, 'UTF-8') . ($attuale ? ' <span style="display:inline-flex;align-items:center;background:#5cb85c;color:#fff;font-weight:800;border-radius:12px;padding:2px 12px;font-size:14px;">ATTUALE</span>' : '') . '</p>';
                 echo '<p class="admin-msg-big" style="color:#8c9ba5;margin:0 0 8px;">CONNESSIONE: ' . htmlspecialchars($conn, ENT_QUOTES, 'UTF-8') . '</p>';
@@ -398,7 +420,7 @@ final class AdminView
                     echo '<input type="hidden" name="conn" value="DIRETTA">';
                     foreach (array('ZPL', 'EPL') as $lingua)
                     {
-                        $sel = ($attuale && PRINTER_LANGUAGE === $lingua);
+                        $sel = ($attuale && $printerLang === $lingua);
                         echo '<label class="opzione-btn"' . ($sel ? ' style="border:2px solid #2b3d4e;background:#2b3d4e;color:#fff;"' : '') . '><input type="radio" name="lingua" value="' . $lingua . '"' . ($sel ? ' checked' : '') . ($ok ? '' : ' disabled') . ' onchange="selModo(this)" style="display:none;"> ' . $lingua . '</label>';
                     }
                     echo '<button type="submit" name="cambia_stampante" value="1" class="opzione-btn"' . ((!$ok || !$attuale) ? ' disabled style="opacity:.45;cursor:not-allowed;"' : '') . (!$ok ? ' data-unreach="1"' : '') . '>SELEZIONA</button>';
@@ -415,7 +437,7 @@ final class AdminView
                     echo '<input type="hidden" name="conn" value="' . htmlspecialchars($conn, ENT_QUOTES, 'UTF-8') . '">';
                     echo '<input type="hidden" name="lingua" value="' . htmlspecialchars($lingua, ENT_QUOTES, 'UTF-8') . '">';
                     if ($conn === 'RETE')
-                        echo '<input type="hidden" name="ip" value="' . htmlspecialchars(defined('PRINTER_IP') ? PRINTER_IP : '', ENT_QUOTES, 'UTF-8') . '">';
+                        echo '<input type="hidden" name="ip" value="' . htmlspecialchars($printerIp, ENT_QUOTES, 'UTF-8') . '">';
                     echo '<button type="submit" name="cambia_stampante" value="1" class="opzione-btn"' . ($ok ? '' : ' disabled style="opacity:.45;cursor:not-allowed;"') . '>SELEZIONA</button>';
                     echo '</form>';
                 }
@@ -492,6 +514,9 @@ final class AdminView
             header("Location: index.php?action=c");
             exit;
         }
+        // F6.3 #111: valori ex set.inc da CassaConfig (stessi valori, mai define()).
+        $cfg = self::cfg();
+        $printerIp = isset($cfg['PRINTER_IP']) ? (string)$cfg['PRINTER_IP'] : '';
         echo '<section class="admin-panel">';
         echo '<h3 class="admin-group-title admin-msg-big">' . $titolo . '</h3>';
         self::riscontroPower($mode);
@@ -508,7 +533,7 @@ final class AdminView
                     echo '<p class="admin-msg-big" style="background:#5cb85c;color:#fff;padding:12px;border-radius:6px;">' . $msgOk . '</p>';
                 else
                     echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;padding:12px;border-radius:6px;">COMANDO NON AVVIATO: verifica sudoers/systemd sul kiosk.</p>';
-                echo '<p class="admin-msg-big" style="color:#2b3d4e;font-weight:600;">Coda stampa: DIRETTA cancellata (best-effort), RETE nessun job pendente (FTP sincrono verso ' . htmlspecialchars(PRINTER_IP, ENT_QUOTES, 'UTF-8') . '). Se nulla accade: utente web senza NOPASSWD su /sbin/shutdown o host senza systemd.</p>';
+                echo '<p class="admin-msg-big" style="color:#2b3d4e;font-weight:600;">Coda stampa: DIRETTA cancellata (best-effort), RETE nessun job pendente (FTP sincrono verso ' . htmlspecialchars($printerIp, ENT_QUOTES, 'UTF-8') . '). Se nulla accade: utente web senza NOPASSWD su /sbin/shutdown o host senza systemd.</p>';
             }
             echo '<br><div class="admin-btn-row"><a href="index.php" class="opzione-btn" style="text-decoration:none;">TORNA</a></div>';
         }

@@ -1,7 +1,7 @@
 <?php declare(strict_types=1);
 require_once __DIR__ . '/../bootstrap.php';
 // F3.2: front controller su require unico (docs/ARCHITETTURA_REVISTA.md §10.12+§4).
-// Bootstrap (autoload+ErrorHandler+set.inc+dbConnect+
+// Bootstrap (autoload+ErrorHandler+CassaConfig::carica()+dbConnect+
 // functionsFrontend.inc isolabile+CassaController+CassaView); qui solo
 // dispatch + render, markup invariato.
 // routes/cassa.php posseduta dal controller; tinta e match nella vista.

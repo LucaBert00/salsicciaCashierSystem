@@ -15,10 +15,7 @@ if (empty($_SESSION['reserved_auth']))
 }
 
 //carica connessione mysqli e funzioni condivise
-if (!defined('DEBUG'))
-{
-    define('DEBUG', 0);
-}
+// F6.3 #111: flag DEBUG ex set.inc via CassaConfig in Db::query, mai define() qui.
 require_once __DIR__ . '/../../src/Backoffice/VisualizzaStore.php';
 require_once __DIR__ . '/../../src/Backoffice/Tabs/CategorieTab.php';
 require_once __DIR__ . '/../../src/Backoffice/Tabs/ProdottiTab.php';

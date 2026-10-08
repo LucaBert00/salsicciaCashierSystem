@@ -8,18 +8,16 @@ declare(strict_types=1);
 // (src/Config/CassaFlags.php); EVENT_NAME/DURATA_FESTA vivono in
 // storage/festa.json via CassaFlags::festaLeggi()/festaImposta()
 // (stessa semantica atomica tmp+rename).
-// NOTO: set.inc è ancora riscritto a runtime da mostraModificaInfo()
-// (functionsFrontend.inc) per EVENT_NAME/DURATA_FESTA — invariante NON rispettata,
-// v. docs/ARCHITETTURA_REVISTA.md §2 P4. Fix in F6.2/F6.3 (FestaConfig, delete set.inc).
+// F6.3 #111: set.inc eliminato, EVENT_NAME/DURATA_FESTA solo in
+// storage/festa.json via FestaConfig (mai rewrite di sorgente PHP, §2 P4).
 // F6.1 #109: qui solo i default delle vive (stessi valori di set.inc), mai logica,
 // mai getenv()/die(), mai scrittura a runtime. Le costanti morte
 // (docs/ARCHITETTURA_REVISTA.md §5, 7 voci) non compaiono nel modello
 // (MODALITA_FIERA resta solo come default inerte + flag JSON T17).
-// Fail-closed SALSICCIA_PRINTER_IP/SALSICCIA_ADMIN_PWD_HASH
-// restano in env/set.inc, mai duplicati qui. LABELS_FILE/COMMAND_FILE sono nomi
+// Fail-closed SALSICCIA_PRINTER_IP/SALSICCIA_ADMIN_PWD_HASH in
+// CassaConfig::carica(), mai duplicati qui. LABELS_FILE/COMMAND_FILE sono nomi
 // relativi a storage/ (CassaConfig::carica() li risolve via Storage, byte-identici
-// ai defined() di set.inc); PRINTER_IP vuoto = non configurato (il die(500)
-// resta in set.inc fino al delete F6.3, mai duplicato qui).
+// agli ex defined() di set.inc); PRINTER_IP vuoto = non configurato (die 500 in carica()).
 return array(
     'MODALITA_FIERA' => '0',
     'ONLY_ONE_CATEGORY' => 0,

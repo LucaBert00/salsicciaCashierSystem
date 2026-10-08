@@ -452,14 +452,18 @@ function etichetta_continua($righe, $numero_righe, $evento, $credits, $cassa, $n
                 if($riga['id_prodotto'] == 15) generaCardDegustazione(2, $quantita);
                 if($riga['id_prodotto'] == 16) generaCardDegustazione(5, $quantita);
 
-                if (PRINTER_CONNECTION == "DIRETTA") {
-                    // solo costanti set.inc, mai input utente; whitelist+escapeshellarg+log, niente @ silente.
-                    if (preg_match('/^[A-Za-z0-9_-]+$/', PRINTER_NAME))
+                // F6.3 #111: valori ex set.inc da CassaConfig (stessi valori, mai define()).
+                $cfgCards = \Salsiccia\Config\CassaConfig::carica();
+                $cardsConn = isset($cfgCards['PRINTER_CONNECTION']) ? (string)$cfgCards['PRINTER_CONNECTION'] : '';
+                $cardsNome = isset($cfgCards['PRINTER_NAME']) ? (string)$cfgCards['PRINTER_NAME'] : '';
+                if ($cardsConn == "DIRETTA") {
+                    // solo config CassaConfig, mai input utente; whitelist+escapeshellarg+log, niente @ silente.
+                    if (preg_match('/^[A-Za-z0-9_-]+$/', $cardsNome))
                     {
-                        $cmdCards = "lpr -P " . escapeshellarg(PRINTER_NAME) . " " . escapeshellarg(dirname(__DIR__, 2) . "/storage/labelCards");
+                        $cmdCards = "lpr -P " . escapeshellarg($cardsNome) . " " . escapeshellarg(dirname(__DIR__, 2) . "/storage/labelCards");
                         system($cmdCards, $rcCards);
                         if ($rcCards !== 0)
-                            \Salsiccia\Support\Env::log('error', "lpr labelCards fallito rc=$rcCards printer=" . PRINTER_NAME);
+                            \Salsiccia\Support\Env::log('error', "lpr labelCards fallito rc=$rcCards printer=" . $cardsNome);
                     }
                     else
                         \Salsiccia\Support\Env::log('warning', "lpr labelCards bloccato: PRINTER_NAME non whitelistato");
