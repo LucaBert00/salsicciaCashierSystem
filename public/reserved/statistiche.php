@@ -8,7 +8,7 @@ declare(strict_types=1);
 // Filtri + query in src/Stats/StatsData.php (#95, condiviso con l'export PDF per-richiesta).
 
 require_once __DIR__ . '/../../bootstrap.php';
-salsiccia_session_start();
+\Salsiccia\Support\Session::start();
 if (empty($_SESSION['reserved_auth']))
 {
     header('Location: login.php?msg=2');

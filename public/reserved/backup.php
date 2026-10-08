@@ -4,7 +4,7 @@ declare(strict_types=1);
 // Stesso auth + CSRF di visualizza.php (M1): login riservata, mutazioni solo
 // via POST con token. Scrive fuori docroot, mai path web-diretti.
 require_once __DIR__ . '/../../bootstrap.php';
-salsiccia_session_start();
+\Salsiccia\Support\Session::start();
 if (empty($_SESSION['reserved_auth']))
 {
     header('Location: login.php?msg=2');

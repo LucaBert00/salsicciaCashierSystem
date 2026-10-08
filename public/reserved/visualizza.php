@@ -7,7 +7,7 @@ declare(strict_types=1);
 
 // Avvia la sessione e blocca l'accesso diretto senza login riservato
 require_once __DIR__ . '/../../bootstrap.php';
-salsiccia_session_start();
+\Salsiccia\Support\Session::start();
 if (empty($_SESSION['reserved_auth']))
 {
     header('Location: login.php?msg=2');

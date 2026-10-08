@@ -6,12 +6,8 @@ declare(strict_types=1);
 // Init (require set/db/funzioni, sessione, $cat/$id_cassa/geometria, dispatch)
 // vive in bootstrap.php + flusso F1 (CassaController/CassaView con parametri espliciti).
 
-// F5.5b #118: questo file chiama ancora i globali dello shim env.inc (cassa_log,
-// salsiccia_storage_path/login_*, printer_*, flag fiera/festa): e' il consumer
-// legacy che #120 migra sui moduli F5, quindi richiede lo shim da solo, come
-// faceva funzioni.inc prima di F4.4. Con la catena d'ingresso su F5, set.inc e
-// dbConnect.php non lo caricano piu'; qui finisce il require. Sparisce con #121.
-require_once __DIR__ . '/env.inc';
+// F5.5d #120: consumer migrato sui moduli F5 (Env/Storage/Throttle,
+// PrinterRegistry, CassaFlags); nessuno shim richiesto qui (resta solo #121 per il delete).
 
 function isAdmin()
 {
@@ -55,14 +51,14 @@ function defaultCat($mysqli)
 // Modalita' fiera (issue, consumata in): "1" = barcode visibile/obbligatorio, "0" = nascosto con default '-'.
 function isFieraAttiva()
 {
-    return cassa_leggi_fiera();
+    return \Salsiccia\Config\CassaFlags::cassaLeggiFiera();
 }
 
-// T17: scrive il flag in storage/cassa_flags.json via cassa_imposta_fiera()
+// T17: scrive il flag in storage/cassa_flags.json via CassaFlags::cassaImpostaFiera()
 // (atomico, concorrente-safe); set.inc resta congelato read-only, mai rewrite.
 function impostaModalitaFiera($valore)
 {
-    cassa_imposta_fiera($valore === "1" ? "1" : "0");
+    \Salsiccia\Config\CassaFlags::cassaImpostaFiera($valore === "1" ? "1" : "0");
 }
 
 // F3.3 #63: persistenza toggle carta in storage/carta_stampa.mode (monoriga "1"/"0"),
@@ -70,9 +66,9 @@ function impostaModalitaFiera($valore)
 function impostaCartaStampa($valore)
 {
     $v = $valore === "1" ? "1" : "0";
-    if (file_put_contents(salsiccia_storage_path('carta_stampa.mode'), $v . "\n", LOCK_EX) === false)
+    if (file_put_contents(\Salsiccia\Support\Storage::path('carta_stampa.mode'), $v . "\n", LOCK_EX) === false)
     {
-        cassa_log('error', "carta_stampa.mode: scrittura fallita");
+        \Salsiccia\Support\Env::log('error', "carta_stampa.mode: scrittura fallita");
         return false;
     }
     return true;
@@ -127,7 +123,7 @@ function cassa_azione_login($mysqli = null, $id_cassa = null)
         unset($_SESSION['admin']);
         // T28: throttle server-side scope 'admin' (file, sopravvive al reset
         // sessione) + ramo sessione storico; kiosk invariato.
-        if ((!empty($_SESSION['admin_block_until']) && time() < $_SESSION['admin_block_until']) || salsiccia_login_throttled('admin'))
+        if ((!empty($_SESSION['admin_block_until']) && time() < $_SESSION['admin_block_until']) || \Salsiccia\Support\Throttle::throttled('admin'))
         {
             header("Location: index.php?action=c&ok=1&err=1");
             exit;
@@ -137,7 +133,7 @@ function cassa_azione_login($mysqli = null, $id_cassa = null)
             session_regenerate_id(true);
             $_SESSION['admin'] = true;
             unset($_SESSION['admin_fail'], $_SESSION['admin_block_until']);
-            salsiccia_login_ok('admin');
+            \Salsiccia\Support\Throttle::ok('admin');
             header("Location: index.php?action=c&ok=1");
         }
         else
@@ -148,7 +144,7 @@ function cassa_azione_login($mysqli = null, $id_cassa = null)
                 $_SESSION['admin_block_until'] = time() + 60;
                 unset($_SESSION['admin_fail']);
             }
-            salsiccia_login_fail('admin');
+            \Salsiccia\Support\Throttle::fail('admin');
             header("Location: index.php?action=c&ok=1&err=1");
         }
         exit;
@@ -467,8 +463,7 @@ function tagliaVisibile()
 {
     return defined('PRINTER_NAME') && defined('PRINTER_CONNECTION')
         && defined('PRINTER_LANGUAGE') && defined('CONTINUOUS_LABEL')
-        && function_exists('printer_taglia_permesso')
-        && printer_taglia_permesso(PRINTER_NAME, PRINTER_CONNECTION, PRINTER_LANGUAGE)
+        && \Salsiccia\Printer\PrinterRegistry::taglioPermesso(PRINTER_NAME, PRINTER_CONNECTION, PRINTER_LANGUAGE)
         && CONTINUOUS_LABEL && (PRINTER_LANGUAGE === 'ZPL' || PRINTER_LANGUAGE === 'EPL');
 }
 
@@ -764,7 +759,7 @@ function mostraRipristinaDb($mysqli)
 }
 
 // Modifica info festa: legge/scrive EVENT_NAME e DURATA_FESTA in storage/festa.json
-// via festa_leggi()/festa_imposta() (F0.3, pattern T17); set.inc resta congelato
+// via CassaFlags::festaLeggi()/festaImposta() (F0.3, pattern T17); set.inc resta congelato
 // read-only, mai rewrite. (port di 1.0/configurazione.php dal branch modificaStampa)
 // F2.4 #91: unica implementazione vera in Salsiccia\Cassa\AdminView::info()
 // (src/Cassa/AdminView.php, solo vista); qui resta solo lo shim con stessa
@@ -775,7 +770,7 @@ function mostraModificaInfo()
 }
 
 // CAMBIA CARTA STAMPA (F3.4 #64, toggle continua <-> singoli): riusa F3.1
-// (cartaStampaLeggiSetup) + F3.2 (PrintService::inviaSetupCarta) + F3.3
+// (PaperSetup::leggiSetup) + F3.2 (PrintService::inviaSetupCarta) + F3.3
 // (impostaCartaStampa). Setup/invio falliti => errore, modalita invariata.
 // Pattern mostraRipristinaDb: isAdmin + POST + CSRF + confirm.
 // F2.5 #92: unica implementazione vera in Salsiccia\Cassa\AdminView::carta()
@@ -787,8 +782,8 @@ function mostraPrintReset()
 }
 
 // Selezione stampante (F4.5 #55, stato finale stagisti HEAD): valida contro
-// gate printer_gate_allowed() (F4.1), salva in storage/stampante_selezione.json
-// via printer_selection_file() (letta a boot in set.inc F4.4). Solo
+// gate PrinterRegistry::gateAllowed() (F4.1), salva in storage/stampante_selezione.json
+// via PrinterRegistry::selectionFile() (letta a boot in set.inc F4.4). Solo
 // "DIRETTA"/"RETE", "ZPL"/"EPL", LOCK_EX. IP opzionale, solo RETE.
 // F2.3 #90: unica implementazione vera in Salsiccia\Printer\PrinterConfig::salva()
 // (src/Printer/PrinterConfig.php); qui resta solo lo shim con stessa firma
@@ -799,8 +794,8 @@ function impostaStampanteSelezionata($name, $conn, $lang, $ip = '')
 }
 
 // Raggiungibilita' veritiera per la pagina switch (F4.5 #55): DIRETTA da stato
-// CUPS reale printer_lpstat_stato() + presenza USB lpinfo (F4.2) via
-// printer_stato_locale_ok(); RETE ping-only via printer_is_reachable().
+// CUPS reale CupsState::stato() + presenza USB lpinfo (F4.2) via
+// CupsState::statoLocaleOk(); RETE ping-only via CupsState::isReachable().
 // Senza CUPS: rosso "non verificabile", mai fatal.
 // F2.3 #90: unica implementazione vera in Salsiccia\Printer\PrinterConfig::
 // raggiungibile(); qui resta solo lo shim con stessa firma e stessi esiti.

@@ -31,7 +31,7 @@ class StatPDF extends FPDF
     function Header()
     {
         $this->SetFont('Arial', 'B', 14);
-        $festa = function_exists('festa_leggi') ? festa_leggi() : array();
+        $festa = \Salsiccia\Config\CassaFlags::festaLeggi();
         $nomeFesta = isset($festa['event_name']) ? (string)$festa['event_name'] : (defined('EVENT_NAME') ? (string)EVENT_NAME : '');
         $this->Cell(0, 9, stat_pdf_testo(strtoupper($nomeFesta)), 0, 1, 'C');
         $this->SetFont('Arial', '', 10);
@@ -120,7 +120,7 @@ function stat_pdf_render($dati)
 if (PHP_SAPI !== 'cli')
 {
     require_once __DIR__ . '/../../bootstrap.php';
-    salsiccia_session_start();
+    \Salsiccia\Support\Session::start();
     if (empty($_SESSION['reserved_auth']))
     {
         header('Location: login.php?msg=2');
