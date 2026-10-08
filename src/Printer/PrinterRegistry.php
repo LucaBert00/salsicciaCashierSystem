@@ -27,13 +27,16 @@ final class PrinterRegistry
      */
     public static function gateAllowed($name, $conn, $lang): bool
     {
-        if ($name === 'ZD230')
+        if ($name === 'ZD230') {
             return ($conn === 'DIRETTA' || $conn === 'RETE') && $lang === 'ZPL';
+        }
         // GX420t: solo DIRETTA, unica dual ZPL+EPL.
-        if ($name === 'GX420t')
+        if ($name === 'GX420t') {
             return $conn === 'DIRETTA' && ($lang === 'ZPL' || $lang === 'EPL');
-        if ($name === 'TLP2844' || $name === 'LP2844')
+        }
+        if ($name === 'TLP2844' || $name === 'LP2844') {
             return $conn === 'DIRETTA' && $lang === 'EPL';
+        }
         return false;
     }
 
@@ -84,21 +87,26 @@ final class PrinterRegistry
     {
         $f = self::selectionFile();
         $raw = is_readable($f) ? @file_get_contents($f) : false;
-        if ($raw === false)
+        if ($raw === false) {
             return null;
+        }
         $d = json_decode($raw, true);
-        if (!is_array($d) || empty($d['name']) || empty($d['connection']) || empty($d['language']))
+        if (!is_array($d) || empty($d['name']) || empty($d['connection']) || empty($d['language'])) {
             return null;
+        }
         $name = (string)$d['name'];
         $conn = (string)$d['connection'];
         $lang = (string)$d['language'];
-        if (!preg_match('/^[A-Za-z0-9_-]+$/', $name))
+        if (!preg_match('/^[A-Za-z0-9_-]+$/', $name)) {
             return null;
-        if (!self::gateAllowed($name, $conn, $lang))
+        }
+        if (!self::gateAllowed($name, $conn, $lang)) {
             return null;
+        }
         $ip = isset($d['ip']) ? trim((string)$d['ip']) : '';
-        if ($ip !== '' && filter_var($ip, FILTER_VALIDATE_IP) === false)
+        if ($ip !== '' && filter_var($ip, FILTER_VALIDATE_IP) === false) {
             $ip = '';
+        }
         return array('name' => $name, 'connection' => $conn, 'language' => $lang, 'ip' => $ip);
     }
 }

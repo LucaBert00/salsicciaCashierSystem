@@ -17,19 +17,23 @@ final class Session
 {
     public static function isHttps(): bool
     {
-        if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
             return true;
-        if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower((string)$_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https')
+        }
+        if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower((string)$_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https') {
             return true;
-        if (isset($_SERVER['REQUEST_SCHEME']) && strtolower((string)$_SERVER['REQUEST_SCHEME']) === 'https')
+        }
+        if (isset($_SERVER['REQUEST_SCHEME']) && strtolower((string)$_SERVER['REQUEST_SCHEME']) === 'https') {
             return true;
+        }
         return (int)($_SERVER['SERVER_PORT'] ?? 80) === 443;
     }
 
     public static function start(): bool
     {
-        if (session_status() === PHP_SESSION_ACTIVE)
+        if (session_status() === PHP_SESSION_ACTIVE) {
             return true;
+        }
         $secure = self::isHttps();
         session_set_cookie_params(array('lifetime' => 0, 'path' => '/', 'httponly' => true, 'secure' => $secure, 'samesite' => 'Lax'));
         ini_set('session.cookie_httponly', '1');

@@ -67,7 +67,8 @@ final class CassaViewTest extends TestCase
         $this->sessionBackup = $_SESSION ?? [];
         $_GET = [];
         $_SESSION = [];
-        foreach (array(
+        foreach (
+            array(
             'mostraNavCategorie', 'mostraIndicatoreTipo', 'mostraTitolo',
             'mostraBarraBarcode', 'mostraTabellaProdotti', 'mostraFooterBottoni',
             'mostraPannelloAdmin', 'mostraSchermataStampa', 'mostraModificaOrdine',
@@ -76,7 +77,8 @@ final class CassaViewTest extends TestCase
             'mostraRestart', 'mostraShutdown', 'mostraSwitchPrinter',
             'mostraModificaInfo', 'mostraBoxRiepilogo', 'mostraAzioniLaterali',
             'mostraListaProdotti', 'mostraPannelloConfig', 'mostraAzioniExtra',
-        ) as $fn) {
+            ) as $fn
+        ) {
             if (function_exists($fn)) {
                 continue;
             }

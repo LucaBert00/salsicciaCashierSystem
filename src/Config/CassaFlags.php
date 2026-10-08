@@ -43,18 +43,18 @@ final class CassaFlags
     public static function cassaLeggiFiera(): bool
     {
         $raw = is_readable(self::cassaFlagsFile()) ? file_get_contents(self::cassaFlagsFile()) : false;
-        if (is_string($raw) && $raw !== '')
-        {
+        if (is_string($raw) && $raw !== '') {
             $j = json_decode($raw, true);
-            if (is_array($j) && isset($j['modalita_fiera']))
+            if (is_array($j) && isset($j['modalita_fiera'])) {
                 return $j['modalita_fiera'] === '1' || $j['modalita_fiera'] === 1 || $j['modalita_fiera'] === true;
+            }
         }
         $cfg = dirname(__DIR__, 2) . '/config/cassa.php';
-        if (is_readable($cfg))
-        {
+        if (is_readable($cfg)) {
             $arr = is_readable($cfg) ? include $cfg : false;
-            if (is_array($arr) && isset($arr['MODALITA_FIERA']))
+            if (is_array($arr) && isset($arr['MODALITA_FIERA'])) {
                 return (string)$arr['MODALITA_FIERA'] === '1';
+            }
         }
         return false;
     }
@@ -69,15 +69,16 @@ final class CassaFlags
         $f = self::cassaFlagsFile();
         $tmp = $f . '.' . getmypid() . '.tmp';
         $json = json_encode(array('modalita_fiera' => $v));
-        if (!is_string($json))
+        if (!is_string($json)) {
             return;
-        if (file_put_contents($tmp, $json, LOCK_EX) === false)
-        {
+        }
+        if (file_put_contents($tmp, $json, LOCK_EX) === false) {
             Env::log('error', 'cassa_flags scrittura fallita');
             return;
         }
-        if (!rename($tmp, $f))
+        if (!rename($tmp, $f)) {
             Env::log('error', 'cassa_flags rename fallita');
+        }
     }
 
     // F0.3: info festa persistenti in storage/festa.json, mai rewrite di PHP source.
@@ -94,11 +95,11 @@ final class CassaFlags
     public static function festaLeggi(): array
     {
         $raw = is_readable(self::festaFile()) ? file_get_contents(self::festaFile()) : false;
-        if (is_string($raw) && $raw !== '')
-        {
+        if (is_string($raw) && $raw !== '') {
             $j = json_decode($raw, true);
-            if (is_array($j) && isset($j['event_name']) && isset($j['durata_festa']))
+            if (is_array($j) && isset($j['event_name']) && isset($j['durata_festa'])) {
                 return array('event_name' => (string)$j['event_name'], 'durata_festa' => (string)$j['durata_festa']);
+            }
         }
         return array(
             'event_name' => '',
@@ -118,14 +119,15 @@ final class CassaFlags
         $f = self::festaFile();
         $tmp = $f . '.' . getmypid() . '.tmp';
         $json = json_encode(array('event_name' => $e, 'durata_festa' => $d));
-        if (!is_string($json))
+        if (!is_string($json)) {
             return;
-        if (file_put_contents($tmp, $json, LOCK_EX) === false)
-        {
+        }
+        if (file_put_contents($tmp, $json, LOCK_EX) === false) {
             Env::log('error', 'festa scrittura fallita');
             return;
         }
-        if (!rename($tmp, $f))
+        if (!rename($tmp, $f)) {
             Env::log('error', 'festa rename fallita');
+        }
     }
 }

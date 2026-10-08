@@ -26,15 +26,17 @@ final class PrinterConfig
         $conn = (string)$conn;
         $lang = (string)$lang;
         $ip = trim((string)$ip);
-        if (!preg_match('/^[A-Za-z0-9_-]+$/', $name))
+        if (!preg_match('/^[A-Za-z0-9_-]+$/', $name)) {
             return false;
-        if (!PrinterRegistry::gateAllowed($name, $conn, $lang))
+        }
+        if (!PrinterRegistry::gateAllowed($name, $conn, $lang)) {
             return false;
-        if ($ip !== '' && ($conn !== 'RETE' || filter_var($ip, FILTER_VALIDATE_IP) === false))
+        }
+        if ($ip !== '' && ($conn !== 'RETE' || filter_var($ip, FILTER_VALIDATE_IP) === false)) {
             return false;
+        }
         $d = array('name' => $name, 'connection' => $conn, 'language' => $lang, 'ip' => $ip);
-        if (file_put_contents(PrinterRegistry::selectionFile(), json_encode($d), LOCK_EX) === false)
-        {
+        if (file_put_contents(PrinterRegistry::selectionFile(), json_encode($d), LOCK_EX) === false) {
             \Salsiccia\Support\Env::log('error', "stampante_selezione: scrittura fallita");
             return false;
         }
@@ -48,8 +50,9 @@ final class PrinterConfig
      */
     public static function raggiungibile($nome, $conn, $ip = ''): bool
     {
-        if ($conn === 'RETE')
+        if ($conn === 'RETE') {
             return (bool)CupsState::isReachable($nome, $conn, $ip);
+        }
         $st = CupsState::stato($nome);
         $dev = isset($st['device']) ? (string)$st['device'] : '';
         $usb = stripos($dev, 'usb://') === 0 ? CupsState::usbLocalePresente($dev) : true;

@@ -37,11 +37,13 @@ final class CupsState
     public static function ping($ip, $port = 21, $timeout = 2): bool
     {
         $ip = trim((string)$ip);
-        if (filter_var($ip, FILTER_VALIDATE_IP) === false)
+        if (filter_var($ip, FILTER_VALIDATE_IP) === false) {
             return false;
+        }
         $fp = @fsockopen($ip, (int)$port, $errno, $errstr, (int)$timeout);
-        if ($fp === false)
+        if ($fp === false) {
             return false;
+        }
         fclose($fp);
         return true;
     }
@@ -53,8 +55,9 @@ final class CupsState
      */
     public static function isReachable($name, $conn, $ip = ''): bool
     {
-        if ($conn !== 'RETE')
+        if ($conn !== 'RETE') {
             return true;
+        }
         return self::ping($ip);
     }
 
@@ -74,8 +77,9 @@ final class CupsState
     public static function lpstatBin(): string
     {
         $lpstat = (string)strtok(trim((string)@shell_exec('command -v lpstat 2>/dev/null')), "\r\n");
-        if ($lpstat === '' || !is_executable($lpstat))
+        if ($lpstat === '' || !is_executable($lpstat)) {
             return '';
+        }
         return $lpstat;
     }
 
@@ -85,10 +89,10 @@ final class CupsState
      */
     public static function lpstatParseDefault($righe): string
     {
-        foreach ((array)$righe as $r)
-        {
-            if (preg_match('/^system default destination:\s*(\S.*?)\s*$/', (string)$r, $m))
+        foreach ((array)$righe as $r) {
+            if (preg_match('/^system default destination:\s*(\S.*?)\s*$/', (string)$r, $m)) {
                 return $m[1];
+            }
         }
         return '';
     }
@@ -98,17 +102,18 @@ final class CupsState
     public static function lpstatSnapshot(): array
     {
         static $mem = null;
-        if (is_array($mem))
+        if (is_array($mem)) {
             return $mem;
+        }
         $mem = array('verificabile' => false, 'righe' => array(), 'predefinita' => '');
         $lpstat = self::lpstatBin();
-        if ($lpstat === '')
+        if ($lpstat === '') {
             return $mem; // atteso senza CUPS: nessun log, solo rosso "non verificabile"
+        }
         $righe = array();
         $rc = 1;
         @exec(escapeshellarg($lpstat) . ' -t 2>/dev/null', $righe, $rc);
-        if ($rc !== 0)
-        {
+        if ($rc !== 0) {
             Env::log('error', 'lpstat -t fallito');
             return $mem;
         }
@@ -132,72 +137,61 @@ final class CupsState
     {
         $name = (string)$name;
         $st = array('enabled' => false, 'state' => 'unknown', 'accepting' => false, 'device' => '', 'since' => '', 'reason' => '', 'jobs' => 0, 'predefinita' => false);
-        if (!preg_match('/^[A-Za-z0-9_-]+$/', $name) || empty($righe))
+        if (!preg_match('/^[A-Za-z0-9_-]+$/', $name) || empty($righe)) {
             return $st;
+        }
         $q = preg_quote($name, '/');
-        foreach ((array)$righe as $r)
-        {
+        foreach ((array)$righe as $r) {
             $r = (string)$r;
-            if (preg_match('/^printer\s+' . $q . '\s+(.*)$/', $r, $m))
-            {
+            if (preg_match('/^printer\s+' . $q . '\s+(.*)$/', $r, $m)) {
                 $d = (string)$m[1];
                 $low = strtolower($d);
-                if (strpos($low, 'unknown') !== false)
-                {
+                if (strpos($low, 'unknown') !== false) {
                     $st['state'] = 'unknown';
                     $st['enabled'] = false;
-                }
-                elseif (strpos($low, 'disabled') !== false)
-                {
+                } elseif (strpos($low, 'disabled') !== false) {
                     $st['state'] = 'disabled';
                     $st['enabled'] = false;
-                    if (preg_match('/disabled since\s+(.*?)\s+-\s+(.+?)\s*$/i', $d, $mm))
-                    {
+                    if (preg_match('/disabled since\s+(.*?)\s+-\s+(.+?)\s*$/i', $d, $mm)) {
                         $st['since'] = trim((string)$mm[1]);
                         $st['reason'] = trim((string)$mm[2]);
-                    }
-                    elseif (preg_match('/disabled since\s*(.*?)\s*$/i', $d, $mm))
-                    {
+                    } elseif (preg_match('/disabled since\s*(.*?)\s*$/i', $d, $mm)) {
                         $st['since'] = trim((string)$mm[1]);
                     }
-                    if ($st['reason'] === '')
+                    if ($st['reason'] === '') {
                         $st['reason'] = 'disabilitata';
-                }
-                elseif (strpos($low, 'now printing') !== false)
-                {
+                    }
+                } elseif (strpos($low, 'now printing') !== false) {
                     $st['state'] = 'printing';
                     $st['enabled'] = (strpos($low, 'enabled') !== false && strpos($low, 'disabled') === false);
-                    if (preg_match('/enabled since\s*(.*?)\s*$/i', $d, $mm))
+                    if (preg_match('/enabled since\s*(.*?)\s*$/i', $d, $mm)) {
                         $st['since'] = trim((string)$mm[1]);
-                }
-                elseif (strpos($low, 'is idle') !== false)
-                {
+                    }
+                } elseif (strpos($low, 'is idle') !== false) {
                     $st['state'] = 'idle';
                     $st['enabled'] = (strpos($low, 'enabled') !== false && strpos($low, 'disabled') === false);
-                    if (preg_match('/enabled since\s*(.*?)\s*$/i', $d, $mm))
+                    if (preg_match('/enabled since\s*(.*?)\s*$/i', $d, $mm)) {
                         $st['since'] = trim((string)$mm[1]);
+                    }
                 }
-            }
-            elseif (preg_match('/^' . $q . '\s+(not\s+)?accepting requests(\s+since\s*(.*?))?\s*$/i', $r, $m))
-            {
+            } elseif (preg_match('/^' . $q . '\s+(not\s+)?accepting requests(\s+since\s*(.*?))?\s*$/i', $r, $m)) {
                 $st['accepting'] = (trim(strtolower((string)$m[1])) === '');
-                if ($st['since'] === '' && isset($m[3]))
+                if ($st['since'] === '' && isset($m[3])) {
                     $st['since'] = trim((string)$m[3]);
-            }
-            elseif (preg_match('/^device for\s+' . $q . ':\s*(.*?)\s*$/i', $r, $m))
-            {
+                }
+            } elseif (preg_match('/^device for\s+' . $q . ':\s*(.*?)\s*$/i', $r, $m)) {
                 $st['device'] = trim((string)$m[1]);
-            }
-            elseif (preg_match('/^' . $q . '-\d+\s/', $r))
-            {
+            } elseif (preg_match('/^' . $q . '-\d+\s/', $r)) {
                 $st['jobs']++;
             }
         }
         $st['predefinita'] = ((string)$predefinita !== '' && (string)$predefinita === $name);
-        if ($st['state'] === 'unknown' && $st['reason'] === '')
+        if ($st['state'] === 'unknown' && $st['reason'] === '') {
             $st['reason'] = 'non configurata sul kiosk';
-        if (!$st['accepting'] && ($st['state'] === 'idle' || $st['state'] === 'printing') && $st['reason'] === '')
+        }
+        if (!$st['accepting'] && ($st['state'] === 'idle' || $st['state'] === 'printing') && $st['reason'] === '') {
             $st['reason'] = 'coda non accetta richieste';
+        }
         return $st;
     }
 
@@ -210,17 +204,18 @@ final class CupsState
     public static function lpstatPSnapshot(): array
     {
         static $mem = null;
-        if (is_array($mem))
+        if (is_array($mem)) {
             return $mem;
+        }
         $mem = array('verificabile' => false, 'righe' => array());
         $lpstat = self::lpstatBin();
-        if ($lpstat === '')
+        if ($lpstat === '') {
             return $mem;
+        }
         $righe = array();
         $rc = 1;
         @exec(escapeshellarg($lpstat) . ' -p 2>/dev/null', $righe, $rc);
-        if ($rc !== 0)
-        {
+        if ($rc !== 0) {
             Env::log('error', 'lpstat -p fallito');
             return $mem;
         }
@@ -237,11 +232,13 @@ final class CupsState
     public static function lpstatPStato($queue): ?array
     {
         $queue = (string)$queue;
-        if (!preg_match('/^[A-Za-z0-9_-]+$/', $queue))
+        if (!preg_match('/^[A-Za-z0-9_-]+$/', $queue)) {
             return null;
+        }
         $snap = self::lpstatPSnapshot();
-        if (empty($snap['verificabile']))
+        if (empty($snap['verificabile'])) {
             return null;
+        }
         return self::lpstatParseStato($queue, $snap['righe'], '');
     }
 
@@ -256,21 +253,25 @@ final class CupsState
     public static function lpstatApplicaConfermaP($st, $conf): array
     {
         $st = (array)$st;
-        if (!is_array($conf) || empty($conf))
+        if (!is_array($conf) || empty($conf)) {
             return $st;
+        }
         $pcs = isset($conf['state']) ? (string)$conf['state'] : 'unknown';
-        if ($pcs === 'idle' || $pcs === 'printing')
+        if ($pcs === 'idle' || $pcs === 'printing') {
             return $st;
+        }
         $st['state'] = $pcs;
         $st['enabled'] = false;
         $pr = isset($conf['reason']) ? trim((string)$conf['reason']) : '';
-        if ($pr !== '')
+        if ($pr !== '') {
             $st['reason'] = $pr;
-        elseif (trim((string)$st['reason']) === '')
+        } elseif (trim((string)$st['reason']) === '') {
             $st['reason'] = 'non confermata via lpstat -p';
+        }
         $ps = isset($conf['since']) ? trim((string)$conf['since']) : '';
-        if (trim((string)$st['since']) === '' && $ps !== '')
+        if (trim((string)$st['since']) === '' && $ps !== '') {
             $st['since'] = $ps;
+        }
         return $st;
     }
 
@@ -285,16 +286,19 @@ final class CupsState
     {
         $name = (string)$name;
         $no = array('verificabile' => false, 'enabled' => false, 'state' => 'unknown', 'accepting' => false, 'device' => '', 'since' => '', 'reason' => 'non verificabile sul kiosk', 'jobs' => 0, 'predefinita' => false);
-        if (!preg_match('/^[A-Za-z0-9_-]+$/', $name))
+        if (!preg_match('/^[A-Za-z0-9_-]+$/', $name)) {
             return $no;
+        }
         $snap = self::lpstatSnapshot();
-        if (empty($snap['verificabile']))
+        if (empty($snap['verificabile'])) {
             return $no;
+        }
         $st = self::lpstatParseStato(self::cupsQueue($name), $snap['righe'], $snap['predefinita']);
         $st['verificabile'] = true;
         $st = self::lpstatApplicaConfermaP($st, self::lpstatPStato(self::cupsQueue($name)));
-        if ($st['state'] === 'unknown' && (string)$st['reason'] === '')
+        if ($st['state'] === 'unknown' && (string)$st['reason'] === '') {
             $st['reason'] = 'non configurata sul kiosk';
+        }
         return $st;
     }
 
@@ -309,15 +313,19 @@ final class CupsState
     public static function statoLocaleOk($st, $usbPresente = true): bool
     {
         $st = (array)$st;
-        if (empty($st['verificabile']) || empty($st['enabled']) || empty($st['accepting']))
+        if (empty($st['verificabile']) || empty($st['enabled']) || empty($st['accepting'])) {
             return false;
-        if ($st['state'] !== 'idle' && $st['state'] !== 'printing')
+        }
+        if ($st['state'] !== 'idle' && $st['state'] !== 'printing') {
             return false;
+        }
         $dev = isset($st['device']) ? trim((string)$st['device']) : '';
-        if ($dev === '' || $dev === '///dev/null' || $dev === '/dev/null' || stripos($dev, 'file:///dev/null') === 0)
+        if ($dev === '' || $dev === '///dev/null' || $dev === '/dev/null' || stripos($dev, 'file:///dev/null') === 0) {
             return false;
-        if (stripos($dev, 'usb://') === 0 && !$usbPresente)
+        }
+        if (stripos($dev, 'usb://') === 0 && !$usbPresente) {
             return false;
+        }
         return true;
     }
 
@@ -333,23 +341,25 @@ final class CupsState
      */
     public static function usbPresenteDaEvidenza($nodiUsb, $righeLpinfo, $deviceAtteso): bool
     {
-        if (!empty($nodiUsb))
+        if (!empty($nodiUsb)) {
             return true;
+        }
         $serial = '';
-        if (preg_match('/serial=([^?&\s]+)/i', (string)$deviceAtteso, $m))
+        if (preg_match('/serial=([^?&\s]+)/i', (string)$deviceAtteso, $m)) {
             $serial = trim((string)$m[1]);
-        foreach ((array)$righeLpinfo as $r)
-        {
+        }
+        foreach ((array)$righeLpinfo as $r) {
             $r = (string)$r;
-            if (stripos($r, 'usb://') === false)
+            if (stripos($r, 'usb://') === false) {
                 continue;
-            if ($serial !== '')
-            {
-                if (stripos($r, $serial) !== false)
-                    return true;
             }
-            else
+            if ($serial !== '') {
+                if (stripos($r, $serial) !== false) {
+                    return true;
+                }
+            } else {
                 return true;
+            }
         }
         return false;
     }
@@ -368,24 +378,22 @@ final class CupsState
     {
         static $mem = array();
         $deviceAtteso = (string)$deviceAtteso;
-        if (isset($mem[$deviceAtteso]))
+        if (isset($mem[$deviceAtteso])) {
             return $mem[$deviceAtteso];
+        }
         $righe = array();
         $lpinfoOk = false;
         $lpinfo = (string)strtok(trim((string)@shell_exec('command -v lpinfo 2>/dev/null')), "\r\n");
-        if ($lpinfo !== '' && is_executable($lpinfo))
-        {
+        if ($lpinfo !== '' && is_executable($lpinfo)) {
             $out = array();
             $rc = 1;
             @exec(escapeshellarg($lpinfo) . ' -v 2>/dev/null', $out, $rc);
-            if ($rc === 0)
-            {
+            if ($rc === 0) {
                 $righe = $out;
                 $lpinfoOk = true;
             }
         }
-        if (!$lpinfoOk)
-        {
+        if (!$lpinfoOk) {
             // detection cieca, non prova di assenza; la coda CUPS resta la verita'.
             $mem[$deviceAtteso] = true;
             return $mem[$deviceAtteso];

@@ -28,21 +28,24 @@ final class Power
         $aSys = ($mode === 'poweroff') ? 'poweroff' : 'reboot';
         $aShut = ($mode === 'poweroff') ? '-h now' : '-r now';
         $c = array();
-        foreach (array('/bin/systemctl', '/usr/bin/systemctl') as $s)
-            if (is_executable($s))
+        foreach (array('/bin/systemctl', '/usr/bin/systemctl') as $s) {
+            if (is_executable($s)) {
                 $c[] = $s . ' ' . $aSys;
-        foreach (array('/sbin/shutdown', '/usr/sbin/shutdown') as $s)
-            if (is_executable($s))
+            }
+        }
+        foreach (array('/sbin/shutdown', '/usr/sbin/shutdown') as $s) {
+            if (is_executable($s)) {
                 $c[] = $s . ' ' . $aShut;
-        if (empty($c))
-        {
+            }
+        }
+        if (empty($c)) {
             $out = array();
             @exec('command -v systemctl shutdown 2>/dev/null', $out);
-            foreach ($out as $r)
-            {
+            foreach ($out as $r) {
                 $r = trim((string)$r);
-                if ($r === '' || !is_executable($r))
+                if ($r === '' || !is_executable($r)) {
                     continue;
+                }
                 $c[] = $r . (substr($r, -10) === 'systemctl' ? ' ' . $aSys : ' ' . $aShut);
             }
         }
@@ -52,23 +55,26 @@ final class Power
     public static function escapaComando($cmdline): string
     {
         $e = array();
-        foreach (explode(' ', $cmdline) as $p)
-            if ($p !== '')
+        foreach (explode(' ', $cmdline) as $p) {
+            if ($p !== '') {
                 $e[] = escapeshellarg($p);
+            }
+        }
         return implode(' ', $e);
     }
 
     public static function scegliComandoAlimentazione($mode): string
     {
-        foreach (self::candidatiAlimentazione($mode) as $cand)
-        {
+        foreach (self::candidatiAlimentazione($mode) as $cand) {
             $out = array();
             $rc = 1;
             @exec('sudo -n -l -- ' . self::escapaComando($cand) . ' >/dev/null 2>&1', $out, $rc);
-            if ($rc !== 0)
+            if ($rc !== 0) {
                 @exec('sudo -n ' . self::escapaComando(strtok($cand, " ")) . ' --help >/dev/null 2>&1', $out, $rc);
-            if ($rc === 0)
+            }
+            if ($rc === 0) {
                 return $cand;
+            }
         }
         return '';
     }
@@ -81,8 +87,9 @@ final class Power
     public static function uptimeMacchina(): mixed
     {
         $u = @file_get_contents('/proc/uptime');
-        if ($u === false)
+        if ($u === false) {
             return null;
+        }
         $p = (float)strtok(trim((string)$u), " ");
         return $p > 0 ? $p : null;
     }
@@ -91,12 +98,15 @@ final class Power
     {
         $soglia = 180;
         $eta = $now - $markerTime;
-        if ($eta < 0)
+        if ($eta < 0) {
             return 'attesa';
-        if ($uptime !== null && $uptime < $eta)
+        }
+        if ($uptime !== null && $uptime < $eta) {
             return 'riuscito';
-        if ($eta > $soglia)
+        }
+        if ($eta > $soglia) {
             return 'fallito';
+        }
         return 'attesa';
     }
 
@@ -111,32 +121,31 @@ final class Power
         $cfg = \Salsiccia\Config\CassaConfig::carica();
         $printerConn = isset($cfg['PRINTER_CONNECTION']) ? (string)$cfg['PRINTER_CONNECTION'] : '';
         $printerNome = isset($cfg['PRINTER_NAME']) ? (string)$cfg['PRINTER_NAME'] : '';
-        if ($printerConn !== 'DIRETTA')
+        if ($printerConn !== 'DIRETTA') {
             return;
-        if (!preg_match('/^[A-Za-z0-9_-]+$/', $printerNome))
-        {
+        }
+        if (!preg_match('/^[A-Za-z0-9_-]+$/', $printerNome)) {
             \Salsiccia\Support\Env::log('error', 'power: cancel bloccato, PRINTER_NAME non whitelistato');
             return;
         }
         $cmd = 'cancel -a ' . escapeshellarg(\Salsiccia\Printer\CupsState::cupsQueue($printerNome)) . ' >/dev/null 2>&1';
         system($cmd, $rc);
-        if ($rc !== 0)
+        if ($rc !== 0) {
             \Salsiccia\Support\Env::log('error', 'power: cancel coda fallito rc=' . $rc . ' printer=' . $printerNome);
+        }
     }
 
     public static function schedulaAzioneAlimentazione($mode): bool
     {
         $cmdline = self::scegliComandoAlimentazione($mode);
-        if ($cmdline === '')
-        {
+        if ($cmdline === '') {
             \Salsiccia\Support\Env::log('error', 'power: schedulazione ' . $mode . ' impossibile, nessun comando permesso');
             return false;
         }
         self::svuotaCodaStampaPreSpegnimento();
         $cmd = '(sleep 2; sudo ' . self::escapaComando($cmdline) . ') >/dev/null 2>&1 &';
         system($cmd, $rc);
-        if ($rc !== 0)
-        {
+        if ($rc !== 0) {
             \Salsiccia\Support\Env::log('error', 'power: schedulazione ' . $mode . ' fallita rc=' . $rc);
             return false;
         }

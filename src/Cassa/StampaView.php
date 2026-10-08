@@ -37,8 +37,7 @@ final class StampaView
         echo '<div class="banconote-grid">';
         echo '<div class="banconote-riga banconote-riga-1">';
         $banconote_1 = array(5, 10, 20, 50);
-        foreach ($banconote_1 as $val)
-        {
+        foreach ($banconote_1 as $val) {
             $nuovo_pagato = $pagato + $val;
             $img_file = 'asset/soldi/' . $val . '_euro.png';
             echo '<button onclick="window.location.href=\'' . $base_url . '&pagato=' . $nuovo_pagato . '&metodo=' . $metodo . '\'" class="banconota-btn" style="background-image:url(\'' . $img_file . '\')">';
@@ -47,8 +46,7 @@ final class StampaView
         echo '</div>';
         echo '<div class="banconote-riga banconote-riga-2">';
         $banconote_2 = array(100, 200, 500);
-        foreach ($banconote_2 as $val)
-        {
+        foreach ($banconote_2 as $val) {
             $nuovo_pagato = $pagato + $val;
             $img_file = 'asset/soldi/' . $val . '_euro.png';
             echo '<button onclick="window.location.href=\'' . $base_url . '&pagato=' . $nuovo_pagato . '&metodo=' . $metodo . '\'" class="banconota-btn" style="background-image:url(\'' . $img_file . '\')">';
@@ -61,8 +59,7 @@ final class StampaView
         echo '<p class="gruppo-titolo"><span class="gruppo-titolo-icona">🪙</span> MONETE</p>';
         echo '<div class="monete-grid">';
         $monete = array(2, 1, 0.50, 0.20, 0.10, 0.05, 0.01);
-        foreach ($monete as $val)
-        {
+        foreach ($monete as $val) {
             $nuovo_pagato = $pagato + $val;
             $label = $val >= 1 ? $val . '€' : ($val * 100) . 'c';
             $img_file = 'asset/soldi/' . ($val >= 1 ? $val : ($val * 100) . 'c') . '_euro.png';
@@ -85,8 +82,9 @@ final class StampaView
         echo '<span class="metodo-btn-label">CARTA DI CREDITO</span></button>';
         echo '</div>';
 
-        if ($mostra_nuovo)
+        if ($mostra_nuovo) {
             echo '<div style="text-align:center;"><button onclick="window.location.href=\'index.php\'" class="opzione-btn" style="padding:16px 40px;display:inline-flex;">NUOVO ORDINE</button></div>';
+        }
 
         //Footer PAGATO-TOTALE-RESTO
         echo '<div class="stampa-footer">';

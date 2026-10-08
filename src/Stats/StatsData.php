@@ -127,12 +127,12 @@ final class StatsData
     // fuori dalla SUM come nel join interno di prima. Ritorna lista
     // array(id_contatore, nome, totale float) in ordine di nome.
     // F4.2 #99: unica casa dei contatori (verbatim legacy pre-F4.4).
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- contratto F4.2 #99 (§10 punto 15), nome dominio snake_case referenziato da routes/viste
     public static function contatori_totali($mysqli)
     {
         $ris = db_select($mysqli, "SELECT `c`.`id_contatore` AS `id_contatore`, `c`.`nome` AS `nome`, COALESCE(SUM(CASE WHEN `o`.`id_ordine` IS NULL THEN NULL ELSE (`r`.`quantita` * `pc`.`quantita`) END), 0) AS `totale` FROM `contatori` `c` LEFT JOIN `prodotti_contatori` `pc` ON `pc`.`id_contatore` = `c`.`id_contatore` LEFT JOIN `righe_ordini` `r` ON `r`.`id_prodotto` = `pc`.`id_prodotto` LEFT JOIN `ordini` `o` ON `o`.`id_ordine` = `r`.`id_ordine` AND (BINARY `c`.`controllo_periodo` <> 'T' OR `o`.`data_ora` BETWEEN `c`.`data_da` AND `c`.`data_a`) WHERE `c`.`attivo` = 'T' GROUP BY `c`.`id_contatore`, `c`.`nome` ORDER BY `c`.`nome` ASC");
         $righe = array();
-        while($ris && ($riga = mysqli_fetch_array($ris)))
-        {
+        while ($ris && ($riga = mysqli_fetch_array($ris))) {
             $righe[] = array('id_contatore' => (int)$riga['id_contatore'], 'nome' => $riga['nome'], 'totale' => (float)$riga['totale']);
         }
         return $righe;

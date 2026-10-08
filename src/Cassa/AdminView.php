@@ -102,8 +102,9 @@ final class AdminView
         echo '<input type="password" name="code" id="admin-code" class="codice-text-field" value="" readonly required>';
 
         echo '<div class="tastierino-grid">';
-        for ($i = 1; $i <= 9; $i++)
+        for ($i = 1; $i <= 9; $i++) {
             echo '<button type="button" class="tastierino-btn" data-kb-ch="' . $i . '">' . $i . '</button>';
+        }
         echo '<button type="button" class="tastierino-btn" data-kb-ch="*">*</button>';
         echo '<button type="button" class="tastierino-btn" data-kb-ch="0">0</button>';
         echo '<button type="button" class="tastierino-btn" data-kb-ch="@">@</button>';
@@ -124,8 +125,7 @@ final class AdminView
      */
     public static function contatori($db): void
     {
-        if (!\isAdmin())
-        {
+        if (!\isAdmin()) {
             header("Location: index.php?action=c");
             exit;
         }
@@ -133,43 +133,44 @@ final class AdminView
         echo '<h3 class="admin-group-title">CONTATORI - PRODOTTI VENDUTI MONITORATI</h3>';
         $rpp = 5;
         $pagina = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-        if ($pagina < 1)
+        if ($pagina < 1) {
             $pagina = 1;
+        }
         $righe = \Salsiccia\Stats\StatsData::contatori_totali($db);
         $tot = count($righe);
         $totPagine = max(1, (int)ceil($tot / $rpp));
-        if ($pagina > $totPagine)
+        if ($pagina > $totPagine) {
             $pagina = $totPagine;
-        $offset = ($pagina - 1) * $rpp;
-        if ($tot == 0)
-        {
-            echo '<p style="font-weight:800;text-align:center;color:#8c9ba5;">NESSUN PRODOTTO MONITORATO</p>';
         }
-        else
-        {
+        $offset = ($pagina - 1) * $rpp;
+        if ($tot == 0) {
+            echo '<p style="font-weight:800;text-align:center;color:#8c9ba5;">NESSUN PRODOTTO MONITORATO</p>';
+        } else {
             echo '<table class="modifica-table">';
             echo '<thead><tr><th class="intestazione-tabella-descrizione">NOME PRODOTTO</th><th class="intestazione-tabella-quantita">QUANTITA VENDUTI</th></tr></thead>';
             echo '<tbody>';
-            foreach (array_slice($righe, $offset, $rpp) as $c)
-            {
+            foreach (array_slice($righe, $offset, $rpp) as $c) {
                 echo '<tr><td class="cella-tabella-descrizione">' . htmlspecialchars($c['nome'], ENT_QUOTES, 'UTF-8') . '</td><td class="cella-tabella-quantita">' . ($c['totale'] + 0) . '</td></tr>';
             }
             echo '</tbody>';
             echo '</table>';
             echo '<div class="admin-btn-row">';
-            if ($pagina > 1)
+            if ($pagina > 1) {
                 echo '<a href="?action=contatori&page=' . ($pagina - 1) . '" class="opzione-btn" style="padding:12px 20px;">&lt;</a>';
-            foreach (array_unique(array(1, $pagina - 1, $pagina, $pagina + 1, $totPagine)) as $numPagina)
-            {
-                if ($numPagina < 1 || $numPagina > $totPagine)
-                    continue;
-                if ($numPagina == $pagina)
-                    echo '<span class="opzione-btn" style="padding:12px 20px;border:2px solid #2b3d4e;">' . $numPagina . '</span>';
-                else
-                    echo '<a href="?action=contatori&page=' . $numPagina . '" class="opzione-btn" style="padding:12px 20px;">' . $numPagina . '</a>';
             }
-            if ($pagina < $totPagine)
+            foreach (array_unique(array(1, $pagina - 1, $pagina, $pagina + 1, $totPagine)) as $numPagina) {
+                if ($numPagina < 1 || $numPagina > $totPagine) {
+                    continue;
+                }
+                if ($numPagina == $pagina) {
+                    echo '<span class="opzione-btn" style="padding:12px 20px;border:2px solid #2b3d4e;">' . $numPagina . '</span>';
+                } else {
+                    echo '<a href="?action=contatori&page=' . $numPagina . '" class="opzione-btn" style="padding:12px 20px;">' . $numPagina . '</a>';
+                }
+            }
+            if ($pagina < $totPagine) {
                 echo '<a href="?action=contatori&page=' . ($pagina + 1) . '" class="opzione-btn" style="padding:12px 20px;">&gt;</a>';
+            }
             echo '</div>';
         }
         echo '<div class="admin-btn-row"><a href="index.php" class="opzione-btn" style="text-decoration:none;">TORNA</a></div>';
@@ -178,8 +179,7 @@ final class AdminView
 
     public static function info(): void
     {
-        if (!\isAdmin())
-        {
+        if (!\isAdmin()) {
             header("Location: index.php?action=c");
             exit;
         }
@@ -188,26 +188,23 @@ final class AdminView
         $durataFesta = isset($letto['durata_festa']) ? (string)$letto['durata_festa'] : '1';
 
         $messaggio = '';
-        if ($_SERVER['REQUEST_METHOD'] == 'POST')
-        {
-            if (!\csrf_ok())
-            {
+        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+            if (!\csrf_ok()) {
                 $messaggio = 'TOKEN NON VALIDO.';
-            }
-            else
-            {
-            \Salsiccia\Config\CassaFlags::festaImposta(isset($_POST['EVENT_NAME']) ? $_POST['EVENT_NAME'] : '', isset($_POST['DURATA_FESTA']) ? $_POST['DURATA_FESTA'] : '');
-        $letto = \Salsiccia\Config\CassaFlags::festaLeggi();
-            $eventName = isset($letto['event_name']) ? (string)$letto['event_name'] : '';
-            $durataFesta = isset($letto['durata_festa']) ? (string)$letto['durata_festa'] : '1';
-            $messaggio = 'Configurazione salvata con successo.';
+            } else {
+                \Salsiccia\Config\CassaFlags::festaImposta(isset($_POST['EVENT_NAME']) ? $_POST['EVENT_NAME'] : '', isset($_POST['DURATA_FESTA']) ? $_POST['DURATA_FESTA'] : '');
+                $letto = \Salsiccia\Config\CassaFlags::festaLeggi();
+                $eventName = isset($letto['event_name']) ? (string)$letto['event_name'] : '';
+                $durataFesta = isset($letto['durata_festa']) ? (string)$letto['durata_festa'] : '1';
+                $messaggio = 'Configurazione salvata con successo.';
             }
         }
 
         echo '<section class="admin-panel" style="align-items:center;text-align:center;">';
         echo '<h3 class="admin-group-title">CONFIGURAZIONE FESTA</h3>';
-        if ($messaggio != '')
+        if ($messaggio != '') {
             echo '<p style="background:#5cb85c;color:#fff;font-weight:800;text-align:center;padding:12px;border-radius:6px;">' . $messaggio . '</p>';
+        }
         echo '<form method="post" action="?action=info" style="display:flex;flex-direction:column;gap:16px;max-width:560px;width:100%;margin:0 auto;align-items:center;text-align:center;">';
         \csrf_field();
         echo '<label style="font-weight:800;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;width:100%;"><span style="font-size:18px;letter-spacing:1px;color:#2b3d4e;text-transform:uppercase;">NOME FESTA (max 32)</span><input type="text" name="EVENT_NAME" value="' . htmlspecialchars($eventName) . '" maxlength="32" class="codice-text-field"></label>';
@@ -226,37 +223,30 @@ final class AdminView
     public static function repair($db): void
     {
         // difesa in profondita, index.php filtra gia via isAdmin+redirect; mai GET anonimo.
-        if (!\isAdmin())
-        {
+        if (!\isAdmin()) {
             header("Location: index.php?action=c");
             exit;
         }
 
         echo '<section class="admin-panel">';
         echo '<h3 class="admin-group-title">RIPRISTINA DATABASE</h3>';
-        if (isset($_POST['ripristina']))
-        {
-            if (!\csrf_ok())
-            {
+        if (isset($_POST['ripristina'])) {
+            if (!\csrf_ok()) {
                 echo '<p style="background:#d9534f;color:#fff;font-weight:800;text-align:center;padding:12px;border-radius:6px;">TOKEN NON VALIDO.</p>';
                 echo '<br><div class="admin-btn-row"><a href="index.php" class="opzione-btn" style="text-decoration:none;">TORNA</a></div>';
+            } else {
+                $righe = \Salsiccia\System\DbRepair::run($db);
+                foreach ($righe as $riga) {
+                    $table = (string)$riga['table'];
+                    if (!empty($riga['ok'])) {
+                        echo "Tabella <b>$table</b> riparata.<br>";
+                    } else {
+                        echo "Errore su <b>$table</b>: " . htmlspecialchars((string)$riga['error']) . "<br>";
+                    }
+                }
+                echo '<br><div class="admin-btn-row"><a href="index.php" class="opzione-btn" style="text-decoration:none;">TORNA</a></div>';
             }
-            else
-            {
-            $righe = \Salsiccia\System\DbRepair::run($db);
-            foreach ($righe as $riga)
-            {
-                $table = (string)$riga['table'];
-                if (!empty($riga['ok']))
-                    echo "Tabella <b>$table</b> riparata.<br>";
-                else
-                    echo "Errore su <b>$table</b>: " . htmlspecialchars((string)$riga['error']) . "<br>";
-            }
-            echo '<br><div class="admin-btn-row"><a href="index.php" class="opzione-btn" style="text-decoration:none;">TORNA</a></div>';
-            }
-        }
-        else
-        {
+        } else {
             echo '<p style="color:#e54b3c;font-weight:800;text-align:center;">ATTENZIONE: verr&agrave; eseguito il recupero di tutte le tabelle.</p>';
             echo '<form method="post" action="?action=repair" onsubmit="return confirm(\'Confermi il recupero di tutte le tabelle?\');">';
             \csrf_field();
@@ -272,8 +262,7 @@ final class AdminView
     public static function carta(): void
     {
         // difesa in profondita, index.php filtra gia via isAdmin+redirect; mai GET anonimo.
-        if (!\isAdmin())
-        {
+        if (!\isAdmin()) {
             header("Location: index.php?action=c");
             exit;
         }
@@ -288,39 +277,26 @@ final class AdminView
         $modoNuovo = $nuovo === '1' ? 'CONTINUA' : 'SINGOLI';
         echo '<section class="admin-panel">';
         echo '<h3 class="admin-group-title admin-msg-big">CAMBIA CARTA STAMPA - CARTA ATTUALE: ' . $modo . '</h3>';
-        if (isset($_POST['cambia_carta']))
-        {
-            if (!\csrf_ok())
-            {
+        if (isset($_POST['cambia_carta'])) {
+            if (!\csrf_ok()) {
                 echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;font-weight:800;text-align:center;padding:12px;border-radius:6px;">TOKEN NON VALIDO.</p>';
                 echo '<br><div class="admin-btn-row"><a href="index.php" class="opzione-btn" style="text-decoration:none;">TORNA</a></div>';
+            } else {
+                $continuaNuova = ($nuovo === '1');
+                $erroreSetup = '';
+                $setup = \Salsiccia\Printer\PaperSetup::leggiSetup($printerNome, $printerConn, $printerLang, $continuaNuova, $erroreSetup, \Salsiccia\Support\Storage::path('printerCommand'));
+                if ($setup === false) {
+                    echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;font-weight:800;text-align:center;padding:12px;border-radius:6px;">' . htmlspecialchars($erroreSetup, ENT_QUOTES, 'UTF-8') . '</p>';
+                } elseif (!\Salsiccia\Cassa\PrintService::inviaSetupCarta($setup)) {
+                    echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;font-weight:800;text-align:center;padding:12px;border-radius:6px;">INVIO SETUP CARTA ALLA STAMPANTE FALLITO, modalita invariata.</p>';
+                } elseif (\impostaCartaStampa($nuovo)) {
+                    echo '<p class="admin-msg-big" style="background:#5cb85c;color:#fff;font-weight:800;text-align:center;padding:12px;border-radius:6px;">Carta commutata a ' . $modoNuovo . ': setup stampante applicato, la prossima stampa usa la nuova modalita.</p>';
+                } else {
+                    echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;font-weight:800;text-align:center;padding:12px;border-radius:6px;">SETUP STAMPANTE APPLICATO MA SCRITTURA STATO CARTA FALLITA: riallineare al prossimo toggle.</p>';
+                }
+                echo '<br><div class="admin-btn-row"><a href="index.php" class="opzione-btn" style="text-decoration:none;">TORNA</a></div>';
             }
-            else
-            {
-            $continuaNuova = ($nuovo === '1');
-            $erroreSetup = '';
-            $setup = \Salsiccia\Printer\PaperSetup::leggiSetup($printerNome, $printerConn, $printerLang, $continuaNuova, $erroreSetup, \Salsiccia\Support\Storage::path('printerCommand'));
-            if ($setup === false)
-            {
-                echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;font-weight:800;text-align:center;padding:12px;border-radius:6px;">' . htmlspecialchars($erroreSetup, ENT_QUOTES, 'UTF-8') . '</p>';
-            }
-            elseif (!\Salsiccia\Cassa\PrintService::inviaSetupCarta($setup))
-            {
-                echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;font-weight:800;text-align:center;padding:12px;border-radius:6px;">INVIO SETUP CARTA ALLA STAMPANTE FALLITO, modalita invariata.</p>';
-            }
-            elseif (\impostaCartaStampa($nuovo))
-            {
-                echo '<p class="admin-msg-big" style="background:#5cb85c;color:#fff;font-weight:800;text-align:center;padding:12px;border-radius:6px;">Carta commutata a ' . $modoNuovo . ': setup stampante applicato, la prossima stampa usa la nuova modalita.</p>';
-            }
-            else
-            {
-                echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;font-weight:800;text-align:center;padding:12px;border-radius:6px;">SETUP STAMPANTE APPLICATO MA SCRITTURA STATO CARTA FALLITA: riallineare al prossimo toggle.</p>';
-            }
-            echo '<br><div class="admin-btn-row"><a href="index.php" class="opzione-btn" style="text-decoration:none;">TORNA</a></div>';
-            }
-        }
-        else
-        {
+        } else {
             echo '<p class="admin-msg-big" style="color:#e54b3c;">ATTENZIONE: dopo aver cambiato fisicamente la carta, la modalita di stampa passera da ' . $modo . ' a ' . $modoNuovo . '.</p>';
             echo '<form method="post" action="?action=print_reset" onsubmit="return confirm(\'Cambiare carta di stampa in ' . $modoNuovo . '?\');">';
             \csrf_field();
@@ -336,8 +312,7 @@ final class AdminView
     public static function switchPrinter(): void
     {
         // difesa in profondita, index.php filtra gia via isAdmin+redirect; mai GET anonimo.
-        if (!\isAdmin())
-        {
+        if (!\isAdmin()) {
             header("Location: index.php?action=c");
             exit;
         }
@@ -349,60 +324,50 @@ final class AdminView
         $printerIp = isset($cfg['PRINTER_IP']) ? (string)$cfg['PRINTER_IP'] : '';
         echo '<section class="admin-panel switch-printer-panel">';
         echo '<h3 class="admin-group-title admin-msg-big">CAMBIA STAMPANTE - ATTUALE: ' . htmlspecialchars($printerNome . ' - ' . $printerConn . ' - ' . $printerLang, ENT_QUOTES, 'UTF-8') . '</h3>';
-        if (isset($_POST['cambia_stampante']))
-        {
-            if (!\csrf_ok())
-            {
+        if (isset($_POST['cambia_stampante'])) {
+            if (!\csrf_ok()) {
                 echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;padding:12px;border-radius:6px;">TOKEN NON VALIDO.</p>';
-            }
-            else
-            {
+            } else {
                 $nome = (string)($_POST['nome'] ?? '');
                 $conn = (string)($_POST['conn'] ?? '');
                 $lingua = (string)($_POST['lingua'] ?? '');
                 $ip = $conn === 'RETE' ? trim((string)($_POST['ip'] ?? '')) : '';
                 // riuso reachability F4.2; ip POST o fallback CassaConfig come in lista
                 $ipCheck = $conn === 'RETE' ? ($ip !== '' ? $ip : $printerIp) : '';
-                if (!\Salsiccia\Printer\PrinterConfig::raggiungibile($nome, $conn, $ipCheck))
-                {
+                if (!\Salsiccia\Printer\PrinterConfig::raggiungibile($nome, $conn, $ipCheck)) {
                     echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;padding:12px;border-radius:6px;">STAMPANTE NON RAGGIUNGIBILE (pallino rosso), selezione non cambiata.</p>';
-                }
-                elseif (\Salsiccia\Printer\PrinterConfig::salva($nome, $conn, $lingua, $ip))
-                {
+                } elseif (\Salsiccia\Printer\PrinterConfig::salva($nome, $conn, $lingua, $ip)) {
                     echo '<p class="admin-msg-big" style="background:#5cb85c;color:#fff;padding:12px;border-radius:6px;">Stampante commutata a ' . htmlspecialchars($nome . ' - ' . $conn . ' - ' . $lingua, ENT_QUOTES, 'UTF-8') . ': la prossima stampa usa la nuova selezione.</p>';
-                }
-                else
-                {
+                } else {
                     echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;padding:12px;border-radius:6px;">SELEZIONE NON VALIDA (gate), stampante invariata.</p>';
                 }
             }
             echo '<br><div class="admin-btn-row"><a href="index.php" class="opzione-btn" style="text-decoration:none;">TORNA</a></div>';
-        }
-        else
-        {
+        } else {
             echo '<script>function selModo(r){var f=r.form,b=f.cambia_stampante;if(b){if(b.getAttribute("data-unreach")==="1")return;b.disabled=false;b.style.opacity="";b.style.cursor="";}var L=f.querySelectorAll("label.opzione-btn");for(var i=0;i<L.length;i++){L[i].removeAttribute("style");}var l=r.parentNode;l.style.border="2px solid #2b3d4e";l.style.background="#2b3d4e";l.style.color="#fff";}</script>';
             $raggiungibili = array();
             $altre = array();
-            foreach (\Salsiccia\Printer\PrinterRegistry::knownPrinters() as $p)
-            {
+            foreach (\Salsiccia\Printer\PrinterRegistry::knownPrinters() as $p) {
                 $p['ok'] = \Salsiccia\Printer\PrinterConfig::raggiungibile((string)$p['name'], (string)$p['connection'], $printerIp);
-                if ($p['ok'])
+                if ($p['ok']) {
                     $raggiungibili[] = $p;
-                else
+                } else {
                     $altre[] = $p;
+                }
             }
             $ordinate = array_merge($raggiungibili, $altre);
             $rpp = 4;
             $pagina = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-            if ($pagina < 1)
+            if ($pagina < 1) {
                 $pagina = 1;
+            }
             $totPagine = max(1, (int)ceil(count($ordinate) / $rpp));
-            if ($pagina > $totPagine)
+            if ($pagina > $totPagine) {
                 $pagina = $totPagine;
+            }
             $visibili = array_slice($ordinate, ($pagina - 1) * $rpp, $rpp);
             echo '<div class="switch-printer-grid">';
-            foreach ($visibili as $p)
-            {
+            foreach ($visibili as $p) {
                 $nome = (string)$p['name'];
                 $conn = (string)$p['connection'];
                 $ok = !empty($p['ok']);
@@ -411,23 +376,19 @@ final class AdminView
                 echo '<p class="admin-msg-big" style="color:#2b3d4e;margin:0 0 4px;"><span title="' . ($ok ? 'Raggiungibile' : 'Non raggiungibile') . '" style="color:' . ($ok ? '#5cb85c' : '#d9534f') . ';">&#9679;</span> ' . htmlspecialchars($nome, ENT_QUOTES, 'UTF-8') . ($attuale ? ' <span style="display:inline-flex;align-items:center;background:#5cb85c;color:#fff;font-weight:800;border-radius:12px;padding:2px 12px;font-size:14px;">ATTUALE</span>' : '') . '</p>';
                 echo '<p class="admin-msg-big" style="color:#8c9ba5;margin:0 0 8px;">CONNESSIONE: ' . htmlspecialchars($conn, ENT_QUOTES, 'UTF-8') . '</p>';
                 echo '<div class="admin-btn-row" style="align-items:center;">';
-                if ($nome === 'GX420t')
-                {
+                if ($nome === 'GX420t') {
                     echo '<span class="admin-msg-big" style="color:#8c9ba5;">MODALITA STAMPA:</span>';
                     echo '<form method="post" action="?action=switch_printer" onsubmit="return confirm(\'Cambiare stampante?\');" style="display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;">';
                     \csrf_field();
                     echo '<input type="hidden" name="nome" value="GX420t">';
                     echo '<input type="hidden" name="conn" value="DIRETTA">';
-                    foreach (array('ZPL', 'EPL') as $lingua)
-                    {
+                    foreach (array('ZPL', 'EPL') as $lingua) {
                         $sel = ($attuale && $printerLang === $lingua);
                         echo '<label class="opzione-btn"' . ($sel ? ' style="border:2px solid #2b3d4e;background:#2b3d4e;color:#fff;"' : '') . '><input type="radio" name="lingua" value="' . $lingua . '"' . ($sel ? ' checked' : '') . ($ok ? '' : ' disabled') . ' onchange="selModo(this)" style="display:none;"> ' . $lingua . '</label>';
                     }
                     echo '<button type="submit" name="cambia_stampante" value="1" class="opzione-btn"' . ((!$ok || !$attuale) ? ' disabled style="opacity:.45;cursor:not-allowed;"' : '') . (!$ok ? ' data-unreach="1"' : '') . '>SELEZIONA</button>';
                     echo '</form>';
-                }
-                else
-                {
+                } else {
                     $lingua = (string)$p['language'];
                     echo '<span class="admin-msg-big" style="color:#8c9ba5;">MODALITA STAMPA:</span>';
                     echo '<span class="opzione-btn" style="border:2px solid #2b3d4e;cursor:default;">' . htmlspecialchars($lingua, ENT_QUOTES, 'UTF-8') . '</span>';
@@ -436,8 +397,9 @@ final class AdminView
                     echo '<input type="hidden" name="nome" value="' . htmlspecialchars($nome, ENT_QUOTES, 'UTF-8') . '">';
                     echo '<input type="hidden" name="conn" value="' . htmlspecialchars($conn, ENT_QUOTES, 'UTF-8') . '">';
                     echo '<input type="hidden" name="lingua" value="' . htmlspecialchars($lingua, ENT_QUOTES, 'UTF-8') . '">';
-                    if ($conn === 'RETE')
+                    if ($conn === 'RETE') {
                         echo '<input type="hidden" name="ip" value="' . htmlspecialchars($printerIp, ENT_QUOTES, 'UTF-8') . '">';
+                    }
                     echo '<button type="submit" name="cambia_stampante" value="1" class="opzione-btn"' . ($ok ? '' : ' disabled style="opacity:.45;cursor:not-allowed;"') . '>SELEZIONA</button>';
                     echo '</form>';
                 }
@@ -446,19 +408,22 @@ final class AdminView
             }
             echo '</div>';
             echo '<div class="admin-btn-row">';
-            if ($pagina > 1)
+            if ($pagina > 1) {
                 echo '<a href="?action=switch_printer&page=' . ($pagina - 1) . '" class="opzione-btn" style="padding:12px 20px;">&lt;</a>';
-            foreach (array_unique(array(1, $pagina - 1, $pagina, $pagina + 1, $totPagine)) as $numPagina)
-            {
-                if ($numPagina < 1 || $numPagina > $totPagine)
-                    continue;
-                if ($numPagina == $pagina)
-                    echo '<span class="opzione-btn" style="padding:12px 20px;border:2px solid #2b3d4e;">' . $numPagina . '</span>';
-                else
-                    echo '<a href="?action=switch_printer&page=' . $numPagina . '" class="opzione-btn" style="padding:12px 20px;">' . $numPagina . '</a>';
             }
-            if ($pagina < $totPagine)
+            foreach (array_unique(array(1, $pagina - 1, $pagina, $pagina + 1, $totPagine)) as $numPagina) {
+                if ($numPagina < 1 || $numPagina > $totPagine) {
+                    continue;
+                }
+                if ($numPagina == $pagina) {
+                    echo '<span class="opzione-btn" style="padding:12px 20px;border:2px solid #2b3d4e;">' . $numPagina . '</span>';
+                } else {
+                    echo '<a href="?action=switch_printer&page=' . $numPagina . '" class="opzione-btn" style="padding:12px 20px;">' . $numPagina . '</a>';
+                }
+            }
+            if ($pagina < $totPagine) {
                 echo '<a href="?action=switch_printer&page=' . ($pagina + 1) . '" class="opzione-btn" style="padding:12px 20px;">&gt;</a>';
+            }
             echo '</div>';
             echo '<div class="admin-btn-row"><a href="index.php" class="opzione-btn" style="text-decoration:none;">TORNA</a></div>';
         }
@@ -469,30 +434,26 @@ final class AdminView
     {
         $f = \Salsiccia\System\Power::markerPowerFile();
         $raw = is_readable($f) ? @file_get_contents($f) : false;
-        if ($raw === false || trim((string)$raw) === '')
+        if ($raw === false || trim((string)$raw) === '') {
             return;
+        }
         $d = json_decode((string)$raw, true);
-        if (!is_array($d) || empty($d['t']) || !isset($d['mode']) || $d['mode'] !== $mode)
-        {
-            if (is_array($d))
+        if (!is_array($d) || empty($d['t']) || !isset($d['mode']) || $d['mode'] !== $mode) {
+            if (is_array($d)) {
                 return;
+            }
             @unlink($f);
             return;
         }
         $esito = \Salsiccia\System\Power::esitoTentativoPower((int)$d['t'], time(), \Salsiccia\System\Power::uptimeMacchina());
         $quando = date('d/m H:i:s', (int)$d['t']);
-        if ($esito === 'riuscito')
-        {
+        if ($esito === 'riuscito') {
             echo '<p class="admin-msg-big" style="background:#5cb85c;color:#fff;padding:12px;border-radius:6px;">COMANDO RIUSCITO: cassa riavviata/riaccesa dopo invio delle ' . $quando . '.</p>';
             @unlink($f);
-        }
-        elseif ($esito === 'fallito')
-        {
+        } elseif ($esito === 'fallito') {
             echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;padding:12px;border-radius:6px;">COMANDO FALLITO: invio delle ' . $quando . ' senza effetto, cassa mai spenta. Verifica sudoers/systemd (vedi DIAGNOSTICA sotto).</p>';
             @unlink($f);
-        }
-        else
-        {
+        } else {
             echo '<p class="admin-msg-big" style="color:#2b3d4e;font-weight:600;">COMANDO IN ATTESA: invio delle ' . $quando . ', la cassa dovrebbe spegnersi a momenti. Ricarica tra un minuto per il riscontro.</p>';
         }
     }
@@ -509,8 +470,7 @@ final class AdminView
 
     public static function power($mode, $action, $field, $titolo, $msgConferma, $labelBtn, $msgOk): void
     {
-        if (!\isAdmin())
-        {
+        if (!\isAdmin()) {
             header("Location: index.php?action=c");
             exit;
         }
@@ -520,25 +480,20 @@ final class AdminView
         echo '<section class="admin-panel">';
         echo '<h3 class="admin-group-title admin-msg-big">' . $titolo . '</h3>';
         self::riscontroPower($mode);
-        if (isset($_POST[$field]))
-        {
-            if (!\csrf_ok())
-            {
+        if (isset($_POST[$field])) {
+            if (!\csrf_ok()) {
                 echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;padding:12px;border-radius:6px;">TOKEN NON VALIDO.</p>';
-            }
-            else
-            {
+            } else {
                 $ok = \Salsiccia\System\Power::schedulaAzioneAlimentazione($mode);
-                if ($ok)
+                if ($ok) {
                     echo '<p class="admin-msg-big" style="background:#5cb85c;color:#fff;padding:12px;border-radius:6px;">' . $msgOk . '</p>';
-                else
+                } else {
                     echo '<p class="admin-msg-big" style="background:#d9534f;color:#fff;padding:12px;border-radius:6px;">COMANDO NON AVVIATO: verifica sudoers/systemd sul kiosk.</p>';
+                }
                 echo '<p class="admin-msg-big" style="color:#2b3d4e;font-weight:600;">Coda stampa: DIRETTA cancellata (best-effort), RETE nessun job pendente (FTP sincrono verso ' . htmlspecialchars($printerIp, ENT_QUOTES, 'UTF-8') . '). Se nulla accade: utente web senza NOPASSWD su /sbin/shutdown o host senza systemd.</p>';
             }
             echo '<br><div class="admin-btn-row"><a href="index.php" class="opzione-btn" style="text-decoration:none;">TORNA</a></div>';
-        }
-        else
-        {
+        } else {
             echo '<p class="admin-msg-big" style="color:#e54b3c;">ATTENZIONE: ' . $msgConferma . '</p>';
             echo '<p class="admin-msg-big" style="color:#2b3d4e;font-weight:600;">Coda stampa: DIRETTA verra svuotata, RETE nessun job pendente (invio FTP sincrono).</p>';
             echo '<form method="post" action="?action=' . $action . '" onsubmit="return confirm(\'Confermi?\');">';

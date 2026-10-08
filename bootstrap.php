@@ -1,5 +1,7 @@
 <?php
+
 declare(strict_types=1);
+
 // bootstrap.php — unico punto di inizializzazione degli entry point public/*
 // (F3.1 + F3.2, docs/ARCHITETTURA_REVISTA.md §10 punto 12 + §4).
 // Sostituisce i require concatenati nei 6 entry point e rende visibile

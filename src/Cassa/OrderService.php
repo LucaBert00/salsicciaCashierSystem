@@ -191,31 +191,29 @@ final class OrderService
         // niente begin/commit/rollback interni (un begin annidato farebbe implicit commit
         // su InnoDB), l'esito torna al chiamante. Ritorna bool per la catena esterna.
         $ok = false;
-        if(isSet($id_prodotto))
-        {
+        if (isset($id_prodotto)) {
             // T07: catena SELECT->UPDATE->SELECT->UPDATE in un'unica transazione; la riga
             // ordini padre e' bloccata via SELECT ... FOR UPDATE dove il motore lo permette
             // (effettivo su InnoDB da T21, no-op su MyISAM baseline). Ordine di lock costante
             // padre->figlio anti-deadlock; niente retry interno, il prossimo tap ricalcola.
-            if (!$in_txn)
+            if (!$in_txn) {
                 $this->db->begin_transaction();
+            }
             $ok = true;
-            try
-            {
+            try {
                 #Lock riga padre: serializza i tap concorrenti sullo stesso ordine.
                 $ris = db_select($this->db, "SELECT id_ordine FROM ordini WHERE id_ordine = ? FOR UPDATE", 'i', array($id_ordine));
-                if (!$ris)
+                if (!$ris) {
                     $ris = db_select($this->db, "SELECT id_ordine FROM ordini WHERE id_ordine = ?", 'i', array($id_ordine));
+                }
                 $ok = (bool)$ris;
-                if ($ok)
-                {
+                if ($ok) {
                     #DOPO AVER INSERITO O AGGIUNTO UN PRODOTTO DEVO AGGIORNARE QUANTITA E TOTALE IN righe_ordini
                     $ris = db_select($this->db, "SELECT quantita, prezzo FROM prodotti,righe_ordini WHERE prodotti.id_prodotto = righe_ordini.id_prodotto AND id_ordine = ? AND prodotti.id_prodotto = ?", 'ii', array($id_ordine, $id_prodotto));
                     //print "query: calcolaTotali select righe";
                     $ok = (bool)$ris;
                 }
-                if($ok && mysqli_num_rows($ris) > 0)
-                {
+                if ($ok && mysqli_num_rows($ris) > 0) {
                     $riga = mysqli_fetch_array($ris);
                     $quantita = (int)$riga['quantita'];
                     $prezzo = (float)$riga['prezzo'];
@@ -224,45 +222,41 @@ final class OrderService
                     //print "query: calcolaTotali update righe";
                     $ok = db_exec($this->db, "UPDATE righe_ordini set quantita = ?, totale = ? WHERE id_ordine = ? AND id_prodotto = ?", 'idii', array($quantita, $totale, $id_ordine, $id_prodotto));
                 }
-                if ($ok)
-                {
+                if ($ok) {
                     #DOPO AVER INSERITO O AGGIUNTO UN PRODOTTO DEVO AGGIORNARE n_pezzi e totale IN ordini
                     $ris = db_select($this->db, "SELECT sum(quantita) as n_pezzi, sum(totale) as totale FROM righe_ordini WHERE id_ordine = ? GROUP BY id_ordine", 'i', array($id_ordine));
                     $ok = (bool)$ris;
                 }
-                if ($ok)
-                {
+                if ($ok) {
                     $riga = mysqli_fetch_array($ris);
                     $n_pezzi = (int)$riga['n_pezzi'];
                     $totale = (float)$riga['totale'];
 
-                    if($totale == 0)
+                    //print "query: calcolaTotali update ordini";
+                    if ($totale == 0) {
                         //print "query: calcolaTotali azzera ordini";
                         $ok = db_exec($this->db, "UPDATE ordini set n_pezzi = 0, totale = 0 WHERE id_ordine = ?", 'i', array($id_ordine));
-                    //print "query: calcolaTotali update ordini";
-                    else
+                    } else {
                         $ok = db_exec($this->db, "UPDATE ordini set n_pezzi = ?, totale = ? WHERE id_ordine = ?", 'idi', array($n_pezzi, $totale, $id_ordine));
+                    }
                     //print "query: calcolaTotali update ordini";
                 }
-            }
-            catch (Throwable)
-            {
+            } catch (Throwable) {
                 // PHP8: query fallita lancia invece di tornare false; annulla come sopra.
                 $ok = false;
             }
-            if ($in_txn)
+            if ($in_txn) {
                 return $ok; // commit/rollback al chiamante (mq/mr, T08).
-            if ($ok)
+            }
+            if ($ok) {
                 $this->db->commit();
-            else
-            {
+            } else {
                 $this->db->rollback();
                 \Salsiccia\Support\Env::log('warning', "calcolaTotali: rollback id_ordine=$id_ordine [T07]");
             }
         }
 
         return $ok;
-
     }
 
     // action=st: imposta tipo ordine (T26: whitelist = OrderType enum).

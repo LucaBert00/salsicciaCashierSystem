@@ -19,13 +19,12 @@ final class DbRepair
     {
         $righe = array();
         $ris = $db->query('SHOW TABLES');
-        if ($ris === false)
+        if ($ris === false) {
             return $righe;
-        while ($row = $ris->fetch_array())
-        {
+        }
+        while ($row = $ris->fetch_array()) {
             $table = (string)$row[0];
-            if (!preg_match('/^[A-Za-z0-9_]+$/', $table))
-            {
+            if (!preg_match('/^[A-Za-z0-9_]+$/', $table)) {
                 \Salsiccia\Support\Env::log('warning', 'REPAIR bloccato: tabella non whitelistata');
                 continue;
             }

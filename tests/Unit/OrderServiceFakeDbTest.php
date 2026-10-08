@@ -27,6 +27,7 @@ final class CalcolaTotaliFakeResult
     }
 
     // OO, chiamata solo dall'override Salsiccia\Cassa\mysqli_fetch_array.
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- firma mysqli_result, doppio onesto
     public function fetch_array(): array|null
     {
         if ($this->pos >= count($this->righe)) {
@@ -114,6 +115,7 @@ final class CalcolaTotaliFakeMysqli
         return $stmt;
     }
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- firma mysqli, doppio onesto
     public function begin_transaction(): bool
     {
         $this->begin++;
@@ -143,6 +145,7 @@ final class CalcolaTotaliFakeMysqli
     }
 }
 
+// phpcs:ignore PSR1.Classes.ClassDeclaration.MultipleClasses -- doppi calcolaTotali in un solo file di test
 final class OrderServiceFakeDbTest extends TestCase
 {
     protected function setUp(): void

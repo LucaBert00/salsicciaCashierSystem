@@ -20,8 +20,9 @@ final class Env
     public static function log(string $level, string $message): void
     {
         $level = strtolower($level);
-        if (!in_array($level, array('debug', 'info', 'warning', 'error'), true))
+        if (!in_array($level, array('debug', 'info', 'warning', 'error'), true)) {
             $level = 'info';
+        }
         error_log('cassa [' . $level . '] ' . $message);
     }
 
@@ -30,15 +31,13 @@ final class Env
     public static function carica(): void
     {
         $f = dirname(__DIR__, 2) . '/.env';
-        if (is_readable($f))
-        {
+        if (is_readable($f)) {
             $parsed = parse_ini_file($f, false, INI_SCANNER_RAW);
-            if ($parsed === false)
+            if ($parsed === false) {
                 self::log('warning', 'env parse fallito');
-            foreach ((array)($parsed === false ? array() : $parsed) as $k => $v)
-            {
-                if (getenv($k) === false)
-                {
+            }
+            foreach ((array)($parsed === false ? array() : $parsed) as $k => $v) {
+                if (getenv($k) === false) {
                     putenv("$k=$v");
                     $_ENV[$k] = $v;
                 }

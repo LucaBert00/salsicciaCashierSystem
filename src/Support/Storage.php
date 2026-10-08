@@ -17,8 +17,9 @@ final class Storage
     public static function dir(): string
     {
         $d = dirname(__DIR__, 2) . '/storage';
-        if (!is_dir($d))
+        if (!is_dir($d)) {
             mkdir($d, 0770, true);
+        }
         return $d;
     }
 

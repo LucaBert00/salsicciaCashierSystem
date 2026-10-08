@@ -23,6 +23,7 @@ final class ContatoriFakeResult
     }
 
     // OO, chiamata solo dall'override Salsiccia\Stats\mysqli_fetch_array.
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- firma mysqli_result, doppio onesto
     public function fetch_array(): array|null
     {
         if ($this->pos >= count($this->righe)) {

@@ -19,20 +19,24 @@ final class Throttle
 {
     public static function file(string $scope, string $ip = ''): string
     {
-        if ($ip === '')
+        if ($ip === '') {
             $ip = (string)($_SERVER['REMOTE_ADDR'] ?? 'cli');
-        if (!preg_match('/^[A-Za-z0-9_-]{1,32}$/', $scope))
+        }
+        if (!preg_match('/^[A-Za-z0-9_-]{1,32}$/', $scope)) {
             $scope = 'login';
+        }
         return Storage::path('login_throttle_' . $scope . '_' . sha1($ip) . '.json');
     }
 
     public static function leggi(string $file): array
     {
-        if (!is_readable($file))
+        if (!is_readable($file)) {
             return array('fail' => 0, 'block_until' => 0);
+        }
         $j = json_decode((string)file_get_contents($file), true);
-        if (!is_array($j))
+        if (!is_array($j)) {
             return array('fail' => 0, 'block_until' => 0);
+        }
         return array('fail' => max(0, (int)($j['fail'] ?? 0)), 'block_until' => max(0, (int)($j['block_until'] ?? 0)));
     }
 
@@ -40,8 +44,7 @@ final class Throttle
     {
         $f = $file !== '' ? $file : self::file($scope, $ip);
         $st = self::leggi($f);
-        if ($st['block_until'] > 0 && $st['block_until'] <= time())
-        {
+        if ($st['block_until'] > 0 && $st['block_until'] <= time()) {
             @unlink($f); // blocco scaduto: si riparte puliti come il ramo sessione
             return false;
         }
@@ -52,17 +55,18 @@ final class Throttle
     {
         $f = $file !== '' ? $file : self::file($scope, $ip);
         $st = self::leggi($f);
-        if ($st['block_until'] > time())
+        if ($st['block_until'] > time()) {
             return; // sotto blocco: niente estensioni, come il ramo sessione
+        }
         $st['fail']++;
-        if ($st['fail'] >= 5)
-        {
+        if ($st['fail'] >= 5) {
             $st['fail'] = 0;
             $st['block_until'] = time() + 60;
         }
         $json = json_encode($st);
-        if (is_string($json))
+        if (is_string($json)) {
             @file_put_contents($f, $json, LOCK_EX);
+        }
     }
 
     public static function ok(string $scope, string $ip = '', string $file = ''): void
