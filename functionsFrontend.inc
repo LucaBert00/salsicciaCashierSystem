@@ -6,6 +6,13 @@ declare(strict_types=1);
 // Init (require set/db/funzioni, sessione, $cat/$id_cassa/geometria, dispatch)
 // vive in bootstrap.php + flusso F1 (CassaController/CassaView con parametri espliciti).
 
+// F5.5b #118: questo file chiama ancora i globali dello shim env.inc (cassa_log,
+// salsiccia_storage_path/login_*, printer_*, flag fiera/festa): e' il consumer
+// legacy che #120 migra sui moduli F5, quindi richiede lo shim da solo, come
+// faceva funzioni.inc prima di F4.4. Con la catena d'ingresso su F5, set.inc e
+// dbConnect.php non lo caricano piu'; qui finisce il require. Sparisce con #121.
+require_once __DIR__ . '/env.inc';
+
 function isAdmin()
 {
     return !empty($_SESSION['admin']);

@@ -3,7 +3,13 @@ declare(strict_types=1);
 // T31: file canonico (non shim) — successore esistente config/cassa.php + flag in storage/; resto in
 // src/Config/{CassaConfig,FestaConfig}.php (v. docs/ARCHITETTURA_REVISTA.md §6 e §9, fase 6);
 // rimozione solo a migrazione completa, rivalutare entro 2026-12-31.
-require_once __DIR__ . '/env.inc';
+// F5.5b #118: niente env.inc. Storage/PrinterRegistry sono gli stessi moduli che
+// il shim delegava (stessi path, stesso gate), Env::carica() e' lo stesso loader
+// .env idempotente sulle env di sistema/Apache: i valori di getenv sotto sono gli
+// stessi di prima. require_once sull'autoload perche' questo file puo' essere
+// richiesto da solo.
+require_once __DIR__ . '/vendor/autoload.php';
+\Salsiccia\Support\Env::carica();
 
 define("MENU_ENABLE", 0);
 
@@ -42,16 +48,16 @@ define("ONE_LABEL_PER_PRODUCT", "1");
 #"1" = prefisso "N.<id_ordine>" su ogni etichetta/riga, "0" = nascosto.
 #Letta in entrambi i rami (singoli e continuo).
 define("PRINT_ORDER_ID", "0");
-define("LABELS_FILE", salsiccia_storage_path("label"));
-define("COMMAND_FILE", salsiccia_storage_dir() . "/cmd/cmd");
+define("LABELS_FILE", \Salsiccia\Support\Storage::path("label"));
+define("COMMAND_FILE", \Salsiccia\Support\Storage::dir() . "/cmd/cmd");
 
 #Stampante etichette: default ZD230 = RETE+ZPL (unica combo RETE supportata),
 #vedi gate stampa_permessa in PrintService::generaFileStampa()
-#F4.4 #54: boot da storage/stampante_selezione.json via salsiccia_storage_path()
-#(printer_leggi_selezione() in env.inc, valida contro printer_gate_allowed() F4.1).
+#F4.4 #54: boot da storage/stampante_selezione.json via PrinterRegistry
+#(leggiSelezione(), valida contro gateAllowed() F4.1).
 #Precedenza env > json > default, come CONTINUOUS_LABEL (env > gate):
 #SALSICCIA_PRINTER_IP vince sullo state-file, lo state-file vince sul default ZD230.
-$__sel = function_exists('printer_leggi_selezione') ? printer_leggi_selezione() : null;
+$__sel = \Salsiccia\Printer\PrinterRegistry::leggiSelezione();
 $__env_ip = trim((string)getenv('SALSICCIA_PRINTER_IP'));
 $__sel_ip = (is_array($__sel) && isset($__sel['ip'])) ? trim((string)$__sel['ip']) : '';
 $__printer_ip = $__env_ip !== '' ? $__env_ip : $__sel_ip;
@@ -84,7 +90,7 @@ else
 define("PRINTER_IP", $__printer_ip);
 
 #Carta continua (scontrino unico) vs biglietti singoli: default dal gate unico
-#printer_is_continuous() in env.inc (stessa tabella di stampa_permessa in
+#PrinterRegistry::isContinuous() (stessa tabella di stampa_permessa in
 #PrintService::generaFileStampa(), nessun valore hardcoded). Default: Zebra_Multi in
 #DIRETTA (ZPL o EPL) e Zebra_Net (RETE o DIRETTA, ZPL) fanno scontrino unico;
 #Zebra_EPL_1/2 fanno biglietti singoli. Combo non permessa => stampa bloccata a monte.
@@ -96,13 +102,13 @@ if ($__continuous_env !== false && trim((string)$__continuous_env) !== '')
     define("CONTINUOUS_LABEL", ((int)$__continuous_env) ? 1 : 0);
 else
 {
-    $__carta_file = salsiccia_storage_path('carta_stampa.mode');
+    $__carta_file = \Salsiccia\Support\Storage::path('carta_stampa.mode');
     $__carta_raw = is_readable($__carta_file) ? @file_get_contents($__carta_file) : false;
     $__carta_mode = $__carta_raw !== false ? trim((string)$__carta_raw) : '';
     if ($__carta_mode === '1' || $__carta_mode === '0')
         define("CONTINUOUS_LABEL", (int)$__carta_mode);
     else
-        define("CONTINUOUS_LABEL", (int)printer_is_continuous(PRINTER_NAME, PRINTER_CONNECTION, PRINTER_LANGUAGE));
+        define("CONTINUOUS_LABEL", (int)\Salsiccia\Printer\PrinterRegistry::isContinuous(PRINTER_NAME, PRINTER_CONNECTION, PRINTER_LANGUAGE));
 }
 #Risoluzione testina: 8 dots/mm (203dpi), serve per calcolare ^LL in dots
 define("ZPL_DOTS_PER_MM", 8);

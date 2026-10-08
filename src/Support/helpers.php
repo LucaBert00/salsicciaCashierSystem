@@ -5,14 +5,15 @@ declare(strict_types=1);
 // Funzioni globali stateless della cassa (F4.1 #98,
 // docs/ARCHITETTURA_REVISTA.md §10 punto 14 + §6/§7): csrf_token/csrf_ok/csrf_field
 // verbatim legacy pre-F4.4. Restano funzioni (toccano superglobali, nessuno
-// stato), mai classi. Caricato via autoload.files; guardie pluggable come env.inc:
-// vince chi carica per primo (legacy eliminato in F4.4).
+// stato), mai classi. Caricato via autoload.files.
+// F5.5b #118: avvio sessione via Session::start() invece del globale
+// salsiccia_session_start() di env.inc, cosi' csrf_* non dipende dallo shim.
 // Zero side-effect a top-level: solo definizioni.
 if (!function_exists('csrf_token')) {
     // Token anti-CSRF in sessione: mutazioni solo via POST con hidden tok.
     function csrf_token()
     {
-        salsiccia_session_start();
+        \Salsiccia\Support\Session::start();
         if (empty($_SESSION['tok'])) {
             $_SESSION['tok'] = bin2hex(random_bytes(32));
         }
@@ -23,7 +24,7 @@ if (!function_exists('csrf_token')) {
 if (!function_exists('csrf_ok')) {
     function csrf_ok()
     {
-        salsiccia_session_start();
+        \Salsiccia\Support\Session::start();
         return isset($_POST['tok'], $_SESSION['tok']) && hash_equals((string)$_SESSION['tok'], (string)$_POST['tok']);
     }
 }
