@@ -470,20 +470,20 @@ function stat_pager($paramsFiltri, $vista, $ord, $dir, $pagina, $totPagine)
     <!-- Nav riservata: tab corrente evidenziata, resto come visualizza.php -->
     <aside>
         <h3 class="admin-group-title">TABELLA</h3>
-        <nav style="flex-direction:column;align-items:stretch;">
+        <nav>
             <button onclick="location.href='visualizza.php?tab=categorie'">CATEGORIE</button>
             <button onclick="location.href='visualizza.php?tab=prodotti'">PRODOTTI</button>
             <button onclick="location.href='visualizza.php?tab=prodotti_categorie'">POSIZIONI</button>
             <button onclick="location.href='visualizza.php?tab=contatori'">PRODOTTI VENDUTI</button>
             <button onclick="location.href='visualizza.php?tab=prodotti_contatori'">REGOLE VENDUTI</button>
-            <hr style="border:0;border-top:2px solid #e7e9eb;margin:16px 0;">
+            <hr class="admin-hr">
             <button class="attivo">STATISTICHE</button>
-            <!-- Sottoviste #111: stesso stile nav aside, solo padding inline ridotto (16px vs 24px, stessa pendenza var(--up), stesso cap 1.35x); padre sempre attivo, attiva sulla vista corrente -->
+            <!-- Sottoviste #111: rientro in classe .stat-sub (ex-inline #122) -->
             <?php foreach ($visteStat as $chiaveVista => $etichettaVista): ?>
-                <button onclick="location.href='<?php echo htmlspecialchars(urlStatVista($paramsFiltri, $chiaveVista, $ordCorrente, $dirCorrente, 1), ENT_QUOTES); ?>'"<?php echo ($chiaveVista === $vistaCorrente) ? ' class="attivo"' : ''; ?> style="margin-left:12px;padding-left:clamp(16px, calc(16px + var(--up)), 21.6px);padding-right:clamp(16px, calc(16px + var(--up)), 21.6px);"><?php echo $etichettaVista; ?></button>
+                <button onclick="location.href='<?php echo htmlspecialchars(urlStatVista($paramsFiltri, $chiaveVista, $ordCorrente, $dirCorrente, 1), ENT_QUOTES); ?>'"<?php echo ($chiaveVista === $vistaCorrente) ? ' class="attivo stat-sub"' : ' class="stat-sub"'; ?>><?php echo $etichettaVista; ?></button>
             <?php endforeach; ?>
         </nav>
-        <div class="admin-btn-row" style="margin-top:auto;"><a href="../index.php" class="opzione-btn">TORNA A SALSICCIA</a><a href="backup.php" class="opzione-btn">BACKUP</a><a href="visualizza.php?logout=1" class="opzione-btn">LOGOUT</a></div>
+        <div class="admin-btn-row"><a href="../index.php" class="opzione-btn">TORNA A SALSICCIA</a><a href="backup.php" class="opzione-btn">BACKUP</a><a href="visualizza.php?logout=1" class="opzione-btn">LOGOUT</a></div>
     </aside>
 </body>
 </html>

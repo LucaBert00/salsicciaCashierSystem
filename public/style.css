@@ -742,6 +742,37 @@ span.item-cost {
     padding: clamp(16px, calc(16px + var(--up)), 21.6px) clamp(20px, calc(20px + var(--up)), 27px);
 }
 
+/* #122 aside riservato compattato: nav verticale 10 voci + riga finale
+   senza scrollbar a 1280x1024. Solo ritmo verticale (padding/gap/margin/hr),
+   mai split/floor toccati. Basi = precedenti override inline (12/16/8/4/2px). */
+aside nav {
+    flex-direction: column;
+    align-items: stretch;
+    gap: clamp(4px, calc(4px + var(--up)), 5.4px);
+    margin-bottom: clamp(8px, calc(8px + var(--up)), 10.8px);
+}
+
+aside nav button {
+    padding: clamp(12px, calc(12px + var(--up)), 16.2px) clamp(32px, calc(32px + var(--up)), 43.2px);
+}
+
+/* ponytail: sottoviste rientrate, ex-inline in statistiche.php:483 */
+aside nav button.stat-sub {
+    margin-left: clamp(12px, calc(12px + var(--up)), 16.2px);
+    padding-left: clamp(16px, calc(16px + var(--up)), 21.6px);
+    padding-right: clamp(16px, calc(16px + var(--up)), 21.6px);
+}
+
+aside hr.admin-hr {
+    border: 0;
+    border-top: clamp(2px, calc(2px + var(--up)), 2.7px) solid #e7e9eb;
+    margin: clamp(8px, calc(8px + var(--up)), 10.8px) 0;
+}
+
+aside > .admin-btn-row {
+    margin-top: auto;
+}
+
 .opzione-btn.danger {
     color: #e54b3c;
 }

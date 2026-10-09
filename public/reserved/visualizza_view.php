@@ -433,14 +433,14 @@ function fieraAttiva()
     <!-- Nav verticale dei 5 tab, evidenzia quello corrente -->
     <aside>
         <h3 class="admin-group-title">TABELLA</h3>
-        <nav style="flex-direction:column;align-items:stretch;">
+        <nav>
             <?php foreach ($configTabs as $slugTab => $configTab): ?>
                 <button onclick="location.href='<?php echo htmlspecialchars(urlLista(array('tab' => $slugTab)), ENT_QUOTES); ?>'"<?php echo ($tabValido && $slugTab === $tabCorrente) ? ' class="attivo"' : ''; ?>><?php echo htmlspecialchars($configTab['label']); ?></button>
             <?php endforeach; ?>
-            <hr style="border:0;border-top:2px solid #e7e9eb;margin:16px 0;">
+            <hr class="admin-hr">
             <button onclick="location.href='statistiche.php'">STATISTICHE</button>
         </nav>
-        <div class="admin-btn-row" style="margin-top:auto;"><a href="../index.php" class="opzione-btn">TORNA A SALSICCIA</a><a href="backup.php" class="opzione-btn">BACKUP</a><a href="visualizza.php?logout=1" class="opzione-btn">LOGOUT</a></div>
+        <div class="admin-btn-row"><a href="../index.php" class="opzione-btn">TORNA A SALSICCIA</a><a href="backup.php" class="opzione-btn">BACKUP</a><a href="visualizza.php?logout=1" class="opzione-btn">LOGOUT</a></div>
     </aside>
 <?php endif; ?>
 <script>
