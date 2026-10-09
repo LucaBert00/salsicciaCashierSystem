@@ -1,8 +1,9 @@
 <?xml version="1.0"?>
-<!-- T29 PSR-12 adoption via phpcs on touched files (rif. docs/ARCHITETTURA_REVISTA.md §7 "Cosa NON fare": normalizza i file nuovi, mai reformat di massa sui legacy. Map #10). -->
-<!-- Warnings (es. riga >120, side-effect) mostrati ma non falliscono; falliscono solo gli ERROR. -->
+<!-- T29 PSR-12 sui file nuovi, mai reformat retroattivo sui legacy (rif. docs/ARCHITETTURA_REVISTA.md §7 "Cosa NON fare" e §10 punto 23). -->
+<!-- (a) Si normalizza ogni file nuovo (src/config/routes/tests, reserved/auth_password.inc): nasce pulito. I legacy in lista grandfather restano congelati. -->
+<!-- (c-d) Warnings (es. riga >120, side-effect) mostrati ma non falliscono per ignore_warnings_on_exit=1; composer cs verde = 0 errori, non 0 warning. Niente reformat di massa per azzerarli. -->
 <ruleset name="SalsicciaStagisti-T29">
-    <description>PSR-12 su file toccati da T05-T28; legacy con lista grandfather, mai ignore silenti.</description>
+    <description>PSR-12 sui file nuovi; legacy vivi in lista grandfather, mai ignore silenti; criterio: 0 errori.</description>
     <rule ref="PSR12"/>
     <config name="ignore_warnings_on_exit" value="1"/>
     <arg name="extensions" value="php,inc"/>
@@ -12,11 +13,9 @@
     <exclude-pattern>storage/*</exclude-pattern>
     <exclude-pattern>.idea/*</exclude-pattern>
     <exclude-pattern>.phpunit.cache/*</exclude-pattern>
-    <!-- T29 grandfather list: solo legacy, violazioni ERROR preesistenti (no big-bang reformat). -->
-    <!-- Toccati da T05-T28 ma stile legacy congelato; normalizzare solo i file nuovi (src/config/routes/tests/auth_password). -->
-    <exclude-pattern>backup.inc</exclude-pattern>
+    <!-- T29 grandfather (b): solo legacy vivi con ERROR preesistenti; accorciare solo quando un file sparisce, mai per comodita. File nuovi mai esclusi qui: al massimo phpcs:ignore mirato nel file. -->
+    <!-- Legacy congelati: dbConnect.php, functionsFrontend.inc, public/index.php, public/reserved/*.php vivi; extensions resta php,inc per functionsFrontend.inc e reserved/auth_password.inc. -->
     <exclude-pattern>dbConnect.php</exclude-pattern>
-    <exclude-pattern>fiscale.inc</exclude-pattern>
     <exclude-pattern>functionsFrontend.inc</exclude-pattern>
     <exclude-pattern>public/index.php</exclude-pattern>
     <exclude-pattern>public/reserved/backup.php</exclude-pattern>
@@ -25,5 +24,4 @@
     <exclude-pattern>public/reserved/statistiche.php</exclude-pattern>
     <exclude-pattern>public/reserved/visualizza.php</exclude-pattern>
     <exclude-pattern>public/reserved/visualizza_view.php</exclude-pattern>
-    <exclude-pattern>reserved/stat_dati.inc</exclude-pattern>
 </ruleset>
