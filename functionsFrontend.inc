@@ -238,12 +238,9 @@ function cassa_azione_barcode($mysqli, $id_cassa)
     {
         return;
     }
-    $raw = substr(trim((string)$_POST['bc']), 0, 20);
-    if ($raw === '' || $raw === '-')
-    {
-        return;
-    }
-    $id = (new \Salsiccia\Catalog\CatalogRepo($mysqli))->trovaIdPerBarcode($raw);
+    // HYGIENE #129: normalizzazione unica in CatalogRepo::trovaIdPerBarcode
+    // (trim + cap 20 + sentinella ''/'-'); qui solo delega, ramo null invariato.
+    $id = (new \Salsiccia\Catalog\CatalogRepo($mysqli))->trovaIdPerBarcode((string)$_POST['bc']);
     if ($id !== null && $id > 0)
     {
         (new \Salsiccia\Cassa\OrderService($mysqli, (int)$id_cassa))->aggiungiProdotto($id);
@@ -362,14 +359,14 @@ function mostraBarraBarcode($mysqli, $cat)
     $errore = '';
     if ((($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') && csrf_ok() && isset($_POST['bc']))
     {
-        $raw = substr(trim((string)$_POST['bc']), 0, 20);
-        if ($raw !== '' && $raw !== '-')
+        // HYGIENE #129: normalizzazione unica in CatalogRepo::trovaIdPerBarcode;
+        // $cercato e' il valore effettivamente cercato (primi 20, '' per ''/'-'
+        // = nessun banner, stesso no-op di prima senza query).
+        $cercato = '';
+        $id = (new \Salsiccia\Catalog\CatalogRepo($mysqli))->trovaIdPerBarcode((string)$_POST['bc'], $cercato);
+        if ($id === null)
         {
-            $id = (new \Salsiccia\Catalog\CatalogRepo($mysqli))->trovaIdPerBarcode($raw);
-            if ($id === null)
-            {
-                $errore = $raw;
-            }
+            $errore = $cercato;
         }
     }
     \Salsiccia\Catalog\CatalogView::barraBarcode((int)$cat, $errore);

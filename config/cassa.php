@@ -30,7 +30,7 @@ return array(
     'TIPO_ORDINE' => 'nor',
     'ID_CASSA' => 1,
     'DEFAULT_CAT' => 19,
-    'DEBUG' => 0,
+    'DEBUG' => 0, // Kiosk: truthy stampa query+errore MySQL in pagina via Db::query(), mai in fiera.
     'PRINT_ORDER_ID' => '0',
     'LABELS_FILE' => 'label',
     'COMMAND_FILE' => 'cmd/cmd',

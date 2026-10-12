@@ -105,11 +105,11 @@ final class ProdottiCategorieTab
     {
         $categorie = array();
         $mappa = array();
-        $res = \mysql_query_safe($db, "SELECT id_categoria, descrizione_cat FROM `categorie` ORDER BY descrizione_cat");
+        $res = \db_query_raw($db, "SELECT id_categoria, descrizione_cat FROM `categorie` ORDER BY descrizione_cat");
         while ($opzione = $res->fetch_assoc()) {
             $categorie[] = $opzione;
         }
-        $resOcc = \mysql_query_safe($db, "SELECT id_categoria, posizione FROM `prodotti_categorie`");
+        $resOcc = \db_query_raw($db, "SELECT id_categoria, posizione FROM `prodotti_categorie`");
         while ($occ = $resOcc->fetch_assoc()) {
             $mappa[(int)$occ['id_categoria']][] = (int)$occ['posizione'];
         }

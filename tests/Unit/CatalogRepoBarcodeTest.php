@@ -140,4 +140,21 @@ final class CatalogRepoBarcodeTest extends TestCase
         $this->assertStringNotContainsString($bc, $db->sql);
         $this->assertStringContainsString('?', $db->sql);
     }
+
+    public function testTrovaIdPerBarcodeEsponeValoreCercatoPerBanner(): void
+    {
+        $lungo25 = str_repeat('B', 25);
+        $primi20 = substr($lungo25, 0, 20);
+        $db = new BarcodeFakeMysqli(null);
+        $cercato = 'SENTINELLA';
+        $this->assertNull((new CatalogRepo($db))->trovaIdPerBarcode($lungo25, $cercato));
+        $this->assertSame($primi20, $cercato);
+        $this->assertSame(array($primi20), $db->stmt->params);
+
+        $db2 = new BarcodeFakeMysqli(null);
+        $cercato2 = 'SENTINELLA';
+        $this->assertNull((new CatalogRepo($db2))->trovaIdPerBarcode('-', $cercato2));
+        $this->assertSame('', $cercato2);
+        $this->assertFalse($db2->prepareCalled);
+    }
 }

@@ -97,7 +97,7 @@ final class ProdottiContatoriTab
     public static function opzioni($db): array
     {
         $out = array();
-        $res = \mysql_query_safe($db, "SELECT id_contatore, nome FROM `contatori` ORDER BY nome");
+        $res = \db_query_raw($db, "SELECT id_contatore, nome FROM `contatori` ORDER BY nome");
         while ($opzione = $res->fetch_assoc()) {
             $out[] = $opzione;
         }

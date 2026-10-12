@@ -10,7 +10,7 @@ namespace Salsiccia\Catalog;
 // preso dallo stato globale (come OrderService in src/Cassa/OrderService.php
 // e il sender iniettabile di Fiscale::ritentaCoda() in src/Fiscale/Fiscale.php).
 // Query verbatim dai call-site (prepared via db_select, statiche via
-// mysql_query_safe per T09, helpers via autoload F4.4 #101, ciclo rotto §3.3);
+// db_query_raw per T09, helpers via autoload F4.4 #101, ciclo rotto §3.3);
 // ritorna array puri, mai output HTML.
 
 final class CatalogRepo
@@ -26,7 +26,7 @@ final class CatalogRepo
     // mostraNavCategorie(): tutte le categorie in ordine id.
     public function allCategorie(): array
     {
-        $ris = mysql_query_safe($this->db, "SELECT * FROM categorie ORDER BY id_categoria");
+        $ris = db_query_raw($this->db, "SELECT * FROM categorie ORDER BY id_categoria");
         $righe = array();
         while ($ris && ($riga = mysqli_fetch_array($ris))) {
             $righe[] = $riga;
@@ -79,7 +79,7 @@ final class CatalogRepo
     // defaultCat(): MIN(id) o null.
     public function minCategoriaId(): ?int
     {
-        $ris = mysql_query_safe($this->db, "SELECT MIN(id_categoria) AS m FROM categorie");
+        $ris = db_query_raw($this->db, "SELECT MIN(id_categoria) AS m FROM categorie");
         if ($ris && ($riga = mysqli_fetch_array($ris)) && (int)$riga['m'] > 0) {
             return (int)$riga['m'];
         }
@@ -91,13 +91,16 @@ final class CatalogRepo
     // chiamante handler; ''/'-' = nessun ordine, nessuna query.
     // Fetch OO ($ris->fetch_array) invece del procedurale del resto del file:
     // i doppi di test non possono imitare mysqli_result procedurale.
-    public function trovaIdPerBarcode(string $barcode): ?int
+    // HYGIENE #129: $cercato espone il valore effettivamente cercato (primi 20)
+    // per il banner di mostraBarraBarcode; '' per ''/'-' (nessun banner).
+    public function trovaIdPerBarcode(string $barcode, ?string &$cercato = null): ?int
     {
-        $barcode = substr(trim($barcode), 0, 20);
-        if ($barcode === '' || $barcode === '-') {
+        $norm = substr(trim($barcode), 0, 20);
+        $cercato = ($norm === '' || $norm === '-') ? '' : $norm;
+        if ($norm === '' || $norm === '-') {
             return null;
         }
-        $ris = db_select($this->db, "SELECT id_prodotto FROM prodotti WHERE barcode = ? LIMIT 1", 's', array($barcode));
+        $ris = db_select($this->db, "SELECT id_prodotto FROM prodotti WHERE barcode = ? LIMIT 1", 's', array($norm));
         if ($ris && ($riga = $ris->fetch_array()) && (int)$riga['id_prodotto'] > 0) {
             return (int)$riga['id_prodotto'];
         }

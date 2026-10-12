@@ -40,8 +40,8 @@ if (!function_exists('csrf_field')) {
 // legacy pre-F4.4, logica in src/Support/Db.php da F4.1 #98). Thin wrappers verso
 // Db::query/select/exec, stesse firme T09: i 51 call-site restano invariati e
 // funzionano con solo autoload, zero doppie sedi dopo il delete.
-if (!function_exists('mysql_query_safe')) {
-    function mysql_query_safe($mysqli, $query)
+if (!function_exists('db_query_raw')) {
+    function db_query_raw($mysqli, $query)
     {
         return \Salsiccia\Support\Db::query($mysqli, $query);
     }

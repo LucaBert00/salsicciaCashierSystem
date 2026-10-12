@@ -201,7 +201,7 @@ final class VisualizzaStore
     public static function opzioniProdotti($db): array
     {
         $out = array();
-        $res = \mysql_query_safe($db, "SELECT id_prodotto, descrizione_prod FROM `prodotti` ORDER BY descrizione_prod");
+        $res = \db_query_raw($db, "SELECT id_prodotto, descrizione_prod FROM `prodotti` ORDER BY descrizione_prod");
         while ($opzione = $res->fetch_assoc()) {
             $out[] = $opzione;
         }
