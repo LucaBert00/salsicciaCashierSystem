@@ -19,6 +19,109 @@ final class PrintService
         return \Salsiccia\Config\CassaConfig::carica();
     }
 
+    // REL-04 #126: timeout unico lpr nei due siti (card + inviaFileStampa).
+    // Env SALSICCIA_LPR_TIMEOUT, default 10s, clamp 1-30 come Fiscale totale.
+    public static function timeoutLpr(): int
+    {
+        $raw = getenv('SALSICCIA_LPR_TIMEOUT');
+        $t = ($raw === false || trim((string) $raw) === '') ? 10 : (int) $raw;
+        return max(1, min(30, $t));
+    }
+
+    // Esegue un comando con timeout: array(rc, timeout). proc_open + poll
+    // 50ms + proc_terminate allo scadere; mai oltre il timeout.
+    public static function eseguiComando(string $cmd, int $timeoutSec): array
+    {
+        $timeoutSec = max(1, min(30, $timeoutSec));
+        $desc = array(array('pipe', 'r'), array('pipe', 'w'), array('pipe', 'w'));
+        $proc = @proc_open($cmd, $desc, $pipes);
+        if (!is_resource($proc)) {
+            return array('rc' => 127, 'timeout' => false);
+        }
+        @fclose($pipes[0]);
+        $avvio = microtime(true);
+        $rc = 1;
+        $scaduto = false;
+        while (true) {
+            $st = proc_get_status($proc);
+            if (empty($st['running'])) {
+                $rc = (int) $st['exitcode'];
+                break;
+            }
+            if ((microtime(true) - $avvio) >= $timeoutSec) {
+                @proc_terminate($proc);
+                $scaduto = true;
+                $rc = 124;
+                break;
+            }
+            usleep(50000);
+        }
+        foreach (array(1, 2) as $i) {
+            if (isset($pipes[$i]) && is_resource($pipes[$i])) {
+                @fclose($pipes[$i]);
+            }
+        }
+        @proc_close($proc);
+        return array('rc' => $rc, 'timeout' => $scaduto);
+    }
+
+    // lpr con timeout e whitelist, stesso nei due siti. Mai fatal: bool.
+    public static function eseguiLpr(string $coda, string $file, ?int $timeoutSec = null): bool
+    {
+        if (!preg_match('/^[A-Za-z0-9_-]+$/', $coda) || !preg_match('/^[A-Za-z0-9_.-]+$/', basename($file))) {
+            \Salsiccia\Support\Env::log('warning', 'lpr bloccato: coda o file non whitelistati');
+            return false;
+        }
+        $tout = $timeoutSec === null ? self::timeoutLpr() : max(1, min(30, (int) $timeoutSec));
+        $cmd = 'lpr -P ' . escapeshellarg($coda) . ' ' . escapeshellarg($file);
+        $esito = self::eseguiComando($cmd, $tout);
+        if (!empty($esito['timeout'])) {
+            \Salsiccia\Support\Env::log('error', 'lpr timeout dopo ' . $tout . 's printer=' . $coda);
+            return false;
+        }
+        if ((int) $esito['rc'] !== 0) {
+            \Salsiccia\Support\Env::log('error', 'lpr fallito rc=' . (int) $esito['rc'] . ' printer=' . $coda . ' file=' . $file);
+            return false;
+        }
+        return true;
+    }
+
+    // Spool + invio di una card degustazione (Ricevuta, mai Scontrino).
+    // Path via Storage::path('labelCards'), mai letterale dirname. Al
+    // fallimento false + Env::log (forma impostaCartaStampa): ordine aperto,
+    // vendita che prosegue. $esegui iniettabile per i test
+    // (fn(coda, file, timeout): bool), di default eseguiLpr.
+    public static function spedisciCard(string $label, string $printerNome, string $printerConn, ?int $timeoutSec = null, $esegui = null): bool
+    {
+        if ($printerConn !== 'DIRETTA') {
+            return true;
+        }
+        if (!preg_match('/^[A-Za-z0-9_-]+$/', $printerNome)) {
+            \Salsiccia\Support\Env::log('warning', 'lpr labelCards bloccato: PRINTER_NAME non whitelistato');
+            return false;
+        }
+        $file = \Salsiccia\Support\Storage::path('labelCards');
+        if (@file_put_contents($file, $label, LOCK_EX) === false) {
+            \Salsiccia\Support\Env::log('error', 'labelCards: scrittura fallita');
+            return false;
+        }
+        $tout = $timeoutSec === null ? self::timeoutLpr() : max(1, min(30, (int) $timeoutSec));
+        $coda = \Salsiccia\Printer\CupsState::cupsQueue($printerNome);
+        $send = is_callable($esegui) ? $esegui : array(self::class, 'eseguiLpr');
+        return (bool) $send($coda, $file, $tout);
+    }
+
+    // Una stampa fisica per card, stesso numero di prima (14/15/16).
+    public static function spedisciCards(array $cards, string $printerNome, string $printerConn, ?int $timeoutSec = null, $esegui = null): bool
+    {
+        foreach ($cards as $card) {
+            if (!self::spedisciCard((string) $card, $printerNome, $printerConn, $timeoutSec, $esegui)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public static function generaFileStampa($ris, $numero_righe)
     {
         // F6.3 #111: valori ex set.inc da CassaConfig (stessi valori, mai define()).
@@ -65,7 +168,11 @@ final class PrintService
         }
 
         #apertura file
-        $pf = fopen($labelsFile, "w") or die("Impossibile aprire il file di stampa");
+        $pf = @fopen($labelsFile, "w");
+        if ($pf === false) {
+            \Salsiccia\Support\Env::log('error', 'file stampa: apertura fallita');
+            return false;
+        }
 
         if ($continua) {
             $righe = array();
@@ -77,6 +184,15 @@ final class PrintService
             $now = date("d/m/y H:i");
             $ret_c = \Salsiccia\Cassa\etichetta_continua($righe, $numero_righe, $evento, $credits, $cassa, $now, $tipo_stampante);
             $label = $ret_c['label'];
+            $cards = isset($ret_c['cards']) && is_array($ret_c['cards']) ? $ret_c['cards'] : array();
+            if (!self::spedisciCards($cards, $printerNome, $printerConn)) {
+                @fclose($pf);
+                $vect["inviato"] = false;
+                $vect["num_pezzi"] = 1;
+                $vect["id_ordine"] = $id_ordine;
+                $vect["totale"] = $totale;
+                return $vect;
+            }
 
             $num_pezzi = 1;
         } else {
@@ -181,12 +297,7 @@ final class PrintService
         }
         if ($printerConn == "DIRETTA") {
             $coda = \Salsiccia\Printer\CupsState::cupsQueue($printerNome);
-            $cmd = "lpr -P " . escapeshellarg($coda) . " " . escapeshellarg($labelsFile);
-            system($cmd, $rc);
-            if ($rc !== 0) {
-                \Salsiccia\Support\Env::log('error', "lpr fallito rc=$rc printer=" . $coda . " file=" . $labelsFile);
-            }
-            return $rc === 0;
+            return self::eseguiLpr($coda, $labelsFile);
         }
         return self::ftpPut();
     }

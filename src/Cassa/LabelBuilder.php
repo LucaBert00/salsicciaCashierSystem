@@ -7,10 +7,9 @@ namespace Salsiccia\Cassa;
 // F4.3 #100 (punto 16, §6/§7/§9): unica casa dei 5 builder etichetta
 // (verbatim legacy pre-F4.4: testo_biglietti, stampaMenu, generaCardDegustazione,
 // etichetta_continua, get_product_label). Restano funzioni pure (calcolano e
-// ritornano, §7 vieta classi-wrapper), mai classi. generaCardDegustazione migra
-// col suo unico chiamante interno (dentro etichetta_continua) cosi' le chiamate
-// interne restano consistenti. Unico adattamento meccanico: __DIR__ punta a
-// src/Cassa, i path storage usano dirname(__DIR__, 2) per restare byte-identici.
+// ritornano, §7 vieta classi-wrapper), mai classi. REL-04 #126:
+// generaCardDegustazione ritorna la stringa e etichetta_continua raccoglie
+// cards senza I/O; spool labelCards + lpr con timeout in PrintService.
 // Alias sottili legacy (rimossi in F4.4); PrintService chiama qui.
 function testo_biglietti($stringa)
 {
@@ -288,21 +287,24 @@ function generaCardDegustazione($numero, $qta)
         }
     }
 
-    $pf = fopen(dirname(__DIR__, 2) . "/storage/labelCards", "w")
-    or die("Impossibile aprire il file di stampa");
-    fwrite($pf, $label, strlen($label));
+    // REL-04 #126: builder puro, ritorna la stringa come le sorelle.
+    // Scrittura labelCards + lpr in PrintService (spool-and-send).
+    return $label;
 }
 
 // Scontrino unico (carta continua): builder puro su righe gia' lette, cosi'
 // e' testabile senza DB ne' stampante (issue #54). $righe = lista assoc con
 // id_ordine, tot_ord, tipo, testo, quantita, totale, id_prodotto.
-// Ritorna array(label, num_pezzi). Solo path fiscale, niente cucina.
+// Ritorna array(label, num_pezzi, cards). Solo path fiscale, niente cucina.
+// REL-04 #126: cards = una stringa card per riga 14/15/16 (stesso ordine del
+// loop); spool + lpr in PrintService, mai qui.
 function etichetta_continua($righe, $numero_righe, $evento, $credits, $cassa, $now, $tipo_stampante)
 {
     $riga0 = $righe[0];
     $totale = number_format((float)$riga0['tot_ord'], 2, '.', '.');
     $top = 420 + ($numero_righe * 60);
     $label = "";
+    $cards = array();
 
     // CONTROLLO LINGUAGGIO CONTINUO: ZPL
     if ($tipo_stampante == "ZPL") {
@@ -419,30 +421,13 @@ function etichetta_continua($righe, $numero_righe, $evento, $credits, $cassa, $n
 
             if (in_array($riga['id_prodotto'], [14, 15, 16])) {
                 if ($riga['id_prodotto'] == 14) {
-                    generaCardDegustazione(1, $quantita);
+                    $cards[] = generaCardDegustazione(1, $quantita);
                 }
                 if ($riga['id_prodotto'] == 15) {
-                    generaCardDegustazione(2, $quantita);
+                    $cards[] = generaCardDegustazione(2, $quantita);
                 }
                 if ($riga['id_prodotto'] == 16) {
-                    generaCardDegustazione(5, $quantita);
-                }
-
-                // F6.3 #111: valori ex set.inc da CassaConfig (stessi valori, mai define()).
-                $cfgCards = \Salsiccia\Config\CassaConfig::carica();
-                $cardsConn = isset($cfgCards['PRINTER_CONNECTION']) ? (string)$cfgCards['PRINTER_CONNECTION'] : '';
-                $cardsNome = isset($cfgCards['PRINTER_NAME']) ? (string)$cfgCards['PRINTER_NAME'] : '';
-                if ($cardsConn == "DIRETTA") {
-                    // solo config CassaConfig, mai input utente; whitelist+escapeshellarg+log, niente @ silente.
-                    if (preg_match('/^[A-Za-z0-9_-]+$/', $cardsNome)) {
-                        $cmdCards = "lpr -P " . escapeshellarg($cardsNome) . " " . escapeshellarg(dirname(__DIR__, 2) . "/storage/labelCards");
-                        system($cmdCards, $rcCards);
-                        if ($rcCards !== 0) {
-                            \Salsiccia\Support\Env::log('error', "lpr labelCards fallito rc=$rcCards printer=" . $cardsNome);
-                        }
-                    } else {
-                        \Salsiccia\Support\Env::log('warning', "lpr labelCards bloccato: PRINTER_NAME non whitelistato");
-                    }
+                    $cards[] = generaCardDegustazione(5, $quantita);
                 }
             }
         }
@@ -460,6 +445,7 @@ function etichetta_continua($righe, $numero_righe, $evento, $credits, $cassa, $n
 
     $ret_c['label'] = $label;
     $ret_c['num_pezzi'] = isset($num_pezzi) ? $num_pezzi : 0;
+    $ret_c['cards'] = $cards;
     return $ret_c;
 }
 
