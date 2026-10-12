@@ -71,12 +71,10 @@ final class CassaViewTest extends TestCase
             array(
             'mostraNavCategorie', 'mostraIndicatoreTipo', 'mostraTitolo',
             'mostraBarraBarcode', 'mostraTabellaProdotti', 'mostraFooterBottoni',
-            'mostraPannelloAdmin', 'mostraSchermataStampa', 'mostraModificaOrdine',
+            'mostraModificaOrdine',
             'mostraFooterModifica', 'mostraOpzioni', 'mostraOrdiniStandby',
-            'mostraRipristinaDb', 'mostraContatori', 'mostraPrintReset',
-            'mostraRestart', 'mostraShutdown', 'mostraSwitchPrinter',
-            'mostraModificaInfo', 'mostraBoxRiepilogo', 'mostraAzioniLaterali',
-            'mostraListaProdotti', 'mostraPannelloConfig', 'mostraAzioniExtra',
+            'mostraBoxRiepilogo', 'mostraAzioniLaterali',
+            'mostraListaProdotti', 'mostraAzioniExtra',
             ) as $fn
         ) {
             if (function_exists($fn)) {

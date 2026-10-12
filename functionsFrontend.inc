@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-// T31: file canonico (non shim) — successori parziali esistenti src/Cassa/OrderService.php + src/Catalog/* + src/Cassa/PrintService.php + src/Fiscale/Fiscale.php; resto pianificato in src/{Cassa,Printer,System,Config}/ (v. docs/ARCHITETTURA_REVISTA.md §6 e §9, fasi 1-3); rimozione solo a migrazione completa, rivalutare entro 2026-12-31.
+// T31: adapter di richiesta cassa + emitter di vista — handler HTTP thin su OrderService/CatalogRepo via routes/cassa.php, emitter di vista su CatalogView/AdminView, helper critici condivisi; responsabilita unica, nessuna rimozione pianificata (audit §C.9).
 
 // F3.2 #95: nessun side-effect a top-level, richiedibile senza DB/sessione.
 // Init (require set/db/funzioni, sessione, $cat/$id_cassa/geometria, dispatch)
@@ -307,26 +307,6 @@ function cassa_azione_riattiva($mysqli, $id_cassa)
         header("Location: index.php");
         exit;
     }
-}
-
-function gestisciAzioni($mysqli, $id_cassa)
-{
-
-    // T23: dispatch via tabella (routes/cassa.php, nessun if); action non
-    // stringa o non listata = schermata sola lettura o errore kiosk in
-    // public/index.php, mai fatal. Handler null = sola lettura.
-    // T30: ogni handler ha la stessa interfaccia ($mysqli, $id_cassa);
-    // chi non usa il DB li dichiara opzionali e li ignora.
-    static $tabella = null;
-    if ($tabella === null)
-        $tabella = (array)require __DIR__ . '/routes/cassa.php';
-    $action = $_GET['action'] ?? '';
-    if (!is_string($action) || $action === '' || !array_key_exists($action, $tabella))
-        return;
-    $handler = $tabella[$action];
-    if (!is_string($handler) || $handler === '' || !function_exists($handler))
-        return;
-    $handler($mysqli, $id_cassa);
 }
 
 // pulsanti categorie (T19: thin caller, query in CatalogRepo, HTML in CatalogView).
@@ -639,25 +619,6 @@ function mostraAzioniExtra()
     echo '</div>';
 }
 
-// Pannello configurazione con tastierino: code solo via POST in sessione (issue),
-// tasti via JS come tastiera touch di reserved/login.php cosi nulla finisce in URL/log.
-// F2.4 #91: unica implementazione vera in Salsiccia\Cassa\AdminView::tastierino()
-// (src/Cassa/AdminView.php); qui resta solo lo shim con stessa firma.
-// Delete legacy mai in F2 (§9).
-function mostraPannelloConfig()
-{
-    \Salsiccia\Cassa\AdminView::tastierino();
-}
-
-//Pannello admin
-// F2.4 #91: unica implementazione vera in Salsiccia\Cassa\AdminView::pannello()
-// (src/Cassa/AdminView.php); qui resta solo lo shim con stessa firma.
-// Delete legacy mai in F2 (§9).
-function mostraPannelloAdmin()
-{
-    \Salsiccia\Cassa\AdminView::pannello();
-}
-
 // F2.1 #68: preflight e funzioni pure power (da salsicciaStagisti 6b796de+d57a201).
 // F2.5 #92: unica implementazione vera in Salsiccia\System\Power
 // (src/System/Power.php, corpi verbatim invariati); qui restano solo gli shim
@@ -716,103 +677,6 @@ function schedulaAzioneAlimentazione($mode)
     return \Salsiccia\System\Power::schedulaAzioneAlimentazione($mode);
 }
 
-// F2.3 #70: schermate RIAVVIA/SPEGNI + riscontro + diagnostica (da salsicciaStagisti d57a201/57d8298).
-// F2.5 #92: unica implementazione vera in Salsiccia\Cassa\AdminView::
-// riscontroPower()/diagnosticaPower()/power()/restart()/shutdown()
-// (src/Cassa/AdminView.php, logica via System\Power); qui restano solo gli
-// shim con stesse firme. Delete legacy mai in F2 (§9).
-function mostraRiscontroPower($mode)
-{
-    \Salsiccia\Cassa\AdminView::riscontroPower($mode);
-}
-
-// Diagnostica kiosk: valori reali letti al momento, comandi fissi.
-function mostraDiagnosticaPower($mode)
-{
-    \Salsiccia\Cassa\AdminView::diagnosticaPower($mode);
-}
-
-function mostraPower($mode, $action, $field, $titolo, $msgConferma, $labelBtn, $msgOk)
-{
-    \Salsiccia\Cassa\AdminView::power($mode, $action, $field, $titolo, $msgConferma, $labelBtn, $msgOk);
-}
-
-function mostraRestart()
-{
-    \Salsiccia\Cassa\AdminView::restart();
-}
-
-function mostraShutdown()
-{
-    \Salsiccia\Cassa\AdminView::shutdown();
-}
-
-// Schermata unica CONTATORI: tutti i venduti monitorati con nome + quantita
-// (un solo GROUP BY via contatori_totali, paginato in PHP come le viste stat).
-// F2.4 #91: unica implementazione vera in Salsiccia\Cassa\AdminView::contatori()
-// (src/Cassa/AdminView.php, dati via contatori_totali() as-is, lo sposta F4);
-// qui resta solo lo shim con stessa firma. Delete legacy mai in F2 (§9).
-function mostraContatori($mysqli)
-{
-    \Salsiccia\Cassa\AdminView::contatori($mysqli);
-}
-
-// Repair database: REPAIR TABLE su tutte le tabelle
-// (port di 1.0/ripristino.php dal branch modificaStampa, riusa $mysqli)
-// F2.4 #91: unica implementazione vera in Salsiccia\Cassa\AdminView::repair()
-// (src/Cassa/AdminView.php, logica via DbRepair::run() da F2.2, mai duplicata);
-// qui resta solo lo shim con stessa firma. Delete legacy mai in F2 (§9).
-function mostraRipristinaDb($mysqli)
-{
-    \Salsiccia\Cassa\AdminView::repair($mysqli);
-}
-
-// Modifica info festa: legge/scrive EVENT_NAME e DURATA_FESTA in storage/festa.json
-// via CassaFlags::festaLeggi()/festaImposta() (F0.3, pattern T17; set.inc
-// eliminato in F6.3 #111, mai rewrite di sorgente PHP). (port di 1.0/configurazione.php dal branch modificaStampa)
-// F2.4 #91: unica implementazione vera in Salsiccia\Cassa\AdminView::info()
-// (src/Cassa/AdminView.php, solo vista); qui resta solo lo shim con stessa
-// firma. Delete legacy mai in F2 (§9).
-function mostraModificaInfo()
-{
-    \Salsiccia\Cassa\AdminView::info();
-}
-
-// CAMBIA CARTA STAMPA (F3.4 #64, toggle continua <-> singoli): riusa F3.1
-// (PaperSetup::leggiSetup) + F3.2 (PrintService::inviaSetupCarta) + F3.3
-// (impostaCartaStampa). Setup/invio falliti => errore, modalita invariata.
-// Pattern mostraRipristinaDb: isAdmin + POST + CSRF + confirm.
-// F2.5 #92: unica implementazione vera in Salsiccia\Cassa\AdminView::carta()
-// (src/Cassa/AdminView.php); qui resta solo lo shim con stessa firma.
-// Delete legacy mai in F2 (§9).
-function mostraPrintReset()
-{
-    \Salsiccia\Cassa\AdminView::carta();
-}
-
-// Selezione stampante (F4.5 #55, stato finale stagisti HEAD): valida contro
-// gate PrinterRegistry::gateAllowed() (F4.1), salva in storage/stampante_selezione.json
-// via PrinterRegistry::selectionFile() (letta a boot in CassaConfig, ex set.inc F4.4). Solo
-// "DIRETTA"/"RETE", "ZPL"/"EPL", LOCK_EX. IP opzionale, solo RETE.
-// F2.3 #90: unica implementazione vera in Salsiccia\Printer\PrinterConfig::salva()
-// (src/Printer/PrinterConfig.php); qui resta solo lo shim con stessa firma
-// e stessi esiti. Delete legacy mai in F2 (§9).
-function impostaStampanteSelezionata($name, $conn, $lang, $ip = '')
-{
-    return \Salsiccia\Printer\PrinterConfig::salva($name, $conn, $lang, $ip);
-}
-
-// Raggiungibilita' veritiera per la pagina switch (F4.5 #55): DIRETTA da stato
-// CUPS reale CupsState::stato() + presenza USB lpinfo (F4.2) via
-// CupsState::statoLocaleOk(); RETE ping-only via CupsState::isReachable().
-// Senza CUPS: rosso "non verificabile", mai fatal.
-// F2.3 #90: unica implementazione vera in Salsiccia\Printer\PrinterConfig::
-// raggiungibile(); qui resta solo lo shim con stessa firma e stessi esiti.
-function stampante_switch_ok($nome, $conn, $ip = '')
-{
-    return \Salsiccia\Printer\PrinterConfig::raggiungibile($nome, $conn, $ip);
-}
-
 // Handler switch_printer (F2.3 #90, routes/cassa.php: handler => salvaStampante,
 // view => switchPrinter, auth => admin; raggiunto via function_exists da
 // CassaController::gestisci() e gestisciAzioni()): delega a PrinterConfig con
@@ -837,39 +701,4 @@ function salvaStampante($mysqli = null, $id_cassa = null)
     if (!\Salsiccia\Printer\PrinterConfig::raggiungibile($nome, $conn, $ipCheck))
         return;
     \Salsiccia\Printer\PrinterConfig::salva($nome, $conn, $lingua, $ip);
-}
-
-// CAMBIA STAMPANTE (F4.5 #55, stato finale stagisti HEAD 0632388): una card
-// per stampante con pallino verde/rosso (stampante_switch_ok sopra), grid 2x2
-// ($rpp=4), raggiungibili prime, senza riga STATO (272aee3). Solo la GX420t
-// e' dual: scelta ZPL/EPL via pill, SELEZIONA disabilitato finche' non scegli;
-// le altre mostrano badge fisso ZPL/EPL + SELEZIONA diretto. Selezione
-// irraggiungibile bloccata (tranne RETE ping-only).
-// Pattern mostraPrintReset: isAdmin + POST + CSRF + confirm + impostaStampanteSelezionata().
-// CAMBIA STAMPANTE (F4.5 #55, stato finale stagisti HEAD 0632388): una card
-// per stampante con pallino verde/rosso (stampante_switch_ok sopra), grid 2x2
-// ($rpp=4), raggiungibili prime, senza riga STATO (272aee3). Solo la GX420t
-// e' dual: scelta ZPL/EPL via pill, SELEZIONA disabilitato finche' non scegli;
-// le altre mostrano badge fisso ZPL/EPL + SELEZIONA diretto. Selezione
-// irraggiungibile bloccata (tranne RETE ping-only).
-// Pattern mostraPrintReset: isAdmin + POST + CSRF + confirm + impostaStampanteSelezionata().
-// F2.5 #92: unica implementazione vera in Salsiccia\Cassa\AdminView::switchPrinter()
-// (src/Cassa/AdminView.php, scrittura via PrinterConfig F2.3); qui resta solo
-// lo shim con stessa firma. Delete legacy mai in F2 (§9).
-function mostraSwitchPrinter()
-{
-    \Salsiccia\Cassa\AdminView::switchPrinter();
-}
-
-// F2.1 #88: shim sottile verso StampaView/StampaController (unica implementazione vera in src/Cassa).
-// Stesse firme, nessuna logica duplicata; delete legacy solo a migrazione completa (punto 9).
-function mostraLayoutResto($totale, $pagato, $metodo, $base_url, $mostra_nuovo = true)
-{
-    \Salsiccia\Cassa\StampaView::resto((float)$totale, (float)$pagato, (string)$metodo, (string)$base_url, (bool)$mostra_nuovo);
-}
-
-// Stampa
-function mostraSchermataStampa($mysqli)
-{
-    \Salsiccia\Cassa\StampaController::stampa($mysqli);
 }

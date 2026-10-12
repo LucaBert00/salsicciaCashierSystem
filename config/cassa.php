@@ -9,7 +9,7 @@ declare(strict_types=1);
 // storage/festa.json via CassaFlags::festaLeggi()/festaImposta()
 // (stessa semantica atomica tmp+rename).
 // F6.3 #111: set.inc eliminato, EVENT_NAME/DURATA_FESTA solo in
-// storage/festa.json via FestaConfig (mai rewrite di sorgente PHP, §2 P4).
+// storage/festa.json via CassaFlags (mai rewrite di sorgente PHP, §2 P4).
 // F6.1 #109: qui solo i default delle vive (stessi valori di set.inc), mai logica,
 // mai getenv()/die(), mai scrittura a runtime. Le costanti morte
 // (docs/ARCHITETTURA_REVISTA.md §5, 7 voci) non compaiono nel modello
