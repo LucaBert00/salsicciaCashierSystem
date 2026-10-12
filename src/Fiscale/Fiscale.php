@@ -12,6 +12,32 @@ require_once __DIR__ . '/../Cassa/PayMethod.php';
 
 final class Fiscale
 {
+    // REL-03 #130: stringa DECIMAL -> centesimi interi, mai binary float per $cent.
+    // Scelta centesimi (zero estensioni) esplicita vs BCMath, come OrderService.
+    public static function centesimiDaTotale(mixed $val): int
+    {
+        $s = trim((string)$val);
+        if ($s === '' || $s === '-' || $s === '+') {
+            return 0;
+        }
+        $neg = false;
+        if ($s[0] === '-' || $s[0] === '+') {
+            $neg = ($s[0] === '-');
+            $s = substr($s, 1);
+        }
+        $s = str_replace(',', '.', $s);
+        if (strpos($s, '.') === false) {
+            $cent = ((int)$s) * 100;
+            return $neg ? -$cent : $cent;
+        }
+        $parti = explode('.', $s, 2);
+        $euri = ($parti[0] === '') ? 0 : (int)$parti[0];
+        $dec = substr(str_pad($parti[1] ?? '', 3, '0'), 0, 3);
+        $millesimi = (int)$dec;
+        $cent = $euri * 100 + intdiv($millesimi, 10) + (($millesimi % 10) >= 5 ? 1 : 0);
+        return $neg ? -$cent : $cent;
+    }
+
     // Config da env, con default del Decide #88 (connect 2s, totale 9s).
     public static function config(): array
     {
@@ -57,7 +83,8 @@ final class Fiscale
         $n = 0;
         foreach ($righe as $riga) {
             $k = number_format((float)($riga['iva'] ?? 0), 2, '.', '');
-            $cent = (int)round((float)($riga['totale'] ?? 0) * 100);
+            // REL-03 #130: centesimi senza binary float (mysqli DECIMAL = stringa).
+            $cent = self::centesimiDaTotale($riga['totale'] ?? '0');
             if (!isset($map[$k]) || $cent <= 0) {
                 continue;
             }

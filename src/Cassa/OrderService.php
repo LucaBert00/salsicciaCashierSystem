@@ -17,6 +17,34 @@ final class OrderService
     private $db;
     private int $idCassa;
 
+    // REL-03 #130: stringa DECIMAL -> centesimi interi, mai binary float per $cent.
+    // Scelta centesimi (zero estensioni) esplicita vs BCMath: nessuna estensione
+    // richiesta, aritmetica esatta, testabile senza setup. Accetta stringa
+    // ("8.20"), float (3.5) o int; mysqli su DECIMAL rende stringhe.
+    public static function centesimiDaPrezzo(mixed $val): int
+    {
+        $s = trim((string)$val);
+        if ($s === '' || $s === '-' || $s === '+') {
+            return 0;
+        }
+        $neg = false;
+        if ($s[0] === '-' || $s[0] === '+') {
+            $neg = ($s[0] === '-');
+            $s = substr($s, 1);
+        }
+        $s = str_replace(',', '.', $s);
+        if (strpos($s, '.') === false) {
+            $cent = ((int)$s) * 100;
+            return $neg ? -$cent : $cent;
+        }
+        $parti = explode('.', $s, 2);
+        $euri = ($parti[0] === '') ? 0 : (int)$parti[0];
+        $dec = substr(str_pad($parti[1] ?? '', 3, '0'), 0, 3);
+        $millesimi = (int)$dec;
+        $cent = $euri * 100 + intdiv($millesimi, 10) + (($millesimi % 10) >= 5 ? 1 : 0);
+        return $neg ? -$cent : $cent;
+    }
+
     public function __construct($db, int $idCassa)
     {
         $this->db = $db;
@@ -216,8 +244,10 @@ final class OrderService
                 if ($ok && mysqli_num_rows($ris) > 0) {
                     $riga = mysqli_fetch_array($ris);
                     $quantita = (int)$riga['quantita'];
-                    $prezzo = (float)$riga['prezzo'];
-                    $totale = $quantita * $prezzo;
+                    // REL-03 #130: centesimi interi, mai binary float per il totale riga.
+                    $prezzo_cent = self::centesimiDaPrezzo((string)$riga['prezzo']);
+                    $totale_cent = $quantita * $prezzo_cent;
+                    $totale = $totale_cent / 100.0;
                     //print "\n<script>alert('n_pezzi: $quantita - totale:$totale');</script>";
                     //print "query: calcolaTotali update righe";
                     $ok = db_exec($this->db, "UPDATE righe_ordini set quantita = ?, totale = ? WHERE id_ordine = ? AND id_prodotto = ?", 'idii', array($quantita, $totale, $id_ordine, $id_prodotto));
@@ -230,10 +260,12 @@ final class OrderService
                 if ($ok) {
                     $riga = mysqli_fetch_array($ris);
                     $n_pezzi = (int)$riga['n_pezzi'];
-                    $totale = (float)$riga['totale'];
+                    // REL-03 #130: SUM() su DECIMAL rende stringa; centesimi interi.
+                    $totale_cent = self::centesimiDaPrezzo((string)$riga['totale']);
+                    $totale = $totale_cent / 100.0;
 
                     //print "query: calcolaTotali update ordini";
-                    if ($totale == 0) {
+                    if ($totale_cent == 0) {
                         //print "query: calcolaTotali azzera ordini";
                         $ok = db_exec($this->db, "UPDATE ordini set n_pezzi = 0, totale = 0 WHERE id_ordine = ?", 'i', array($id_ordine));
                     } else {
