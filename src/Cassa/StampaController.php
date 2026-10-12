@@ -93,11 +93,27 @@ final class StampaController
         }
 
         $id_ordine = (int)$_GET['stampato'];
+        // REL-01: unico punto di verifica dello scope. Il ramo stampato legge
+        // solo l'ordine chiuso da questo terminale: stesso pattern del ramo
+        // stampa_err sopra (id_ordine, id_cassa, tipi 'ii'), con chiuso = '1'
+        // perche' qui l'ordine e' gia' stampato e chiuso a riga 89. Senza riga
+        // non c'e' totale, non c'e' emissione: StampaController non chiama
+        // Fiscale::emettiScontrino (unico call-site) senza aver verificato.
+        // num_biglietti e' la guardia "stampato da questo terminale": vale
+        // zero solo se la chiusura non ha mai stampato, qui deve essere > 0.
+        // POST+CSRF: nessuna guardia aggiunta. StampaView::resto naviga per
+        // GET su ogni click di banconota/moneta, quindi richiedere POST
+        // cambierebbe il percorso di incasso; lo scope qui sopra chiude il
+        // difetto perche' il problema e' autorizzazione mancante, non CSRF.
         // Totale sempre dal DB via stampato, mai dal GET (display resto non fidato).
         $totale = 0;
-        $risTot = db_select($db, "SELECT totale FROM ordini WHERE id_ordine = ?", 'i', array($id_ordine));
+        $verificato = false;
+        $risTot = db_select($db, "SELECT totale, num_biglietti FROM ordini WHERE id_ordine = ? AND id_cassa = ? AND chiuso = '1'", 'ii', array($id_ordine, $id_cassa));
         if ($risTot && ($rigaTot = mysqli_fetch_array($risTot))) {
-            $totale = (float)$rigaTot['totale'];
+            if ((int)$rigaTot['num_biglietti'] > 0) {
+                $totale = (float)$rigaTot['totale'];
+                $verificato = true;
+            }
         }
         $pagato = isset($_GET['pagato']) ? (float)$_GET['pagato'] : 0;
         // T26: $metodo validato via PayMethod enum; ignoto = '' (rifiutato).
@@ -107,7 +123,8 @@ final class StampaController
 
         // Scontrino fiscale non bloccante (#92): al primo metodo scelto emette verso il
         // registratore o accoda; la schermata resto si mostra sempre e comunque.
-        if ($metodo !== '') {
+        // Solo dopo verifica dello scope sopra: id di altra cassa non arriva mai qui.
+        if ($metodo !== '' && $verificato) {
             try {
                 $fisc = \Salsiccia\Fiscale\Fiscale::emettiScontrino($db, $id_ordine, $metodo);
                 if (empty($fisc['ok']) && !empty($fisc['fallback'])) {

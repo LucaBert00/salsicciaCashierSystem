@@ -244,10 +244,19 @@ final class Fiscale
         return false;
     }
 
-    // Path completo per un ordine: query parametrizzata (mai id interpolato come nel legacy),
-    // invio o coda, ordine mai bloccato. Ritorna un esito come invia().
+    // Path completo per un ordine gia' verificato dal chiamante: query
+    // parametrizzata (mai id interpolato come nel legacy), invio o coda,
+    // ordine mai bloccato. Ritorna un esito come invia().
     // T26: $metodo validato via PayMethod enum; ignoto = skipped (rifiutato).
-    public static function emettiScontrino(mysqli $db, int $id_ordine, string $metodo = ''): array
+    // REL-01: unico punto di verifica in StampaController (scope id_cassa +
+    // chiuso + guardia num_biglietti prima dell'unico call-site). Qui nessun
+    // secondo controllo per non sdoppiare la garanzia: $id_ordine arriva solo
+    // dopo verifica. Firma a $db misto come OrderService e CassaController
+    // (mysqli reale o doppio di test con la stessa superficie).
+    /**
+     * @param mixed $db mysqli reale o doppio di test con la stessa superficie
+     */
+    public static function emettiScontrino($db, int $id_ordine, string $metodo = ''): array
     {
         $cfg = self::config();
         if ($id_ordine <= 0) {
