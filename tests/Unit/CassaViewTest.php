@@ -46,9 +46,13 @@ final class CassaViewFakeMysqli
 {
     public string $sql = '';
 
+    /** @var string[] */
+    public array $queries = array();
+
     public function prepare(string $sql): object|false
     {
         $this->sql = $sql;
+        $this->queries[] = $sql;
         return new CassaViewFakeStmt();
     }
 }
@@ -69,18 +73,38 @@ final class CassaViewTest extends TestCase
         $_SESSION = [];
         foreach (
             array(
-            'mostraNavCategorie', 'mostraIndicatoreTipo', 'mostraTitolo',
+            'mostraNavCategorie', 'mostraTitolo',
             'mostraBarraBarcode', 'mostraTabellaProdotti', 'mostraFooterBottoni',
-            'mostraModificaOrdine',
-            'mostraFooterModifica', 'mostraOpzioni', 'mostraOrdiniStandby',
-            'mostraBoxRiepilogo', 'mostraAzioniLaterali',
-            'mostraListaProdotti', 'mostraAzioniExtra',
+            'mostraFooterModifica', 'mostraOpzioni',
+            'mostraAzioniLaterali',
+            'mostraAzioniExtra',
             ) as $fn
         ) {
             if (function_exists($fn)) {
                 continue;
             }
             eval('function ' . $fn . '(...$args): void { echo "<!--stub:' . $fn . '-->"; }');
+        }
+        // MAINT-02 #128: i 5 emitter vivono davvero in functionsFrontend.inc
+        // e restano richiamabili senza stub; qui la sede vera estratta dal
+        // sorgente come coloreCategoriaHex sotto (mai modifiche al sorgente).
+        foreach (
+            array(
+            'mostraIndicatoreTipo',
+            'mostraModificaOrdine', 'mostraOrdiniStandby',
+            'mostraBoxRiepilogo',
+            'mostraListaProdotti',
+            ) as $fn
+        ) {
+            if (function_exists($fn)) {
+                continue;
+            }
+            $src = (string) file_get_contents(__DIR__ . '/../../functionsFrontend.inc');
+            $m = array();
+            if (!preg_match('/^function ' . $fn . '\b.*?\r?\n\}/ms', $src, $m)) {
+                $this->fail('funzione ' . $fn . ' non trovata in functionsFrontend.inc');
+            }
+            eval($m[0] . "\n");
         }
         // Stessa riga T19 della vista: la funzione reale, estratta dal
         // sorgente come in PowerF2Test (mai modifiche al sorgente per il test).
@@ -133,11 +157,13 @@ final class CassaViewTest extends TestCase
         $this->assertStringContainsString('--hex-cat:', $out);
         $this->assertStringContainsString('--hex-cat:#e7e9eb', $out);
         // La query tinta vive nella vista (CatalogRepo::categoria), non altrove.
-        $this->assertStringContainsString('categorie', $db->sql);
+        // MAINT-02 #128: l'aside interroga anche riepilogo/lista via OrderService.
+        $this->assertStringContainsString('categorie', implode("\n", $db->queries));
         // Shell aside sempre visibile + renderer giusti invocati.
         $this->assertStringContainsString('RIEPILOGO ORDINE', $out);
         $this->assertStringContainsString('<!--stub:mostraTabellaProdotti-->', $out);
-        $this->assertStringContainsString('<!--stub:mostraListaProdotti-->', $out);
+        // MAINT-02 #128: emitter vero, ramo vuoto col doppio finto.
+        $this->assertStringContainsString('Nessun prodotto nell\'ordine', $out);
     }
 
     public function testRepairSenzaTintaNeQuery(): void
@@ -153,8 +179,10 @@ final class CassaViewTest extends TestCase
         $this->assertStringContainsString('ATTENZIONE', $out);
         $this->assertStringContainsString('REPAIR DATABASE', $out);
         // Mai tinta su admin: niente style, niente query categoria.
+        // MAINT-02 #128: l'aside legge comunque riepilogo/lista (ordini).
         $this->assertStringNotContainsString('--hex-cat', $out);
-        $this->assertSame('', $db->sql);
+        $this->assertStringNotContainsString('categorie', implode("\n", $db->queries));
+        $this->assertStringContainsString('ordini', implode("\n", $db->queries));
         $this->assertStringNotContainsString('INSERISCI IL CODICE', $out);
     }
 
@@ -186,7 +214,9 @@ final class CassaViewTest extends TestCase
         $out = $this->html('modifica', new CassaViewFakeMysqli());
 
         $this->assertStringContainsString('MODIFICA ORDINE', $out);
-        $this->assertStringContainsString('<!--stub:mostraModificaOrdine-->', $out);
+        // MAINT-02 #128: emitter vero, ramo vuoto col doppio finto.
+        $this->assertStringContainsString('modifica-section', $out);
+        $this->assertStringContainsString('Nessun prodotto nell\'ordine', $out);
 
         // Login non admin: corpo cassa con tinta + tastierino in aside.
         // F2.4 #91: tastierino via AdminView::tastierino() (stessi byte, stesso JS).
@@ -196,7 +226,7 @@ final class CassaViewTest extends TestCase
         $this->assertStringContainsString('--hex-cat:', $login);
         $this->assertStringContainsString('INSERISCI IL CODICE:', $login);
         $this->assertStringContainsString('form-admin-code', $login);
-        $this->assertStringContainsString('categorie', $db->sql);
+        $this->assertStringContainsString('categorie', implode("\n", $db->queries));
     }
 
     public function testColoreCategoriaHexRealeNonDefault(): void

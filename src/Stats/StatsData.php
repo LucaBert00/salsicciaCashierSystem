@@ -230,4 +230,16 @@ final class StatsData
             'righeGiorni' => $righeGiorni,
         );
     }
+
+    // MAINT-02 #128: ordini in standby per la tabella dedicata, in ordine
+    // di lettura. Lista vuota quando nessuno e in attesa.
+    public static function ordiniStandby($mysqli)
+    {
+        $ris = db_select($mysqli, "SELECT * FROM ordini WHERE chiuso = 'S'");
+        $righe = array();
+        while ($ris && ($riga = mysqli_fetch_array($ris))) {
+            $righe[] = $riga;
+        }
+        return $righe;
+    }
 }

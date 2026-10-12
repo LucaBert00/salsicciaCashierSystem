@@ -323,18 +323,17 @@ function mostraTitolo($mysqli, $cat)
     \Salsiccia\Catalog\CatalogView::titolo($repo->descrizioneCategoria((int)$cat));
 }
 
-//indicatore tipo ordine nav (T26: lettere da OrderType enum, unica fonte)
+//indicatore tipo ordine nav, sola presentazione (MAINT-02 #128).
 function mostraIndicatoreTipo($mysqli)
 {
     $id_cassa = cassaCorrente();
 
-    $ris = db_select($mysqli, "SELECT tipo FROM ordini WHERE id_cassa = ? AND chiuso = '0' LIMIT 1", 'i', array($id_cassa));
+    $tipo = (new \Salsiccia\Cassa\OrderService($mysqli, (int)$id_cassa))->tipoOrdineAperto();
 
-    if ($ris && mysqli_num_rows($ris) > 0)
+    if ($tipo !== null)
     {
-        $riga = mysqli_fetch_array($ris);
-        $tipo = \Salsiccia\Cassa\OrderType::tryFrom((string)$riga['tipo']);
-        $lett = $tipo ? $tipo->lettera() : null;
+        $enum = \Salsiccia\Cassa\OrderType::tryFrom((string)$tipo);
+        $lett = $enum ? $enum->lettera() : null;
 
         if ($lett !== null)
             echo '<span style="color:#e54b3c;font-weight:800;font-size:18px;margin-left:auto;">' . $lett . '</span>';
@@ -376,16 +375,16 @@ function mostraBarraBarcode($mysqli, $cat)
     \Salsiccia\Catalog\CatalogView::barraBarcode((int)$cat, $errore);
 }
 
-//Modifica ordine
+//Modifica ordine, sola presentazione (MAINT-02 #128).
 function mostraModificaOrdine($mysqli)
 {
     $id_cassa = cassaCorrente();
 
-    $ris = db_select($mysqli, "SELECT prodotti.id_prodotto AS id, prodotti.descrizione_prod, righe_ordini.quantita, righe_ordini.totale, ordini.totale as tot_ord, ordini.id_ordine AS id_ord FROM prodotti, ordini, righe_ordini WHERE ordini.id_ordine = righe_ordini.id_ordine AND prodotti.id_prodotto = righe_ordini.id_prodotto AND id_cassa = ? AND ordini.chiuso = 0", 'i', array($id_cassa));
+    $righe = (new \Salsiccia\Cassa\OrderService($mysqli, (int)$id_cassa))->righeModificaOrdine();
 
     echo '<section class="modifica-section">';
 
-    if ($ris && mysqli_num_rows($ris) > 0)
+    if (count($righe) > 0)
     {
         echo '<table class="modifica-table">';
         echo '<thead><tr>';
@@ -396,7 +395,7 @@ function mostraModificaOrdine($mysqli)
         echo '</tr></thead>';
         echo '<tbody>';
 
-        while ($riga = mysqli_fetch_array($ris))
+        foreach ($righe as $riga)
         {
             $desc = htmlspecialchars(strtoupper($riga['descrizione_prod']), ENT_QUOTES, 'UTF-8');
             $prezzo_unitario = $riga['quantita'] > 0 ? number_format($riga['totale'] / $riga['quantita'], 2, ',', '.') : '0,00';
@@ -493,12 +492,11 @@ function mostraOpzioni()
 
 function mostraOrdiniStandby($mysqli)
 {
-    $query = "SELECT * FROM ordini WHERE chiuso = 'S'";
-    $ris = mysql_query_safe($mysqli, $query);
+    $righe = \Salsiccia\Stats\StatsData::ordiniStandby($mysqli);
 
     echo '<section class="standby-section">';
 
-    if (mysqli_num_rows($ris) > 0)
+    if (count($righe) > 0)
     {
         echo '<table class="standby-table">';
         echo '<thead><tr>';
@@ -509,7 +507,7 @@ function mostraOrdiniStandby($mysqli)
         echo '</tr></thead>';
         echo '<tbody>';
 
-        while ($riga = mysqli_fetch_array($ris))
+        foreach ($righe as $riga)
         {
             $data = date('d/m/Y H:i:s', strtotime($riga['data_ora']));
             $totale = number_format((float)$riga['totale'], 2, ',', '.') . '&euro;';
@@ -551,13 +549,12 @@ function mostraBoxRiepilogo($mysqli)
 {
     $id_cassa = cassaCorrente();
 
-    $ris = db_select($mysqli, "SELECT id_ordine, totale FROM ordini WHERE id_cassa = ? AND chiuso = '0'", 'i', array($id_cassa));
+    $riepilogo = (new \Salsiccia\Cassa\OrderService($mysqli, (int)$id_cassa))->riepilogoOrdineAperto();
 
-    if ($ris && mysqli_num_rows($ris) > 0)
+    if ($riepilogo !== null)
     {
-        $riga = mysqli_fetch_array($ris);
-        $totale = number_format((float)$riga['totale'], 2, ',', '.');
-        $id_ordine_box = (int)$riga['id_ordine'];
+        $totale = number_format((float)$riepilogo['totale'], 2, ',', '.');
+        $id_ordine_box = (int)$riepilogo['id_ordine'];
         echo "<div class=\"order-number\">ORDINE #{$id_ordine_box}</div>
               <div class=\"order-total\">
                 <h3>TOTALE DA PAGARE</h3>
@@ -581,16 +578,16 @@ function mostraAzioniLaterali()
           <a href="?action=o" class="aside-btn" style="text-decoration:none">⚙️ Opzioni</a>';
 }
 
-// elenco prodotti ordine
+// elenco prodotti ordine, sola presentazione (MAINT-02 #128).
 function mostraListaProdotti($mysqli)
 {
     $id_cassa = cassaCorrente();
 
-    $ris = db_select($mysqli, "SELECT prodotti.descrizione_prod, righe_ordini.quantita, righe_ordini.totale FROM prodotti, ordini, righe_ordini WHERE ordini.id_ordine = righe_ordini.id_ordine AND prodotti.id_prodotto = righe_ordini.id_prodotto AND id_cassa = ? AND ordini.chiuso = '0'", 'i', array($id_cassa));
+    $righe = (new \Salsiccia\Cassa\OrderService($mysqli, (int)$id_cassa))->righeListaProdotti();
 
-    if ($ris && mysqli_num_rows($ris) > 0)
+    if (count($righe) > 0)
     {
-        while ($riga = mysqli_fetch_array($ris))
+        foreach ($righe as $riga)
         {
             $prezzo = number_format((float)$riga['totale'], 2, ',', '.');
             $desc = htmlspecialchars(strtoupper($riga['descrizione_prod']), ENT_QUOTES, 'UTF-8');

@@ -295,4 +295,51 @@ final class OrderService
         $idOrdine = (int)$idOrdine;
         return (bool)db_exec($db, "UPDATE ordini SET chiuso = '0' WHERE id_ordine = ? AND id_cassa = ? AND chiuso = 'S'", 'ii', array($idOrdine, $this->idCassa));
     }
+
+    // MAINT-02 #128: tipo dell'ordine aperto per l'indicatore nav, o null
+    // quando nessuna riga e aperta. Lettura sottile per la vista, stessa
+    // riga un tempo dentro mostraIndicatoreTipo.
+    public function tipoOrdineAperto(): ?string
+    {
+        $ris = db_select($this->db, "SELECT tipo FROM ordini WHERE id_cassa = ? AND chiuso = '0' LIMIT 1", 'i', array($this->idCassa));
+        if ($ris && ($riga = mysqli_fetch_array($ris))) {
+            return (string)$riga['tipo'];
+        }
+        return null;
+    }
+
+    // MAINT-02 #128: righe del carrello per la tabella di modifica, in
+    // ordine di lettura. Lista vuota quando nessun ordine e aperto.
+    public function righeModificaOrdine(): array
+    {
+        $ris = db_select($this->db, "SELECT prodotti.id_prodotto AS id, prodotti.descrizione_prod, righe_ordini.quantita, righe_ordini.totale, ordini.totale as tot_ord, ordini.id_ordine AS id_ord FROM prodotti, ordini, righe_ordini WHERE ordini.id_ordine = righe_ordini.id_ordine AND prodotti.id_prodotto = righe_ordini.id_prodotto AND id_cassa = ? AND ordini.chiuso = 0", 'i', array($this->idCassa));
+        $righe = array();
+        while ($ris && ($riga = mysqli_fetch_array($ris))) {
+            $righe[] = $riga;
+        }
+        return $righe;
+    }
+
+    // MAINT-02 #128: testata dell'ordine aperto per il box di riepilogo, o
+    // null quando nessun ordine e aperto.
+    public function riepilogoOrdineAperto(): ?array
+    {
+        $ris = db_select($this->db, "SELECT id_ordine, totale FROM ordini WHERE id_cassa = ? AND chiuso = '0'", 'i', array($this->idCassa));
+        if ($ris && ($riga = mysqli_fetch_array($ris))) {
+            return array('id_ordine' => (int)$riga['id_ordine'], 'totale' => (float)$riga['totale']);
+        }
+        return null;
+    }
+
+    // MAINT-02 #128: righe del carrello per l'elenco laterale, in ordine di
+    // lettura. Lista vuota quando nessun ordine e aperto.
+    public function righeListaProdotti(): array
+    {
+        $ris = db_select($this->db, "SELECT prodotti.descrizione_prod, righe_ordini.quantita, righe_ordini.totale FROM prodotti, ordini, righe_ordini WHERE ordini.id_ordine = righe_ordini.id_ordine AND prodotti.id_prodotto = righe_ordini.id_prodotto AND id_cassa = ? AND ordini.chiuso = '0'", 'i', array($this->idCassa));
+        $righe = array();
+        while ($ris && ($riga = mysqli_fetch_array($ris))) {
+            $righe[] = $riga;
+        }
+        return $righe;
+    }
 }
