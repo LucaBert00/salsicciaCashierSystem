@@ -1,0 +1,3 @@
+# #134: checkout sempre LF su questi file (phpcs EOL), mai CRLF da autocrlf.
+src/Cassa/StampaController.php text eol=lf
+src/Fiscale/Fiscale.php text eol=lf
