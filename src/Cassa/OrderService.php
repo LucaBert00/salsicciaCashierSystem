@@ -97,7 +97,7 @@ final class OrderService
             }
         } else {
             // Nessun ordine aperto, creo uno nuovo (T06: INSERT ordini + INSERT righe atomici;
-            // effettivo su InnoDB da T21, su MyISAM baseline e' no-op senza effetti collaterali).
+            // reale su live InnoDB da P0b #135; totali esatti su DECIMAL da P0c #136).
             $db->begin_transaction();
             $nuovo_ok = false;
             try {
@@ -152,7 +152,7 @@ final class OrderService
         $riga = mysqli_fetch_array($ris);
         $id_ordine = (int)$riga['id_ordine'];
         // T08: UPDATE quantita + ricalcolo totali in un'unica transazione
-        // (effettiva su InnoDB da T21, no-op su MyISAM baseline); il ricalcolo
+        // (reale su live InnoDB da P0b #135); il ricalcolo
         // riusa la transazione esterna ($in_txn) per non fare implicit commit.
         $db->begin_transaction();
         $mq_ok = false;
@@ -221,8 +221,8 @@ final class OrderService
         $ok = false;
         if (isset($id_prodotto)) {
             // T07: catena SELECT->UPDATE->SELECT->UPDATE in un'unica transazione; la riga
-            // ordini padre e' bloccata via SELECT ... FOR UPDATE dove il motore lo permette
-            // (effettivo su InnoDB da T21, no-op su MyISAM baseline). Ordine di lock costante
+            // ordini padre e' bloccata via SELECT ... FOR UPDATE, reale su live
+            // InnoDB da P0b #135. Ordine di lock costante
             // padre->figlio anti-deadlock; niente retry interno, il prossimo tap ricalcola.
             if (!$in_txn) {
                 $this->db->begin_transaction();
